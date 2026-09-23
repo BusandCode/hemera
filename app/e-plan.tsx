@@ -1,12 +1,13 @@
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EPlanHeader } from '../../src/components/eplan/EPlanHeader';
-import { foodColors } from '../../src/constants/foodColors';
-import { fonts } from '../../src/constants/typography';
-import { useProfile } from '../../src/context/ProfileContext';
+import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
+import { foodColors } from '../src/constants/foodColors';
+import { fonts } from '../src/constants/typography';
+import { useProfile } from '../src/context/ProfileContext';
 
 // TODO: wire this up to a real wallet balance once a WalletContext exists —
 // there's no wallet source in AppDataContext/AuthContext yet.
@@ -29,13 +30,15 @@ const STATS = [
   { value: '30min', label: 'Avg. Delivery' },
 ];
 
-export default function EPlanLandingScreen() {
+export default function EPlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+      <StatusBar style="dark" />
+
       <View style={styles.header}>
         <EPlanHeader
           wallet={formatNaira(WALLET_BALANCE)}
@@ -55,7 +58,7 @@ export default function EPlanLandingScreen() {
             Food that{'\n'}finds <Text style={styles.bannerTitleAccent}>you.</Text>
           </Text>
           <Text style={styles.bannerSubtitle}>
-            Subscribe to E-Plan and let us surprise you with delicious meals — when you least expect it.
+            Subscribe to E-Plan and let us{'\n'}surprise you with delicious meals — when you least expect it.
           </Text>
 
           <View style={styles.dishBadge}>
@@ -102,7 +105,7 @@ export default function EPlanLandingScreen() {
             <TouchableOpacity
               style={styles.startBtn}
               activeOpacity={0.8}
-              onPress={() => router.push('/e-plan/setup' as any)}
+              onPress={() => router.push('/e-plan-setup' as any)}
             >
               <Text style={styles.startBtnText}>Start</Text>
               <Feather name="arrow-right" size={15} color={foodColors.textPrimary} />
@@ -128,7 +131,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   bannerTitle: {
-    fontSize: 32,
+    fontSize: 34,
     lineHeight: 36,
     fontFamily: fonts.poppins.bold,
     color: '#fff',

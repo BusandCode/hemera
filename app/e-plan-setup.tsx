@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity, TextInput, Switch, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EPlanHeader } from '../../src/components/eplan/EPlanHeader';
-import { foodColors } from '../../src/constants/foodColors';
-import { fonts } from '../../src/constants/typography';
-import { useProfile } from '../../src/context/ProfileContext';
+import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
+import { foodColors } from '../src/constants/foodColors';
+import { fonts } from '../src/constants/typography';
+import { useProfile } from '../src/context/ProfileContext';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
@@ -53,6 +54,8 @@ export default function EPlanSetupScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+      <StatusBar style="dark" />
+
       <View style={styles.header}>
         <EPlanHeader
           wallet={formatNaira(WALLET_BALANCE)}
@@ -71,9 +74,9 @@ export default function EPlanSetupScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
             <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
           </TouchableOpacity>
+          <Text style={styles.title}>Setup E-Plan</Text>
         </View>
 
-        <Text style={styles.title}>Setup E-Plan</Text>
         <Text style={styles.subtitle}>Step 1 of 3 — Budget & Duration</Text>
 
         <View style={styles.progressTrack}>
@@ -150,7 +153,7 @@ export default function EPlanSetupScreen() {
         <TouchableOpacity
           style={styles.continueBtn}
           activeOpacity={0.85}
-          onPress={() => router.push('/e-plan/exclusions' as any)}
+          onPress={() => router.push('/e-plan-exclusions' as any)}
         >
           <Text style={styles.continueBtnText}>Continue</Text>
           <Feather name="arrow-right" size={16} color="#fff" />
@@ -166,7 +169,13 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 26 },
 
-  titleRow: { marginTop: 8, marginBottom: 14 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
   backBtn: {
     width: 38,
     height: 38,
@@ -176,7 +185,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  title: { fontSize: 27, fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary, marginBottom: 4 },
+  title: { fontSize: 27, fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
   subtitle: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginBottom: 18 },
 
   progressTrack: { height: 4, borderRadius: 2, backgroundColor: foodColors.border, overflow: 'hidden' },
