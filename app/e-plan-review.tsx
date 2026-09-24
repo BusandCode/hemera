@@ -6,18 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React from 'react';
 
 import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
+import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
-
-// TODO: wire this up to a real wallet balance once a WalletContext exists —
-// there's no wallet source in AppDataContext/AuthContext yet.
 const WALLET_BALANCE = 45000;
 
-// Mock data representing the selections from the previous steps
 const MOCK_PLAN_DATA = {
   amount: 20000,
   duration: '1 Week',
@@ -45,7 +42,6 @@ export default function EPlanReviewScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
 
-  // State for the selected payment method (defaults to wallet as per design)
   const [selectedMethod, setSelectedMethod] = React.useState<PaymentMethod>('wallet');
 
   return (
@@ -63,10 +59,9 @@ export default function EPlanReviewScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
         <View style={styles.titleRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
             <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
@@ -81,7 +76,6 @@ export default function EPlanReviewScreen() {
         </View>
         <Text style={styles.progressLabel}>100%</Text>
 
-        {/* Wallet Lock Notice */}
         <Text style={styles.sectionLabel}>WALLET LOCK NOTICE</Text>
         <View style={styles.noticeBox}>
           <View style={styles.noticeIconContainer}>
@@ -95,7 +89,6 @@ export default function EPlanReviewScreen() {
           </View>
         </View>
 
-        {/* Plan Summary */}
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>YOUR E-PLAN SUMMARY</Text>
         <View style={styles.summaryCard}>
           <SummaryRow icon="list" label="Plan" value="E-Plan" />
@@ -107,7 +100,6 @@ export default function EPlanReviewScreen() {
           <SummaryRow icon="calendar" label="Starts" value={MOCK_PLAN_DATA.starts} isLast />
         </View>
 
-        {/* Payment Method */}
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>PAY WITH</Text>
 
         <PaymentOption
@@ -118,16 +110,7 @@ export default function EPlanReviewScreen() {
           isSelected={selectedMethod === 'wallet'}
           onSelect={setSelectedMethod}
         />
-
-        <PaymentOption
-          id="card"
-          title="Debit Card"
-          subtitle="Visa ending •••• 4521"
-          icon="credit-card"
-          isSelected={selectedMethod === 'card'}
-          onSelect={setSelectedMethod}
-        />
-
+        
         <PaymentOption
           id="transfer"
           title="Bank Transfer"
@@ -137,27 +120,22 @@ export default function EPlanReviewScreen() {
           onSelect={setSelectedMethod}
         />
 
-        {/* CTA Button */}
         <TouchableOpacity
           style={styles.primaryBtn}
           activeOpacity={0.85}
-          onPress={() => {
-            // TODO: Handle final submission logic
-            console.log('Locking funds and activating plan...');
-          }}
+          onPress={() => router.push('/e-plan-success' as any)}
         >
           <Feather name="lock" size={16} color="#fff" style={styles.btnIcon} />
           <Text style={styles.primaryBtnText}>
             Lock {formatNaira(MOCK_PLAN_DATA.amount)} & Activate
           </Text>
         </TouchableOpacity>
-
       </ScrollView>
+
+      <BottomTabs />
     </View>
   );
 }
-
-// --- Sub-components ---
 
 function SummaryRow({
   icon,
@@ -224,8 +202,6 @@ function PaymentOption({
   );
 }
 
-// --- Styles ---
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   header: { paddingHorizontal: 26, paddingBottom: 8 },
@@ -265,7 +241,6 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
   sectionSpacing: { marginTop: 26 },
 
-  // Wallet Lock Notice
   noticeBox: {
     flexDirection: 'row',
     backgroundColor: '#161311',
@@ -287,7 +262,6 @@ const styles = StyleSheet.create({
   noticeTitle: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 4 },
   noticeBody: { fontSize: 12, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.7)', lineHeight: 18 },
 
-  // Summary Card
   summaryCard: {
     backgroundColor: foodColors.surface,
     borderRadius: 16,
@@ -318,7 +292,6 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 13, fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
   summaryValueBold: { fontFamily: fonts.poppins.bold, color: ACCENT_BLUE },
 
-  // Payment Options
   paymentCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -367,12 +340,11 @@ const styles = StyleSheet.create({
     backgroundColor: ACCENT_BLUE,
   },
 
-  // CTA Button
   primaryBtn: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: foodColors.primary, // Red color from design
+    backgroundColor: foodColors.primary,
     borderRadius: 26,
     paddingVertical: 16,
     marginTop: 20,

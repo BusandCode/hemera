@@ -12,17 +12,32 @@ export function EPlanHeader({
   initials,
   onPressWallet,
   onPressAvatar,
+  onPressBack,
 }: {
   wallet: string;
   initials: string;
   onPressWallet?: () => void;
   onPressAvatar?: () => void;
+  onPressBack?: () => void;
 }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.logo}>
-        Hem<Text style={styles.logoAccent}>era</Text>
-      </Text>
+      <View style={styles.left}>
+        {onPressBack && (
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onPressBack}
+            activeOpacity={0.85}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.logo}>
+          Hem<Text style={styles.logoAccent}>era</Text>
+        </Text>
+      </View>
 
       <View style={styles.right}>
         <TouchableOpacity style={styles.walletChip} onPress={onPressWallet} activeOpacity={0.85}>
@@ -32,9 +47,9 @@ export function EPlanHeader({
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.avatar} onPress={onPressAvatar} activeOpacity={0.85}>
+        {/* <TouchableOpacity style={styles.avatar} onPress={onPressAvatar} activeOpacity={0.85}>
           <Text style={styles.avatarText}>{initials}</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </View>
   );
@@ -42,6 +57,15 @@ export function EPlanHeader({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  left: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: foodColors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   logo: { fontFamily: serif, fontWeight: '700', fontSize: 24, color: foodColors.textPrimary },
   logoAccent: { color: foodColors.primary, fontStyle: 'italic' },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },

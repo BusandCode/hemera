@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
+import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
@@ -13,16 +14,10 @@ import { useProfile } from '../src/context/ProfileContext';
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
 const NOTE_MAX_LENGTH = 250;
-
-// TODO: wire this up to a real wallet balance once a WalletContext exists —
-// there's no wallet source in AppDataContext/AuthContext yet.
 const WALLET_BALANCE = 45000;
 
 type Option = { key: string; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap };
 
-// A couple of these (shellfish, onions, kosher) don't have an exact icon in this
-// installed MaterialCommunityIcons version — using a safe generic stand-in.
-// Swap for real icon assets if you have them.
 const PROTEINS: Option[] = [
   { key: 'pork', label: 'Pork', icon: 'pig-variant-outline' },
   { key: 'beef', label: 'Beef', icon: 'cow' },
@@ -139,7 +134,7 @@ export default function EPlanExclusionsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.titleRow}>
@@ -197,6 +192,8 @@ export default function EPlanExclusionsScreen() {
           <Feather name="arrow-right" size={16} color="#fff" />
         </TouchableOpacity>
       </ScrollView>
+
+      <BottomTabs />
     </View>
   );
 }
@@ -251,9 +248,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardCompact: {
-    paddingVertical: 12,
+    // aspectRatio: 1 forces every 4-col card to be a square whose side
+    // matches its computed width (~22%), so all 8 cards in the two rows
+    // end up the same width AND height regardless of label length.
+    aspectRatio: 1,
+    paddingVertical: 8,
     paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
   },
   cardSelected: { backgroundColor: 'rgba(30,63,234,0.08)', borderColor: ACCENT_BLUE },
@@ -273,7 +275,7 @@ const styles = StyleSheet.create({
   checkCircleCompact: { top: 6, right: 6, width: 15, height: 15, borderRadius: 7.5 },
   checkCircleSelected: { backgroundColor: ACCENT_BLUE, borderColor: ACCENT_BLUE },
   cardLabel: { fontSize: 12.5, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  cardLabelCompact: { fontSize: 10.5, textAlign: 'center', lineHeight: 13 },
+  cardLabelCompact: { fontSize: 10, textAlign: 'center', lineHeight: 12 },
   cardLabelSelected: { color: foodColors.textPrimary },
 
   noteBox: {

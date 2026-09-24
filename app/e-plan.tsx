@@ -5,12 +5,11 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
+import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
 
-// TODO: wire this up to a real wallet balance once a WalletContext exists —
-// there's no wallet source in AppDataContext/AuthContext yet.
 const WALLET_BALANCE = 45000;
 
 function formatNaira(value: number) {
@@ -40,17 +39,18 @@ export default function EPlanScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <EPlanHeader
-          wallet={formatNaira(WALLET_BALANCE)}
-          initials={getInitials(profile.fullName)}
-          onPressWallet={() => router.push('/wallet' as any)}
-          onPressAvatar={() => router.push('/profile' as any)}
-        />
+       <EPlanHeader
+        wallet={formatNaira(WALLET_BALANCE)}
+        initials={getInitials(profile.fullName)}
+        onPressWallet={() => router.push('/wallet' as any)}
+        onPressAvatar={() => router.push('/profile' as any)}
+        onPressBack={() => router.push('/(tabs)' as any)}   // 👈 normal home
+      />
       </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.banner}>
@@ -113,6 +113,8 @@ export default function EPlanScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <BottomTabs />
     </View>
   );
 }

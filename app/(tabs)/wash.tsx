@@ -55,7 +55,7 @@ export default function WashScreen() {
             Expired on July 6, 2026 — {'\n'}renew to keep using your plan
           </Text>
 
-          <TouchableOpacity style={styles.renewButton}>
+          <TouchableOpacity style={styles.renewButton} onPress={() => router.push('/renew-plan' as any)}>
             <Text style={styles.renewButtonText}>Renew Plan</Text>
           </TouchableOpacity>
         </LinearGradient>
