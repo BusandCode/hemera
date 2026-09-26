@@ -10,11 +10,11 @@ import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
+import { useWalletBalance } from '../src/hooks/useWalletBalance';
+import { useEPlanDraft } from '../src/context/EPlanDraftContext';
 
-const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
 const NOTE_MAX_LENGTH = 250;
-const WALLET_BALANCE = 45000;
 
 type Option = { key: string; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap };
 
@@ -114,10 +114,25 @@ export default function EPlanExclusionsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
+  const { balanceNaira } = useWalletBalance();
+  const { draft, updateDraft } = useEPlanDraft();
 
-  const [proteins, setProteins] = useState<string[]>([]);
-  const [allergens, setAllergens] = useState<string[]>([]);
-  const [note, setNote] = useState('');
+  const [proteins, setProteins] = useState<string[]>(
+    PROTEINS.filter((p) => draft.proteinLabels.includes(p.label)).map((p) => p.key)
+  );
+  const [allergens, setAllergens] = useState<string[]>(
+    ALLERGENS.filter((a) => draft.allergenLabels.includes(a.label)).map((a) => a.key)
+  );
+  const [note, setNote] = useState(draft.note);
+
+  const handleReview = () => {
+    updateDraft({
+      proteinLabels: PROTEINS.filter((p) => proteins.includes(p.key)).map((p) => p.label),
+      allergenLabels: ALLERGENS.filter((a) => allergens.includes(a.key)).map((a) => a.label),
+      note,
+    });
+    router.push('/e-plan-review' as any);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -125,7 +140,7 @@ export default function EPlanExclusionsScreen() {
 
       <View style={styles.header}>
         <EPlanHeader
-          wallet={formatNaira(WALLET_BALANCE)}
+          wallet={formatNaira(balanceNaira)}
           initials={getInitials(profile.fullName)}
           onPressWallet={() => router.push('/wallet' as any)}
           onPressAvatar={() => router.push('/profile' as any)}
@@ -152,20 +167,10 @@ export default function EPlanExclusionsScreen() {
         <Text style={styles.progressLabel}>67%</Text>
 
         <Text style={styles.sectionLabel}>PROTEINS TO EXCLUDE</Text>
-        <OptionGrid
-          options={PROTEINS}
-          selected={proteins}
-          onToggle={(k) => setProteins((p) => toggle(p, k))}
-          columns={4}
-        />
+        <OptionGrid options={PROTEINS} selected={proteins} onToggle={(k) => setProteins((p) => toggle(p, k))} columns={4} />
 
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>ALLERGENS & PREFERENCES</Text>
-        <OptionGrid
-          options={ALLERGENS}
-          selected={allergens}
-          onToggle={(k) => setAllergens((a) => toggle(a, k))}
-          columns={4}
-        />
+        <OptionGrid options={ALLERGENS} selected={allergens} onToggle={(k) => setAllergens((a) => toggle(a, k))} columns={4} />
 
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>ADDITIONAL NOTE (OPTIONAL)</Text>
         <View style={styles.noteBox}>
@@ -183,11 +188,7 @@ export default function EPlanExclusionsScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.reviewBtn}
-          activeOpacity={0.85}
-          onPress={() => router.push('/e-plan-review' as any)}
-        >
+        <TouchableOpacity style={styles.reviewBtn} activeOpacity={0.85} onPress={handleReview}>
           <Text style={styles.reviewBtnText}>Review & Pay</Text>
           <Feather name="arrow-right" size={16} color="#fff" />
         </TouchableOpacity>
@@ -204,34 +205,20 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 26 },
 
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 4,
-  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginBottom: 4 },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: foodColors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
   },
 
-  title: { fontSize: 27, fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
+  title: { fontSize: 27, fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' }), fontWeight: '700', color: foodColors.textPrimary },
   subtitle: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginBottom: 18 },
 
   progressTrack: { height: 4, borderRadius: 2, backgroundColor: foodColors.border, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: foodColors.primary, borderRadius: 2 },
   progressLabel: {
-    alignSelf: 'center',
-    fontSize: 11,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textMuted,
-    marginTop: 6,
-    marginBottom: 24,
+    alignSelf: 'center', fontSize: 11, fontFamily: fonts.poppins.regular,
+    color: foodColors.textMuted, marginTop: 6, marginBottom: 24,
   },
 
   sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
@@ -239,38 +226,18 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   card: {
-    backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: foodColors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    gap: 8,
+    backgroundColor: foodColors.surface, borderRadius: 14, borderWidth: 1.5,
+    borderColor: foodColors.border, paddingVertical: 14, paddingHorizontal: 12, gap: 8,
   },
   cardCompact: {
-    // aspectRatio: 1 forces every 4-col card to be a square whose side
-    // matches its computed width (~22%), so all 8 cards in the two rows
-    // end up the same width AND height regardless of label length.
-    aspectRatio: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    aspectRatio: 1, paddingVertical: 8, paddingHorizontal: 6,
+    alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   cardSelected: { backgroundColor: 'rgba(30,63,234,0.08)', borderColor: ACCENT_BLUE },
   checkCircle: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: foodColors.border,
-    backgroundColor: foodColors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute', top: 10, right: 10, width: 18, height: 18, borderRadius: 9,
+    borderWidth: 1.5, borderColor: foodColors.border, backgroundColor: foodColors.surface,
+    justifyContent: 'center', alignItems: 'center',
   },
   checkCircleCompact: { top: 6, right: 6, width: 15, height: 15, borderRadius: 7.5 },
   checkCircleSelected: { backgroundColor: ACCENT_BLUE, borderColor: ACCENT_BLUE },
@@ -279,39 +246,15 @@ const styles = StyleSheet.create({
   cardLabelSelected: { color: foodColors.textPrimary },
 
   noteBox: {
-    backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: foodColors.border,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 8,
+    backgroundColor: foodColors.surface, borderRadius: 16, borderWidth: 1,
+    borderColor: foodColors.border, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
   },
-  noteInput: {
-    minHeight: 70,
-    fontSize: 13.5,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textPrimary,
-    textAlignVertical: 'top',
-    padding: 0,
-  },
-  noteCount: {
-    alignSelf: 'flex-end',
-    fontSize: 11,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textMuted,
-    marginTop: 4,
-  },
+  noteInput: { minHeight: 70, fontSize: 13.5, fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, textAlignVertical: 'top', padding: 0 },
+  noteCount: { alignSelf: 'flex-end', fontSize: 11, fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: 4 },
 
   reviewBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#161311',
-    borderRadius: 26,
-    paddingVertical: 16,
-    marginTop: 30,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
+    backgroundColor: '#161311', borderRadius: 26, paddingVertical: 16, marginTop: 30,
   },
   reviewBtnText: { fontSize: 15, fontFamily: fonts.poppins.bold, color: '#fff' },
 });

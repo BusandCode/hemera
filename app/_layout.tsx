@@ -3,7 +3,6 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 
@@ -19,6 +18,8 @@ import { AppDataProvider } from '../src/context/AppDataContext';
 import { ProfileProvider } from '../src/context/ProfileContext';
 import { OnboardingProvider } from '../src/context/OnboardingContext';
 import { AuthProvider } from '../src/context/AuthContext';
+import { EPlanDraftProvider } from '../src/context/EPlanDraftContext';
+import { SplashScreenView } from '../src/components/SplashScreenView';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,18 +32,15 @@ export default function RootLayout() {
     Poppins_800ExtraBold,
   });
 
+  // Hide the native splash immediately — our own SplashScreenView takes over
+  // as the visible loading screen from here, instead of the native splash
+  // just going straight to the app before fonts are ready.
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
+    SplashScreen.hideAsync();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#E23A2E" />
-      </View>
-    );
+    return <SplashScreenView />;
   }
 
   return (
@@ -54,21 +52,57 @@ export default function RootLayout() {
               <CartProvider>
                 <AppDataProvider>
                   <ProfileProvider>
-                    <StatusBar style="dark" />
-                    <Stack screenOptions={{ headerShown: false }}>
-                      <Stack.Screen name="onboarding" />
-                      <Stack.Screen name="auth" />
-                      <Stack.Screen name="(tabs)" />
-                      <Stack.Screen
-                        name="location-picker"
-                        options={{ presentation: 'modal' }}
-                      />
-                      <Stack.Screen name="checkout" />
-                      <Stack.Screen
-                        name="order-success"
-                        options={{ gestureEnabled: false }}
-                      />
-                    </Stack>
+                    <EPlanDraftProvider>
+                      <StatusBar style="dark" />
+                      <Stack
+                        screenOptions={{
+                          headerShown: false,
+                          presentation: 'card',
+                          animation: 'slide_from_right',
+                        }}
+                      >
+                        <Stack.Screen name="onboarding" />
+                        <Stack.Screen name="auth" />
+                        <Stack.Screen name="(tabs)" />
+
+                        {/* Modal — a temporary picker that should slide over the current screen */}
+                        <Stack.Screen
+                          name="location-picker"
+                          options={{ presentation: 'modal' }}
+                        />
+
+                        <Stack.Screen name="checkout" />
+                        <Stack.Screen
+                          name="order-success"
+                          options={{ gestureEnabled: false }}
+                        />
+
+                        {/* Wallet home — plain push */}
+                        <Stack.Screen name="wallet" />
+
+                        {/* Wallet funding flow — full-screen pushes, not modals */}
+                        <Stack.Screen name="fund-wallet-amount" />
+                        <Stack.Screen
+                          name="fund-wallet-account"
+                          options={{ gestureEnabled: false }}
+                        />
+
+                        {/* Withdrawal flow — full-screen pushes */}
+                        <Stack.Screen name="request-withdrawal" />
+                        <Stack.Screen name="confirm-withdrawal" />
+
+                        {/* E-Plan flow — full-screen pushes */}
+                        <Stack.Screen name="e-plan" />
+                        <Stack.Screen name="e-plan-setup" />
+                        <Stack.Screen name="e-plan-exclusions" />
+                        <Stack.Screen name="e-plan-review" />
+                        <Stack.Screen
+                          name="e-plan-success"
+                          options={{ gestureEnabled: false }}
+                        />
+                        <Stack.Screen name="my-plan" />
+                      </Stack>
+                    </EPlanDraftProvider>
                   </ProfileProvider>
                 </AppDataProvider>
               </CartProvider>

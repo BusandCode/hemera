@@ -1,25 +1,30 @@
 {
   "expo": {
-    "name": "E-Chop E-Wash",
-    "slug": "echop-ewash",
+    "name": "Hemera",
+    "slug": "hemera",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "echopewash",
+    "scheme": "hemera",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.echop.ewash"
+      "bundleIdentifier": "com.busandcode.hemera",
+      "buildNumber": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FBF7F2"
       },
-      "package": "com.echop.ewash"
+      "package": "com.busandcode.hemera",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -36,13 +41,19 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow E-Chop E-Wash to access your photos so you can set a profile picture.",
-          "cameraPermission": "Allow E-Chop E-Wash to use your camera so you can take a profile picture."
+          "photosPermission": "Allow Hemera to access your photos so you can set a profile picture.",
+          "cameraPermission": "Allow Hemera to use your camera so you can take a profile picture."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "92a2d1c3-f97e-4713-b213-91a622d9c040"
+      }
     }
   }
 }

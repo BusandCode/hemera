@@ -1,4 +1,3 @@
-// app/ewash-orders.tsx
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 

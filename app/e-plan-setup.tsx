@@ -10,10 +10,11 @@ import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
+import { useWalletBalance } from '../src/hooks/useWalletBalance';
+import { useEPlanDraft } from '../src/context/EPlanDraftContext';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
-const WALLET_BALANCE = 45000;
 
 type DurationKey = '1w' | '2w';
 
@@ -37,11 +38,13 @@ export default function EPlanSetupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
+  const { balanceNaira } = useWalletBalance();
+  const { draft, updateDraft } = useEPlanDraft();
 
-  const [amount, setAmount] = useState(20000);
-  const [duration, setDuration] = useState<DurationKey>('1w');
-  const [lunchWindow, setLunchWindow] = useState(true);
-  const [dinnerWindow, setDinnerWindow] = useState(true);
+  const [amount, setAmount] = useState(draft.amount);
+  const [duration, setDuration] = useState<DurationKey>(draft.duration);
+  const [lunchWindow, setLunchWindow] = useState(draft.lunchWindow);
+  const [dinnerWindow, setDinnerWindow] = useState(draft.dinnerWindow);
 
   const selectedDuration = DURATIONS.find((d) => d.key === duration)!;
 
@@ -50,13 +53,18 @@ export default function EPlanSetupScreen() {
     setAmount(digitsOnly ? Number(digitsOnly) : 0);
   };
 
+  const handleContinue = () => {
+    updateDraft({ amount, duration, lunchWindow, dinnerWindow });
+    router.push('/e-plan-exclusions' as any);
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
         <EPlanHeader
-          wallet={formatNaira(WALLET_BALANCE)}
+          wallet={formatNaira(balanceNaira)}
           initials={getInitials(profile.fullName)}
           onPressWallet={() => router.push('/wallet' as any)}
           onPressAvatar={() => router.push('/profile' as any)}
@@ -96,6 +104,7 @@ export default function EPlanSetupScreen() {
         </View>
         <Text style={styles.amountHelper}>
           {formatNaira(amount)} will be locked • Est. {selectedDuration.meals}
+          {amount > balanceNaira ? ' • Exceeds wallet balance' : ''}
         </Text>
 
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>CHOOSE YOUR DURATION</Text>
@@ -149,9 +158,10 @@ export default function EPlanSetupScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.continueBtn}
+          style={[styles.continueBtn, amount <= 0 && styles.continueBtnDisabled]}
           activeOpacity={0.85}
-          onPress={() => router.push('/e-plan-exclusions' as any)}
+          disabled={amount <= 0}
+          onPress={handleContinue}
         >
           <Text style={styles.continueBtnText}>Continue</Text>
           <Feather name="arrow-right" size={16} color="#fff" />
@@ -169,20 +179,10 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 26 },
 
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 4,
-  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginBottom: 4 },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: foodColors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
   },
 
   title: { fontSize: 27, fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
@@ -191,27 +191,16 @@ const styles = StyleSheet.create({
   progressTrack: { height: 4, borderRadius: 2, backgroundColor: foodColors.border, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: foodColors.primary, borderRadius: 2 },
   progressLabel: {
-    alignSelf: 'center',
-    fontSize: 11,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textMuted,
-    marginTop: 6,
-    marginBottom: 24,
+    alignSelf: 'center', fontSize: 11, fontFamily: fonts.poppins.regular,
+    color: foodColors.textMuted, marginTop: 6, marginBottom: 24,
   },
 
   sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
   sectionSpacing: { marginTop: 26 },
 
   amountBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: foodColors.border,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    gap: 8,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: foodColors.surface,
+    borderRadius: 16, borderWidth: 1, borderColor: foodColors.border, paddingHorizontal: 18, paddingVertical: 16, gap: 8,
   },
   nairaSign: { fontSize: 26, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   amountInput: { flex: 1, fontSize: 30, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, padding: 0 },
@@ -219,24 +208,13 @@ const styles = StyleSheet.create({
 
   durationRow: { flexDirection: 'row', gap: 12 },
   durationCard: {
-    flex: 1,
-    backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: foodColors.border,
-    padding: 16,
+    flex: 1, backgroundColor: foodColors.surface, borderRadius: 16,
+    borderWidth: 1.5, borderColor: foodColors.border, padding: 16,
   },
   durationCardSelected: { backgroundColor: 'rgba(30,63,234,0.08)', borderColor: ACCENT_BLUE },
   radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: foodColors.border,
-    alignSelf: 'flex-end',
-    marginBottom: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: foodColors.border,
+    alignSelf: 'flex-end', marginBottom: 8, justifyContent: 'center', alignItems: 'center',
   },
   radioCircleSelected: { backgroundColor: ACCENT_BLUE, borderColor: ACCENT_BLUE },
   durationLabel: { fontSize: 16, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 4 },
@@ -245,12 +223,8 @@ const styles = StyleSheet.create({
   durationMealsSelected: { color: ACCENT_BLUE, fontFamily: fonts.poppins.semiBold },
 
   windowsCard: {
-    backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: foodColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    backgroundColor: foodColors.surface, borderRadius: 16, borderWidth: 1,
+    borderColor: foodColors.border, paddingHorizontal: 16, paddingVertical: 6,
   },
   windowRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
   windowLabel: { fontSize: 14, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary, marginBottom: 3 },
@@ -258,14 +232,9 @@ const styles = StyleSheet.create({
   windowDivider: { height: 1, backgroundColor: foodColors.border },
 
   continueBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#161311',
-    borderRadius: 26,
-    paddingVertical: 16,
-    marginTop: 30,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
+    backgroundColor: '#161311', borderRadius: 26, paddingVertical: 16, marginTop: 30,
   },
+  continueBtnDisabled: { opacity: 0.5 },
   continueBtnText: { fontSize: 15, fontFamily: fonts.poppins.bold, color: '#fff' },
 });

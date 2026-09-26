@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 export type Address = {
   id: string;
@@ -26,9 +28,10 @@ export type SecurityState = {
 
 type AppDataContextType = {
   addresses: Address[];
-  addAddress: (address: Omit<Address, 'id' | 'isDefault'>) => void;
-  removeAddress: (id: string) => void;
-  setDefaultAddress: (id: string) => void;
+  addressesLoading: boolean;
+  addAddress: (address: Omit<Address, 'id' | 'isDefault'>) => Promise<void>;
+  removeAddress: (id: string) => Promise<void>;
+  setDefaultAddress: (id: string) => Promise<void>;
 
   cards: PaymentCard[];
   addCard: (card: Omit<PaymentCard, 'id' | 'isDefault'>) => void;
@@ -43,11 +46,6 @@ type AppDataContextType = {
 };
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
-
-const initialAddresses: Address[] = [
-  { id: 'addr-home', label: 'Home', icon: 'home', line: '14 Adekunle Fajuyi Road, GRA', details: 'Lokoja, Kogi State', isDefault: true },
-  { id: 'addr-work', label: 'Work', icon: 'briefcase', line: 'Suite 4B, Zenith Plaza', details: 'Murtala Way, Lokoja', isDefault: false },
-];
 
 const initialCards: PaymentCard[] = [
   { id: 'card-1', brand: 'Verve', last4: '4821', expiry: '09/28', isDefault: true },
@@ -65,31 +63,76 @@ function formatChangedNow() {
   return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function mapRow(row: any): Address {
+  return {
+    id: row.id,
+    label: row.label,
+    icon: row.icon ?? 'map-pin',
+    line: row.full_address,
+    details: row.details ?? '',
+    isDefault: row.is_default,
+  };
+}
+
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const [addresses, setAddresses] = useState<Address[]>(initialAddresses);
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressesLoading, setAddressesLoading] = useState(true);
   const [cards, setCards] = useState<PaymentCard[]>(initialCards);
   const [security, setSecurity] = useState<SecurityState>(initialSecurity);
 
-  const addAddress: AppDataContextType['addAddress'] = (address) => {
-    setAddresses((prev) => [
-      ...prev,
-      { ...address, id: `addr-${Date.now()}`, isDefault: prev.length === 0 },
-    ]);
+  useEffect(() => {
+    if (!userId) {
+      setAddresses([]);
+      setAddressesLoading(false);
+      return;
+    }
+    (async () => {
+      setAddressesLoading(true);
+      const { data, error } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      if (!error && data) setAddresses(data.map(mapRow));
+      setAddressesLoading(false);
+    })();
+  }, [userId]);
+
+  const addAddress: AppDataContextType['addAddress'] = async (address) => {
+    if (!userId) return;
+    const isFirst = addresses.length === 0;
+    const { data, error } = await supabase
+      .from('addresses')
+      .insert({
+        user_id: userId,
+        label: address.label,
+        icon: address.icon,
+        full_address: address.line,
+        details: address.details,
+        is_default: isFirst,
+      })
+      .select()
+      .single();
+    if (!error && data) setAddresses((prev) => [...prev, mapRow(data)]);
   };
 
-  const removeAddress = (id: string) => {
-    setAddresses((prev) => prev.filter((a) => a.id !== id));
+  const removeAddress = async (id: string) => {
+    const { error } = await supabase.from('addresses').delete().eq('id', id);
+    if (!error) setAddresses((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const setDefaultAddress = (id: string) => {
-    setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })));
+  const setDefaultAddress = async (id: string) => {
+    if (!userId) return;
+    await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId);
+    const { error } = await supabase.from('addresses').update({ is_default: true }).eq('id', id);
+    if (!error) setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })));
   };
 
   const addCard: AppDataContextType['addCard'] = (card) => {
-    setCards((prev) => [
-      ...prev,
-      { ...card, id: `card-${Date.now()}`, isDefault: prev.length === 0 },
-    ]);
+    setCards((prev) => [...prev, { ...card, id: `card-${Date.now()}`, isDefault: prev.length === 0 }]);
   };
 
   const removeCard = (id: string) => {
@@ -120,6 +163,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     <AppDataContext.Provider
       value={{
         addresses,
+        addressesLoading,
         addAddress,
         removeAddress,
         setDefaultAddress,

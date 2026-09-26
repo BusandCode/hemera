@@ -1,7 +1,8 @@
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
@@ -9,50 +10,11 @@ import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
+import { useAuth } from '../src/context/AuthContext';
+import { useWalletBalance } from '../src/hooks/useWalletBalance';
+import { supabase } from '../src/lib/supabase';
 
-const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
-const ACCENT_BLUE = '#1E3FEA';
-const WALLET_BALANCE = 25000;
-
-const ACTIVE_PLAN = {
-  amount: 20000,
-  duration: '1 Week',
-  estimatedMeals: '4–6 Surprises',
-  deliveryWindow: 'Lunch + Dinner',
-  starts: 'Today, May 20',
-  ends: 'May 27',
-  exclusions: 'Pork, No Meat (Veg)',
-  mealsDelivered: 2,
-  mealsTotal: 5,
-  nextDelivery: 'Today, 12:30 PM',
-};
-
-const UPCOMING_DELIVERIES = [
-  {
-    id: '1',
-    day: 'Today',
-    date: 'May 20',
-    window: '12:30 PM – 2:00 PM',
-    meal: 'Jollof Rice & Grilled Chicken',
-    status: 'in-transit' as const,
-  },
-  {
-    id: '2',
-    day: 'Tomorrow',
-    date: 'May 21',
-    window: '5:30 PM – 8:00 PM',
-    meal: 'Egusi Soup & Pounded Yam',
-    status: 'scheduled' as const,
-  },
-  {
-    id: '3',
-    day: 'Wed',
-    date: 'May 22',
-    window: '12:30 PM – 2:00 PM',
-    meal: 'Ofada Rice & Ayamase',
-    status: 'scheduled' as const,
-  },
-];
+const WALLET_BLUE = '#0032C1';
 
 function formatNaira(value: number) {
   return `₦${value.toLocaleString()}`;
@@ -65,12 +27,93 @@ function getInitials(fullName: string) {
   return (first + last).toUpperCase();
 }
 
+type PlanRow = {
+  id: string;
+  locked_amount_kobo: number;
+  balance_kobo: number;
+  ends_at: string;
+};
+
+type DeliveryRow = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  status: 'delivered' | 'in_transit' | 'surprise_pending';
+  delivered_at: string | null;
+};
+
 export default function MyPlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
+  const { session } = useAuth();
+  const { balanceNaira, refresh: refreshWallet } = useWalletBalance();
 
-  const progressPct = Math.round((ACTIVE_PLAN.mealsDelivered / ACTIVE_PLAN.mealsTotal) * 100);
+  const [plan, setPlan] = useState<PlanRow | null>(null);
+  const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!session?.user.id) return;
+    setLoading(true);
+    const { data: planData } = await supabase
+      .from('eplan_plans')
+      .select('id, locked_amount_kobo, balance_kobo, ends_at')
+      .eq('user_id', session.user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    setPlan(planData);
+
+    if (planData) {
+      const { data: deliveryData } = await supabase
+        .from('eplan_deliveries')
+        .select('id, title, subtitle, status, delivered_at')
+        .eq('plan_id', planData.id)
+        .order('created_at', { ascending: true });
+      setDeliveries(deliveryData ?? []);
+    } else {
+      setDeliveries([]);
+    }
+    setLoading(false);
+  }, [session?.user.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const handleCancel = () => {
+    if (!plan) return;
+    Alert.alert(
+      'Cancel Plan',
+      'Your remaining locked balance will be refunded to your wallet. Continue?',
+      [
+        { text: 'Keep Plan', style: 'cancel' },
+        {
+          text: 'Cancel Plan',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            const { error } = await supabase.rpc('cancel_eplan', { p_plan_id: plan.id });
+            setCancelling(false);
+            if (error) {
+              Alert.alert('Error', 'Could not cancel plan. Please try again.');
+              return;
+            }
+            await Promise.all([load(), refreshWallet()]);
+          },
+        },
+      ]
+    );
+  };
+
+  const daysLeft = plan ? Math.max(0, Math.ceil((new Date(plan.ends_at).getTime() - Date.now()) / 86400000)) : 0;
+  const endsLabel = plan
+    ? new Date(plan.ends_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -78,422 +121,178 @@ export default function MyPlanScreen() {
 
       <View style={styles.header}>
         <EPlanHeader
-          wallet={formatNaira(WALLET_BALANCE)}
+          wallet={formatNaira(balanceNaira)}
           initials={getInitials(profile.fullName)}
           onPressWallet={() => router.push('/wallet' as any)}
           onPressAvatar={() => router.push('/profile' as any)}
         />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Title */}
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>My Plan</Text>
-          <View style={styles.livePill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.livePillText}>LIVE</Text>
-          </View>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={WALLET_BLUE} />
         </View>
-        <Text style={styles.subtitle}>Your active E-Plan at a glance</Text>
-
-        {/* Hero Active Plan Card */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroIconBadge}>
-              <MaterialCommunityIcons name="silverware-fork-knife" size={22} color={ACCENT_BLUE} />
+      ) : !plan ? (
+        <View style={styles.centered}>
+          <Feather name="gift" size={36} color={foodColors.textMuted} />
+          <Text style={styles.emptyTitle}>No active plan</Text>
+          <Text style={styles.emptySubtitle}>Start an E-Plan to see it here.</Text>
+          <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/e-plan-setup' as any)} activeOpacity={0.85}>
+            <Text style={styles.emptyBtnText}>Start E-Plan</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.planCard}>
+            <View style={styles.activeBadge}>
+              <View style={styles.activeDot} />
+              <Text style={styles.activeBadgeText}>ACTIVE</Text>
             </View>
-            <View style={styles.heroStatusPill}>
-              <View style={styles.liveDot} />
-              <Text style={styles.heroStatusText}>Active</Text>
+
+            <Text style={styles.planTitle}>Your E-Plan{'\n'}is Running <Feather name="lock" size={20} color="#fff" /></Text>
+            <Text style={styles.planSubtitle}>We know what's coming.{'\n'}You don't. That's how we like it.</Text>
+
+            <View style={styles.balanceRow}>
+              <View style={styles.balanceBlock}>
+                <Text style={styles.balanceLabel}>Locked Balance</Text>
+                <Text style={styles.balanceValue}>{formatNaira(Math.round(plan.balance_kobo / 100))}</Text>
+              </View>
+              <View style={styles.balanceDivider} />
+              <View style={styles.balanceBlock}>
+                <View style={styles.fromRow}>
+                  <Feather name="lock" size={11} color="rgba(255,255,255,0.7)" />
+                  <Text style={styles.fromLabel}>From {formatNaira(Math.round(plan.locked_amount_kobo / 100))}</Text>
+                </View>
+                <Text style={styles.daysLeft}>{daysLeft} day{daysLeft === 1 ? '' : 's'} left</Text>
+              </View>
             </View>
           </View>
 
-          <Text style={styles.heroPlanName}>E-Plan</Text>
-          <Text style={styles.heroPlanSub}>
-            {formatNaira(ACTIVE_PLAN.amount)} locked • ends {ACTIVE_PLAN.ends}
-          </Text>
+          <Text style={styles.sectionLabel}>DELIVERY HISTORY</Text>
+          <View style={styles.deliveryGroup}>
+            {deliveries.map((d) => (
+              <View key={d.id} style={styles.deliveryRow}>
+                <View
+                  style={[
+                    styles.deliveryIconWrap,
+                    d.status === 'delivered' && styles.deliveryIconDelivered,
+                    d.status === 'in_transit' && styles.deliveryIconTransit,
+                    d.status === 'surprise_pending' && styles.deliveryIconPending,
+                  ]}
+                >
+                  <Feather
+                    name={d.status === 'delivered' ? 'check' : d.status === 'in_transit' ? 'navigation' : 'gift'}
+                    size={15}
+                    color={d.status === 'delivered' ? foodColors.success : d.status === 'in_transit' ? '#D97706' : WALLET_BLUE}
+                  />
+                </View>
+                <View style={styles.deliveryInfo}>
+                  <Text style={styles.deliveryTitle}>{d.title}</Text>
+                  <Text style={styles.deliverySubtitle}>{d.subtitle ?? ''}</Text>
+                </View>
+                <Text style={styles.deliveryMeta}>
+                  {d.status === 'delivered' && d.delivered_at
+                    ? new Date(d.delivered_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                    : d.status === 'surprise_pending'
+                    ? '???'
+                    : ''}
+                </Text>
+              </View>
+            ))}
+            {deliveries.length === 0 && (
+              <View style={styles.deliveryEmpty}>
+                <Text style={styles.deliveryEmptyText}>No deliveries yet — surprises are on the way.</Text>
+              </View>
+            )}
+          </View>
 
-          {/* Progress */}
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Meals delivered</Text>
-            <Text style={styles.progressValue}>
-              {ACTIVE_PLAN.mealsDelivered} / {ACTIVE_PLAN.mealsTotal}
+          <View style={styles.infoBanner}>
+            <Feather name="info" size={18} color={WALLET_BLUE} />
+            <Text style={styles.infoBannerText}>
+              Your plan ends {endsLabel}. Unused balance will be refunded to your wallet.
             </Text>
           </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
-          </View>
 
-          {/* Next delivery teaser */}
-          <View style={styles.nextDeliveryBox}>
-            <View style={styles.nextDeliveryIcon}>
-              <Feather name="truck" size={16} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.nextDeliveryLabel}>Next delivery</Text>
-              <Text style={styles.nextDeliveryValue}>{ACTIVE_PLAN.nextDelivery}</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.6)" />
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.actionsRow}>
-          <QuickAction icon="pause-circle" label="Pause" onPress={() => {}} />
-          <QuickAction icon="edit-2" label="Edit" onPress={() => {}} />
-          <QuickAction icon="help-circle" label="Support" onPress={() => {}} />
-          <QuickAction icon="x-circle" label="Cancel" onPress={() => {}} danger />
-        </View>
-
-        {/* Upcoming Deliveries */}
-        <Text style={[styles.sectionLabel, styles.sectionSpacing]}>UPCOMING DELIVERIES</Text>
-        <View style={styles.deliveryList}>
-          {UPCOMING_DELIVERIES.map((d, i) => (
-            <DeliveryRow
-              key={d.id}
-              day={d.day}
-              date={d.date}
-              window={d.window}
-              meal={d.meal}
-              status={d.status}
-              isLast={i === UPCOMING_DELIVERIES.length - 1}
-            />
-          ))}
-        </View>
-
-        {/* Plan Overview */}
-        <Text style={[styles.sectionLabel, styles.sectionSpacing]}>PLAN OVERVIEW</Text>
-        <View style={styles.summaryCard}>
-          <SummaryRow icon="dollar-sign" label="Amount Locked" value={formatNaira(ACTIVE_PLAN.amount)} isBold />
-          <SummaryRow icon="calendar" label="Duration" value={ACTIVE_PLAN.duration} />
-          <SummaryRow icon="pie-chart" label="Estimated Meals" value={ACTIVE_PLAN.estimatedMeals} />
-          <SummaryRow icon="clock" label="Delivery Window" value={ACTIVE_PLAN.deliveryWindow} />
-          <SummaryRow icon="slash" label="Exclusions" value={ACTIVE_PLAN.exclusions} isLast />
-        </View>
-
-        {/* Start a new plan CTA */}
-        <TouchableOpacity
-          style={styles.secondaryBtn}
-          activeOpacity={0.85}
-          onPress={() => router.push('/e-plan-setup' as any)}
-        >
-          <Feather name="plus" size={16} color={foodColors.textPrimary} style={{ marginRight: 6 }} />
-          <Text style={styles.secondaryBtnText}>Start a new E-Plan</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity
+            style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
+            activeOpacity={0.85}
+            disabled={cancelling}
+            onPress={handleCancel}
+          >
+            {cancelling ? <ActivityIndicator color={foodColors.textPrimary} /> : <Text style={styles.cancelBtnText}>Cancel Plan</Text>}
+          </TouchableOpacity>
+        </ScrollView>
+      )}
 
       <BottomTabs />
     </View>
   );
 }
 
-// --- Sub-components ---
-
-function QuickAction({
-  icon,
-  label,
-  onPress,
-  danger = false,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  label: string;
-  onPress: () => void;
-  danger?: boolean;
-}) {
-  const color = danger ? '#DC2626' : foodColors.textPrimary;
-  return (
-    <TouchableOpacity style={styles.actionItem} activeOpacity={0.8} onPress={onPress}>
-      <View style={[styles.actionIconBox, danger && styles.actionIconBoxDanger]}>
-        <Feather name={icon} size={18} color={color} />
-      </View>
-      <Text style={[styles.actionLabel, danger && { color }]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function DeliveryRow({
-  day,
-  date,
-  window,
-  meal,
-  status,
-  isLast,
-}: {
-  day: string;
-  date: string;
-  window: string;
-  meal: string;
-  status: 'in-transit' | 'scheduled' | 'delivered';
-  isLast?: boolean;
-}) {
-  const statusMeta = {
-    'in-transit': { color: ACCENT_BLUE, bg: 'rgba(30,63,234,0.08)', label: 'In transit' },
-    scheduled: { color: '#B45309', bg: 'rgba(180,83,9,0.08)', label: 'Scheduled' },
-    delivered: { color: '#059669', bg: 'rgba(5,150,105,0.08)', label: 'Delivered' },
-  }[status];
-
-  return (
-    <View style={[styles.deliveryRow, !isLast && styles.deliveryRowBorder]}>
-      <View style={styles.dateBlock}>
-        <Text style={styles.dateDay}>{day}</Text>
-        <Text style={styles.dateValue}>{date}</Text>
-      </View>
-
-      <View style={styles.deliveryDivider} />
-
-      <View style={{ flex: 1 }}>
-        <Text style={styles.deliveryMeal} numberOfLines={1}>
-          {meal}
-        </Text>
-        <Text style={styles.deliveryWindow}>{window}</Text>
-        <View style={[styles.statusPill, { backgroundColor: statusMeta.bg, marginTop: 6 }]}>
-          <Text style={[styles.statusPillText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function SummaryRow({
-  icon,
-  label,
-  value,
-  isBold = false,
-  isLast = false,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  label: string;
-  value: string;
-  isBold?: boolean;
-  isLast?: boolean;
-}) {
-  return (
-    <View style={[styles.summaryRow, !isLast && styles.summaryRowBorder]}>
-      <View style={styles.summaryRowLeft}>
-        <View style={styles.summaryIconWrapper}>
-          <Feather name={icon} size={14} color={ACCENT_BLUE} />
-        </View>
-        <Text style={styles.summaryLabel}>{label}</Text>
-      </View>
-      <Text style={[styles.summaryValue, isBold && styles.summaryValueBold]}>{value}</Text>
-    </View>
-  );
-}
-
-// --- Styles ---
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  header: { paddingHorizontal: 26, paddingBottom: 8 },
+  header: { paddingHorizontal: 26, paddingBottom: 16 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 26 },
 
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  title: { fontSize: 27, fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
-  livePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  livePillText: { fontSize: 10, fontFamily: fonts.poppins.bold, color: '#059669', letterSpacing: 0.6 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' },
-  subtitle: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginBottom: 20 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30, gap: 10 },
+  emptyTitle: { fontSize: 15, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginTop: 6 },
+  emptySubtitle: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, textAlign: 'center' },
+  emptyBtn: { backgroundColor: '#161311', paddingHorizontal: 22, paddingVertical: 13, borderRadius: 24, marginTop: 10 },
+  emptyBtnText: { fontSize: 13.5, fontFamily: fonts.poppins.bold, color: '#fff' },
 
-  // Hero active card
-  heroCard: {
-    backgroundColor: '#161311',
-    borderRadius: 22,
-    padding: 20,
-    overflow: 'hidden',
+  planCard: { backgroundColor: WALLET_BLUE, borderRadius: 24, padding: 22, marginBottom: 24 },
+  activeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 14,
   },
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  heroIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(16,185,129,0.18)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-  },
-  heroStatusText: { fontSize: 11, fontFamily: fonts.poppins.bold, color: '#34D399' },
-  heroPlanName: { fontSize: 26, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 4 },
-  heroPlanSub: {
-    fontSize: 12.5,
-    fontFamily: fonts.poppins.regular,
-    color: 'rgba(255,255,255,0.6)',
-    marginBottom: 20,
-  },
+  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34D399' },
+  activeBadgeText: { fontSize: 10, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.5 },
+  planTitle: { fontSize: 26, lineHeight: 31, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 10 },
+  planSubtitle: { fontSize: 13, lineHeight: 18, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.8)', marginBottom: 20 },
 
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+  balanceRow: {
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 16, padding: 16, gap: 16,
   },
-  progressLabel: { fontSize: 11, fontFamily: fonts.poppins.medium, color: 'rgba(255,255,255,0.7)' },
-  progressValue: { fontSize: 11, fontFamily: fonts.poppins.bold, color: '#fff' },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  progressFill: { height: '100%', backgroundColor: '#10B981', borderRadius: 3 },
+  balanceBlock: { flex: 1 },
+  balanceLabel: { fontSize: 11, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.75)', marginBottom: 4 },
+  balanceValue: { fontSize: 22, fontFamily: fonts.poppins.bold, color: '#fff' },
+  balanceDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  fromRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  fromLabel: { fontSize: 11, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.75)' },
+  daysLeft: { fontSize: 16, fontFamily: fonts.poppins.bold, color: '#fff' },
 
-  nextDeliveryBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 14,
-    padding: 12,
-    gap: 12,
-  },
-  nextDeliveryIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: foodColors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nextDeliveryLabel: { fontSize: 10.5, fontFamily: fonts.poppins.medium, color: 'rgba(255,255,255,0.55)', marginBottom: 2 },
-  nextDeliveryValue: { fontSize: 13.5, fontFamily: fonts.poppins.bold, color: '#fff' },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
 
-  // Quick actions
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 8,
-  },
-  actionItem: { flex: 1, alignItems: 'center', gap: 6 },
-  actionIconBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: foodColors.surface,
-    borderWidth: 1,
-    borderColor: foodColors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionIconBoxDanger: {
-    backgroundColor: 'rgba(220,38,38,0.06)',
-    borderColor: 'rgba(220,38,38,0.2)',
-  },
-  actionLabel: { fontSize: 11, fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
-
-  // Section
-  sectionLabel: {
-    fontSize: 11,
-    fontFamily: fonts.poppins.bold,
-    color: foodColors.textMuted,
-    letterSpacing: 0.6,
-    marginBottom: 12,
-  },
-  sectionSpacing: { marginTop: 26 },
-
-  // Deliveries list
-  deliveryList: {
-    backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: foodColors.border,
-    paddingHorizontal: 16,
-  },
+  deliveryGroup: { backgroundColor: foodColors.surface, borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
   deliveryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.04)',
   },
-  deliveryRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: foodColors.border,
-  },
-  dateBlock: { width: 46, alignItems: 'flex-start' },
-  dateDay: { fontSize: 10.5, fontFamily: fonts.poppins.bold, color: ACCENT_BLUE, letterSpacing: 0.4 },
-  dateValue: { fontSize: 12, fontFamily: fonts.poppins.medium, color: foodColors.textSecondary, marginTop: 2 },
-  deliveryDivider: {
-    width: 1,
-    height: 34,
-    backgroundColor: foodColors.border,
-    marginHorizontal: 12,
-  },
-  deliveryMeal: { fontSize: 13.5, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 2 },
-  deliveryWindow: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
-  statusPill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  statusPillText: { fontSize: 10, fontFamily: fonts.poppins.bold, letterSpacing: 0.3 },
+  deliveryIconWrap: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  deliveryIconDelivered: { backgroundColor: 'rgba(52,199,89,0.12)' },
+  deliveryIconTransit: { backgroundColor: 'rgba(217,119,6,0.1)' },
+  deliveryIconPending: { backgroundColor: 'rgba(0,50,193,0.08)' },
+  deliveryInfo: { flex: 1, minWidth: 0 },
+  deliveryTitle: { fontSize: 13.5, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  deliverySubtitle: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: 2 },
+  deliveryMeta: { fontSize: 11.5, fontFamily: fonts.poppins.bold, color: foodColors.textMuted },
+  deliveryEmpty: { paddingVertical: 20, paddingHorizontal: 14 },
+  deliveryEmptyText: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, textAlign: 'center' },
 
-  // Summary card
-  summaryCard: {
-    backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: foodColors.border,
-    paddingHorizontal: 16,
+  infoBanner: {
+    flexDirection: 'row', gap: 10, backgroundColor: 'rgba(0,50,193,0.06)', borderRadius: 14, padding: 14, marginBottom: 14, alignItems: 'flex-start',
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  summaryRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: foodColors.border,
-  },
-  summaryRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  summaryIconWrapper: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: 'rgba(30,63,234,0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  summaryLabel: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
-  summaryValue: { fontSize: 13, fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
-  summaryValueBold: { fontFamily: fonts.poppins.bold, color: ACCENT_BLUE },
+  infoBannerText: { flex: 1, fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 16 },
 
-  // Secondary button
-  secondaryBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: foodColors.surface,
-    borderWidth: 1.5,
-    borderColor: foodColors.border,
-    borderRadius: 26,
-    paddingVertical: 15,
-    marginTop: 26,
+  cancelBtn: {
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 15, borderRadius: 26,
+    borderWidth: 1.5, borderColor: foodColors.border,
   },
-  secondaryBtnText: { fontSize: 14.5, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  cancelBtnDisabled: { opacity: 0.6 },
+  cancelBtnText: { fontSize: 14, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
 });

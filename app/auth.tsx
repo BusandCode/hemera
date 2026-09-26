@@ -20,6 +20,7 @@ import { fonts } from '../src/constants/typography';
 import { useAuth } from '../src/context/AuthContext';
 
 type Mode = 'signin' | 'signup';
+type Gender = 'Male' | 'Female' | '';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -28,6 +29,10 @@ export default function AuthScreen() {
 
   const [mode, setMode] = useState<Mode>('signin');
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<Gender>('');
+  const [phone, setPhone] = useState('');
+  const [dob, setDob] = useState('');
+  const [referredBy, setReferredBy] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secure, setSecure] = useState(true);
@@ -39,7 +44,11 @@ export default function AuthScreen() {
   const canSubmit =
     email.trim().length > 3 &&
     password.trim().length >= 4 &&
-    (!isSignUp || name.trim().length > 1);
+    (!isSignUp ||
+      (name.trim().length > 1 &&
+        gender.length > 0 &&
+        phone.trim().length > 6 &&
+        dob.trim().length > 3));
 
   const handleSubmit = async () => {
     if (!canSubmit || busy) return;
@@ -47,7 +56,15 @@ export default function AuthScreen() {
     setError('');
     try {
       if (isSignUp) {
-        await signUp(name.trim(), email.trim(), password);
+        await signUp({
+          fullName: name.trim(),
+          gender,
+          phone: phone.trim(),
+          dob: dob.trim(),
+          referredBy: referredBy.trim(),
+          email: email.trim(),
+          password,
+        });
       } else {
         await signIn(email.trim(), password);
       }
@@ -82,7 +99,7 @@ export default function AuthScreen() {
       >
         <View style={styles.brandRow}>
           <View style={styles.logoDot} />
-          <Text style={styles.brand}>E-CHOP · E-WASH</Text>
+          <Text style={styles.brand}>HEMERA</Text>
         </View>
 
         <Text style={styles.title}>
@@ -131,6 +148,76 @@ export default function AuthScreen() {
                 placeholder="e.g. Suleiman Abubakar"
                 placeholderTextColor={foodColors.textMuted}
                 autoCapitalize="words"
+              />
+            </View>
+          </View>
+        )}
+
+        {isSignUp && (
+          <View style={styles.field}>
+            <Text style={styles.label}>Gender</Text>
+            <View style={styles.genderRow}>
+              {(['Male', 'Female'] as Gender[]).map((g) => (
+                <TouchableOpacity
+                  key={g}
+                  style={[styles.genderPill, gender === g && styles.genderPillActive]}
+                  onPress={() => setGender(g)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.genderPillText, gender === g && styles.genderPillTextActive]}>
+                    {g}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {isSignUp && (
+          <View style={styles.field}>
+            <Text style={styles.label}>Phone Number</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="phone" size={16} color={foodColors.textMuted} />
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+234 803 123 4567"
+                placeholderTextColor={foodColors.textMuted}
+                keyboardType="phone-pad"
+              />
+            </View>
+          </View>
+        )}
+
+        {isSignUp && (
+          <View style={styles.field}>
+            <Text style={styles.label}>Date of Birth</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="calendar" size={16} color={foodColors.textMuted} />
+              <TextInput
+                style={styles.input}
+                value={dob}
+                onChangeText={setDob}
+                placeholder="e.g. 14 March 1998"
+                placeholderTextColor={foodColors.textMuted}
+              />
+            </View>
+          </View>
+        )}
+
+        {isSignUp && (
+          <View style={styles.field}>
+            <Text style={styles.label}>Referral Code (optional)</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="gift" size={16} color={foodColors.textMuted} />
+              <TextInput
+                style={styles.input}
+                value={referredBy}
+                onChangeText={setReferredBy}
+                placeholder="e.g. ABCD1234"
+                placeholderTextColor={foodColors.textMuted}
+                autoCapitalize="characters"
               />
             </View>
           </View>
@@ -308,6 +395,30 @@ const styles = StyleSheet.create({
     padding: 0,
     minWidth: 0,
   },
+
+  genderRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderPill: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: foodColors.surface,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  genderPillActive: {
+    backgroundColor: foodColors.primaryDark,
+    borderColor: foodColors.primaryDark,
+  },
+  genderPillText: {
+    fontSize: 13.5,
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.textSecondary,
+  },
+  genderPillTextActive: { color: '#fff' },
 
   errorBox: {
     flexDirection: 'row',

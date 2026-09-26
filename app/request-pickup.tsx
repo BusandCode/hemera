@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
-import { useAppData } from '../src/context/AppDataContext';
 
 type Gender = 'men' | 'women';
 
@@ -45,12 +44,6 @@ const extraItems: LaundryItem[] = [
   { id: 'blanket', gender: 'men', name: 'Blanket', icon: { lib: 'mci', name: 'bed-outline' } },
   { id: 'duvet', gender: 'men', name: 'Duvet', icon: { lib: 'mci', name: 'bed-king-outline' } },
   { id: 'curtains', gender: 'men', name: 'Curtains', icon: { lib: 'mci', name: 'blinds' } },
-];
-
-const timeSlots = [
-  { id: 'morning', label: 'Morning', hint: '8am – 12pm' },
-  { id: 'afternoon', label: 'Afternoon', hint: '12pm – 4pm' },
-  { id: 'evening', label: 'Evening', hint: '4pm – 8pm' },
 ];
 
 const EXPRESS_FEE = 1500;
@@ -96,15 +89,10 @@ function ItemRow({
 
 export default function RequestPickupScreen() {
   const router = useRouter();
-  const { addresses } = useAppData();
 
-  const [addressId, setAddressId] = useState(
-    addresses.find((a) => a.isDefault)?.id ?? addresses[0]?.id ?? ''
-  );
   const [gender, setGender] = useState<Gender>('men');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [showExtras, setShowExtras] = useState(false);
-  const [slotId, setSlotId] = useState(timeSlots[0].id);
   const [express, setExpress] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [notes, setNotes] = useState('');
@@ -122,7 +110,7 @@ export default function RequestPickupScreen() {
     );
   }, [quantities]);
 
-  const canSubmit = addressId.length > 0 && totalItems > 0 && agreed;
+  const canSubmit = totalItems > 0 && agreed;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -155,42 +143,7 @@ export default function RequestPickupScreen() {
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Where should we pick up?</Text>
-        <Text style={styles.sectionSubtitle}>Choose the address for your laundry pickup.</Text>
-
-        <View style={styles.itemsList}>
-          {addresses.map((address) => {
-            const isActive = address.id === addressId;
-            return (
-              <TouchableOpacity
-                key={address.id}
-                style={[styles.itemRow, isActive && styles.itemRowActive]}
-                onPress={() => setAddressId(address.id)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.itemIconWrap}>
-                  <Feather name={address.icon} size={16} color={washColors.navySolid} />
-                </View>
-                <View style={styles.itemTextBlock}>
-                  <Text style={styles.itemName}>{address.label}</Text>
-                  <Text style={styles.itemHint}>
-                    {address.line}, {address.details}
-                  </Text>
-                </View>
-                {isActive && <Feather name="check-circle" size={18} color={washColors.navySolid} />}
-              </TouchableOpacity>
-            );
-          })}
-
-          <TouchableOpacity style={styles.itemRow} onPress={() => router.push('/add-address')} activeOpacity={0.8}>
-            <View style={styles.itemIconWrap}>
-              <Feather name="plus" size={16} color={washColors.navySolid} />
-            </View>
-            <Text style={styles.itemName}>Add New Address</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={[styles.sectionTitle, styles.sectionSpacing]}>What are we picking up?</Text>
+        <Text style={styles.sectionTitle}>What are we picking up?</Text>
         <Text style={styles.sectionSubtitle}>Tap to add items covered by your plan.</Text>
 
         <View style={styles.genderToggle}>
@@ -235,35 +188,9 @@ export default function RequestPickupScreen() {
           </View>
         )}
 
-        <Text style={[styles.sectionTitle, styles.sectionSpacing]}>Preferred pickup time</Text>
-        <Text style={styles.sectionSubtitle}>Pick a window that works for you.</Text>
-
-        <View style={styles.itemsList}>
-          {timeSlots.map((item) => {
-            const isActive = item.id === slotId;
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.itemRow, isActive && styles.itemRowActive]}
-                onPress={() => setSlotId(item.id)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.itemIconWrap}>
-                  <Feather name="clock" size={16} color={washColors.navySolid} />
-                </View>
-                <View style={styles.itemTextBlock}>
-                  <Text style={styles.itemName}>{item.label}</Text>
-                  <Text style={styles.itemHint}>{item.hint}</Text>
-                </View>
-                {isActive && <Feather name="check-circle" size={18} color={washColors.navySolid} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
         <TouchableOpacity style={styles.expressCard} onPress={() => setExpress((v) => !v)} activeOpacity={0.85}>
           <View style={styles.expressIconWrap}>
-            <Feather name="zap" size={18} color={washColors.gold} />
+            <Feather name="zap" size={18} color="#fff" />
           </View>
           <View style={styles.expressTextBlock}>
             <Text style={styles.expressTitle}>Faster delivery (Express)</Text>

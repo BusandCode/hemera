@@ -1,7 +1,8 @@
+import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
@@ -9,8 +10,9 @@ import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
-
-const WALLET_BALANCE = 45000;
+import { useAuth } from '../src/context/AuthContext';
+import { useWalletBalance } from '../src/hooks/useWalletBalance';
+import { supabase } from '../src/lib/supabase';
 
 function formatNaira(value: number) {
   return `₦${value.toLocaleString()}`;
@@ -33,6 +35,24 @@ export default function EPlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
+  const { session } = useAuth();
+  const { balanceNaira } = useWalletBalance();
+  const [hasActivePlan, setHasActivePlan] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        if (!session?.user.id) return;
+        const { data } = await supabase
+          .from('eplan_plans')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        setHasActivePlan(!!data);
+      })();
+    }, [session?.user.id])
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -40,11 +60,11 @@ export default function EPlanScreen() {
 
       <View style={styles.header}>
        <EPlanHeader
-        wallet={formatNaira(WALLET_BALANCE)}
+        wallet={formatNaira(balanceNaira)}
         initials={getInitials(profile.fullName)}
         onPressWallet={() => router.push('/wallet' as any)}
         onPressAvatar={() => router.push('/profile' as any)}
-        onPressBack={() => router.push('/(tabs)' as any)}   // 👈 normal home
+        onPressBack={() => router.push('/(tabs)' as any)}
       />
       </View>
 
@@ -85,29 +105,33 @@ export default function EPlanScreen() {
             <View style={styles.giftBadge}>
               <Feather name="gift" size={20} color="#fff" />
             </View>
-            <View style={styles.newPill}>
-              <Text style={styles.newPillText}>NEW</Text>
-            </View>
+            {!hasActivePlan && (
+              <View style={styles.newPill}>
+                <Text style={styles.newPillText}>NEW</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.planTitle}>E-Plan</Text>
           <Text style={styles.planDescription}>
-            Lock your budget, tell us what you won't eat, and we'll handle everything else.
+            {hasActivePlan
+              ? 'You have an active E-Plan running right now.'
+              : "Lock your budget, tell us what you won't eat, and we'll handle everything else."}
           </Text>
 
           <View style={styles.planDivider} />
 
           <View style={styles.planFooter}>
             <View>
-              <Text style={styles.planFromLabel}>From</Text>
-              <Text style={styles.planPrice}>{formatNaira(20000)}</Text>
+              <Text style={styles.planFromLabel}>{hasActivePlan ? 'Status' : 'From'}</Text>
+              <Text style={styles.planPrice}>{hasActivePlan ? 'Active' : formatNaira(20000)}</Text>
             </View>
             <TouchableOpacity
               style={styles.startBtn}
               activeOpacity={0.8}
-              onPress={() => router.push('/e-plan-setup' as any)}
+              onPress={() => router.push((hasActivePlan ? '/my-plan' : '/e-plan-setup') as any)}
             >
-              <Text style={styles.startBtnText}>Start</Text>
+              <Text style={styles.startBtnText}>{hasActivePlan ? 'View Plan' : 'Start'}</Text>
               <Feather name="arrow-right" size={15} color={foodColors.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -125,39 +149,16 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 26 },
 
-  banner: {
-    backgroundColor: '#161311',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
-  bannerTitle: {
-    fontSize: 34,
-    lineHeight: 36,
-    fontFamily: fonts.poppins.bold,
-    color: '#fff',
-    marginBottom: 12,
-  },
+  banner: { backgroundColor: '#161311', borderRadius: 24, padding: 22, marginBottom: 24, overflow: 'hidden' },
+  bannerTitle: { fontSize: 34, lineHeight: 36, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 12 },
   bannerTitleAccent: { color: foodColors.primary, fontStyle: 'italic' },
   bannerSubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-    fontFamily: fonts.poppins.regular,
-    color: 'rgba(255,255,255,0.7)',
-    maxWidth: '78%',
-    marginBottom: 26,
+    fontSize: 13, lineHeight: 19, fontFamily: fonts.poppins.regular,
+    color: 'rgba(255,255,255,0.7)', maxWidth: '78%', marginBottom: 26,
   },
   dishBadge: {
-    position: 'absolute',
-    top: 18,
-    right: 18,
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: 'rgba(226,58,46,0.18)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute', top: 18, right: 18, width: 84, height: 84, borderRadius: 42,
+    backgroundColor: 'rgba(226,58,46,0.18)', justifyContent: 'center', alignItems: 'center',
   },
   dishEmoji: { fontSize: 34 },
 
@@ -168,33 +169,14 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
   statDivider: { width: 1, height: 26, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 10 },
 
-  sectionLabel: {
-    fontSize: 11,
-    fontFamily: fonts.poppins.bold,
-    color: foodColors.textMuted,
-    letterSpacing: 0.6,
-    marginBottom: 10,
-  },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
 
   planCard: {
-    backgroundColor: foodColors.surface,
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
+    backgroundColor: foodColors.surface, borderRadius: 20, padding: 18,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
   },
   planCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  giftBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#161311',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  giftBadge: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#161311', justifyContent: 'center', alignItems: 'center' },
   newPill: { backgroundColor: foodColors.primary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   newPillText: { fontSize: 10, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.4 },
 

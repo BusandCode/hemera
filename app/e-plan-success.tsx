@@ -1,60 +1,124 @@
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
-import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
-import { useProfile } from '../src/context/ProfileContext';
+import { supabase } from '../src/lib/supabase';
 
-const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
+const serif = Platform.select({
+  ios: 'Georgia',
+  android: 'serif',
+  default: 'Georgia',
+});
+
 const ACCENT_BLUE = '#1E3FEA';
-const WALLET_BALANCE = 25000;
-
-const PLAN_DATA = {
-  amount: 20000,
-  duration: '1 Week',
-  estimatedMeals: '4–6 Surprises',
-  deliveryWindow: 'Lunch + Dinner',
-  starts: 'Today, May 20',
-  exclusions: 'Pork, No Meat (Veg)',
-};
 
 function formatNaira(value: number) {
   return `₦${value.toLocaleString()}`;
 }
 
-function getInitials(fullName: string) {
-  const parts = fullName.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? '';
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
-  return (first + last).toUpperCase();
-}
+type PlanRow = {
+  locked_amount_kobo: number;
+  ends_at: string;
+  exclusions: string | null;
+  delivery_window: string | null;
+  created_at: string;
+};
 
 export default function EPlanSuccessScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile } = useProfile();
+  const { planId } = useLocalSearchParams<{ planId: string }>();
+  const [plan, setPlan] = useState<PlanRow | null>(null);
+
+  useEffect(() => {
+    if (!planId) return;
+
+    (async () => {
+      const { data } = await supabase
+        .from('eplan_plans')
+        .select(
+          'locked_amount_kobo, ends_at, exclusions, delivery_window, created_at'
+        )
+        .eq('id', planId)
+        .single();
+
+      setPlan(data);
+    })();
+  }, [planId]);
+
+  if (!plan) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top + 40,
+            alignItems: 'center',
+          },
+        ]}
+      >
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color={ACCENT_BLUE} />
+      </View>
+    );
+  }
+
+  const amount = Math.round(plan.locked_amount_kobo / 100);
+
+  const durationDays = Math.round(
+    (new Date(plan.ends_at).getTime() -
+      new Date(plan.created_at).getTime()) /
+      86400000
+  );
+
+  const durationLabel = `${durationDays} Day${
+    durationDays === 1 ? '' : 's'
+  }`;
+
+  const estimatedMeals =
+    durationDays <= 7 ? '4–6 Surprises' : '8–12 Surprises';
+
+  const startsLabel = `Today, ${new Date(
+    plan.created_at
+  ).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  })}`;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top + 12,
+        },
+      ]}
+    >
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <EPlanHeader
-          wallet={formatNaira(WALLET_BALANCE)}
-          initials={getInitials(profile.fullName)}
-          onPressWallet={() => router.push('/wallet' as any)}
-          onPressAvatar={() => router.push('/profile' as any)}
-        />
+        <EPlanHeader />
       </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 24 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroSection}>
@@ -63,61 +127,106 @@ export default function EPlanSuccessScreen() {
             <View style={[styles.confetti, styles.confetti2]} />
             <View style={[styles.confetti, styles.confetti3]} />
             <View style={[styles.confetti, styles.confetti4]} />
-            
+
             <View style={styles.successIconCircle}>
               <Feather name="check" size={40} color="#10B981" />
             </View>
           </View>
 
           <Text style={styles.heroTitle}>E-Plan is Live!</Text>
+
           <Text style={styles.heroSubtitle}>
-            Your {formatNaira(PLAN_DATA.amount)} has been locked and your E-Plan is now active. Get ready for delicious surprises!
+            Your {formatNaira(amount)} has been locked and your E-Plan is now
+            active. Get ready for delicious surprises!
           </Text>
         </View>
 
         <Text style={styles.sectionLabel}>WHAT HAPPENS NEXT</Text>
+
         <View style={styles.infoCard}>
           <InfoRow
             icon="calendar-check"
             title="Meals Incoming"
-            description="We'll surprise you with 4–6 meals within your selected windows."
+            description="We'll surprise you with meals within your selected windows."
           />
+
           <View style={styles.infoDivider} />
+
           <InfoRow
             icon="clock-outline"
             title="Track Everything"
             description="Follow your deliveries and check your plan status anytime."
           />
+
           <View style={styles.infoDivider} />
+
           <InfoRow
             icon="shield-check-outline"
             title="Flexible & Secure"
-            description="You can pause or cancel your plan anytime if needed."
+            description="You can cancel your plan anytime if needed."
           />
         </View>
 
-        <Text style={[styles.sectionLabel, styles.sectionSpacing]}>YOUR E-PLAN OVERVIEW</Text>
+        <Text style={[styles.sectionLabel, styles.sectionSpacing]}>
+          YOUR E-PLAN OVERVIEW
+        </Text>
+
         <View style={styles.summaryCard}>
           <SummaryRow icon="list" label="Plan" value="E-Plan" />
-          <SummaryRow icon="dollar-sign" label="Amount Locked" value={formatNaira(PLAN_DATA.amount)} isBold />
-          <SummaryRow icon="calendar" label="Duration" value={PLAN_DATA.duration} />
-          <SummaryRow icon="pie-chart" label="Estimated Meals" value={PLAN_DATA.estimatedMeals} />
-          <SummaryRow icon="clock" label="Delivery Window" value={PLAN_DATA.deliveryWindow} />
-          <SummaryRow icon="calendar" label="Starts" value={PLAN_DATA.starts} />
-          <SummaryRow icon="slash" label="Exclusions" value={PLAN_DATA.exclusions} isLast />
+
+          <SummaryRow
+            icon="dollar-sign"
+            label="Amount Locked"
+            value={formatNaira(amount)}
+            isBold
+          />
+
+          <SummaryRow
+            icon="calendar"
+            label="Duration"
+            value={durationLabel}
+          />
+
+          <SummaryRow
+            icon="pie-chart"
+            label="Estimated Meals"
+            value={estimatedMeals}
+          />
+
+          <SummaryRow
+            icon="clock"
+            label="Delivery Window"
+            value={plan.delivery_window ?? '—'}
+          />
+
+          <SummaryRow
+            icon="calendar"
+            label="Starts"
+            value={startsLabel}
+          />
+
+          <SummaryRow
+            icon="slash"
+            label="Exclusions"
+            value={plan.exclusions ?? 'None'}
+            isLast
+          />
         </View>
 
         <TouchableOpacity
           style={styles.primaryBtn}
           activeOpacity={0.85}
-          onPress={() => router.push('/my-plan' as any)}
+          onPress={() => router.replace('/my-plan' as any)}
         >
           <Text style={styles.primaryBtnText}>Go to My Plan</Text>
-          <Feather name="arrow-right" size={18} color="#fff" style={styles.btnIcon} />
+          <Feather
+            name="arrow-right"
+            size={18}
+            color="#fff"
+            style={styles.btnIcon}
+          />
         </TouchableOpacity>
       </ScrollView>
-
-      <BottomTabs />
     </View>
   );
 }
@@ -134,8 +243,13 @@ function InfoRow({
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoIconWrapper}>
-        <MaterialCommunityIcons name={icon} size={22} color={ACCENT_BLUE} />
+        <MaterialCommunityIcons
+          name={icon}
+          size={22}
+          color={ACCENT_BLUE}
+        />
       </View>
+
       <View style={styles.infoTextContainer}>
         <Text style={styles.infoTitle}>{title}</Text>
         <Text style={styles.infoDescription}>{description}</Text>
@@ -158,24 +272,52 @@ function SummaryRow({
   isLast?: boolean;
 }) {
   return (
-    <View style={[styles.summaryRow, !isLast && styles.summaryRowBorder]}>
+    <View
+      style={[
+        styles.summaryRow,
+        !isLast && styles.summaryRowBorder,
+      ]}
+    >
       <View style={styles.summaryRowLeft}>
         <View style={styles.summaryIconWrapper}>
-          <Feather name={icon} size={14} color={ACCENT_BLUE} />
+          <Feather
+            name={icon}
+            size={14}
+            color={ACCENT_BLUE}
+          />
         </View>
+
         <Text style={styles.summaryLabel}>{label}</Text>
       </View>
-      <Text style={[styles.summaryValue, isBold && styles.summaryValueBold]}>{value}</Text>
+
+      <Text
+        style={[
+          styles.summaryValue,
+          isBold && styles.summaryValueBold,
+        ]}
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: foodColors.background },
-  header: { paddingHorizontal: 26, paddingBottom: 8 },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 26 },
-
+  container: {
+    flex: 1,
+    backgroundColor: foodColors.background,
+  },
+  header: {
+    paddingHorizontal: 26,
+    paddingBottom: 8,
+  },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 26,
+  },
   heroSection: {
     alignItems: 'center',
     marginTop: 10,
@@ -203,11 +345,32 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  confetti1: { backgroundColor: '#1E3FEA', top: 10, right: 25, transform: [{ rotate: '45deg' }] },
-  confetti2: { backgroundColor: '#F59E0B', bottom: 15, left: 20, width: 8, height: 8, borderRadius: 4 },
-  confetti3: { backgroundColor: '#10B981', top: 25, left: 15, width: 4, height: 4 },
-  confetti4: { backgroundColor: '#EC4899', bottom: 30, right: 10 },
-
+  confetti1: {
+    backgroundColor: '#1E3FEA',
+    top: 10,
+    right: 25,
+    transform: [{ rotate: '45deg' }],
+  },
+  confetti2: {
+    backgroundColor: '#F59E0B',
+    bottom: 15,
+    left: 20,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  confetti3: {
+    backgroundColor: '#10B981',
+    top: 25,
+    left: 15,
+    width: 4,
+    height: 4,
+  },
+  confetti4: {
+    backgroundColor: '#EC4899',
+    bottom: 30,
+    right: 10,
+  },
   heroTitle: {
     fontSize: 28,
     fontFamily: serif,
@@ -223,10 +386,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: 10,
   },
-
-  sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 12 },
-  sectionSpacing: { marginTop: 26 },
-
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: 12,
+  },
+  sectionSpacing: {
+    marginTop: 26,
+  },
   infoCard: {
     backgroundColor: foodColors.surface,
     borderRadius: 16,
@@ -251,10 +420,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
-  infoTextContainer: { flex: 1, justifyContent: 'center' },
-  infoTitle: { fontSize: 14, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 4 },
-  infoDescription: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 18 },
-
+  infoTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    marginBottom: 4,
+  },
+  infoDescription: {
+    fontSize: 12.5,
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    lineHeight: 18,
+  },
   summaryCard: {
     backgroundColor: foodColors.surface,
     borderRadius: 16,
@@ -267,12 +448,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 14,
+    gap: 10,
   },
   summaryRowBorder: {
     borderBottomWidth: 1,
     borderBottomColor: foodColors.border,
   },
-  summaryRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  summaryRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   summaryIconWrapper: {
     width: 24,
     height: 24,
@@ -281,10 +467,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  summaryLabel: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
-  summaryValue: { fontSize: 13, fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
-  summaryValueBold: { fontFamily: fonts.poppins.bold, color: ACCENT_BLUE },
-
+  summaryLabel: {
+    fontSize: 13,
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+  },
+  summaryValue: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 13,
+    fontFamily: fonts.poppins.medium,
+    color: foodColors.textPrimary,
+  },
+  summaryValueBold: {
+    fontFamily: fonts.poppins.bold,
+    color: ACCENT_BLUE,
+  },
   primaryBtn: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -294,6 +492,12 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     marginTop: 30,
   },
-  btnIcon: { marginLeft: 8 },
-  primaryBtnText: { fontSize: 15, fontFamily: fonts.poppins.bold, color: '#fff' },
+  btnIcon: {
+    marginLeft: 8,
+  },
+  primaryBtnText: {
+    fontSize: 15,
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
 });

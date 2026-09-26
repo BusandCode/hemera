@@ -247,9 +247,10 @@ export default function PayPerPickupScreen() {
             <Text style={styles.totalValue}>₦{grandTotal.toLocaleString('en-US')}</Text>
           </View>
         )}
-        <TouchableOpacity
+       <TouchableOpacity
           style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
           disabled={!canContinue}
+          onPress={() => router.push('/schedule-pickup')} // <--- ADD THIS LINE
           activeOpacity={0.85}
         >
           <Text style={[styles.continueButtonText, !canContinue && styles.continueButtonTextDisabled]}>

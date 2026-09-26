@@ -28,6 +28,7 @@ type MenuItem = {
 };
 
 const accountItems: MenuItem[] = [
+  { id: 'wallet', icon: 'credit-card', title: 'Wallet', route: '/wallet' },
   { id: 'personal', icon: 'user', title: 'Personal Information', route: '/personal-information' },
   { id: 'addresses', icon: 'map-pin', title: 'Saved Addresses', route: '/saved-addresses' },
   { id: 'payment', icon: 'credit-card', title: 'Payment Methods', route: '/payment-methods' },

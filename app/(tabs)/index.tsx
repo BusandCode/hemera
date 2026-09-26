@@ -1,4 +1,3 @@
-// app/(tabs)/index.tsx
 import { useState, useRef } from 'react';
 import {
   View,
@@ -18,10 +17,11 @@ import { useRouter } from 'expo-router';
 import { foodColors } from '../../src/constants/foodColors';
 import { fonts } from '../../src/constants/typography';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
+import { useProfile } from '../../src/context/ProfileContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40;
-const PROMO_GAP = 2;
+const PROMO_GAP = 5;
 const PROMO_VISIBLE = 2.95;
 const PROMO_ROW_WIDTH = SCREEN_WIDTH - 20;
 const PROMO_CARD_WIDTH = (PROMO_ROW_WIDTH - PROMO_GAP * (Math.ceil(PROMO_VISIBLE) - 1)) / PROMO_VISIBLE;
@@ -72,8 +72,14 @@ const promoCards: PromoCard[] = [
   { id: 'quality-offer', label: 'Quality Promise', title: 'Verified Partners', subtitle: 'Trusted service', bg: '#E3F6E9', iconBg: foodColors.success, image: 'https://images.unsplash.com/photo-1584515933487-779824d29309?w=200' },
 ];
 
+function firstName(fullName: string) {
+  if (!fullName.trim()) return '';
+  return fullName.trim().split(' ')[0];
+}
+
 export default function HomeScreen() {
   const router = useRouter();
+  const { profile } = useProfile();
   const [activeDot, setActiveDot] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -81,6 +87,8 @@ export default function HomeScreen() {
     const index = Math.round(e.nativeEvent.contentOffset.x / (PROMO_CARD_WIDTH + PROMO_GAP));
     setActiveDot(index);
   };
+
+  const greetingName = firstName(profile.fullName) || 'there';
 
   return (
     <View style={styles.container}>
@@ -94,7 +102,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.greetingBlock}>
-            <Text style={styles.greeting}>Welcome, Suleiman 👋</Text>
+            <Text style={styles.greeting}>Welcome, {greetingName} 👋</Text>
             <Text style={styles.subGreeting}>What would you like to do today?</Text>
           </View>
           <View style={styles.headerActions}>
@@ -200,7 +208,6 @@ export default function HomeScreen() {
         {/* Recent Activity */}
         <Text style={styles.sectionTitle}>Recent Activity</Text>
 
-        {/* <TouchableOpacity style={styles.activityCard} activeOpacity={0.8}> */}
         <TouchableOpacity
           style={styles.activityCard}
           activeOpacity={0.8}
@@ -234,7 +241,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: foodColors.background,marginTop:16 },
+  container: { flex: 1, backgroundColor: foodColors.background, marginTop: 16 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 46, paddingBottom: 20 },
 
@@ -307,6 +314,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 14,
     padding: 8,
+    // gap: 40,
     justifyContent: 'flex-start',
     overflow: 'hidden',
   },
@@ -333,9 +341,9 @@ const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 14,
-    marginTop:-10
+    marginTop: -10
   },
-  sectionTitle: { fontSize: 16, fontFamily: fonts.poppins.bold,marginBottom:5,color: foodColors.textPrimary },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.poppins.bold, marginBottom: 5, color: foodColors.textPrimary },
   seeAll: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
 
   servicesGrid: {
@@ -365,7 +373,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   serviceTitle: { fontSize: 8, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary, marginBottom: 2, textAlign: 'center' },
-  serviceSubtitle: { fontSize: 9, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 11, textAlign: 'center',paddingRight:5,paddingLeft:5 },
+  serviceSubtitle: { fontSize: 9, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 11, textAlign: 'center', paddingRight: 5, paddingLeft: 5 },
 
   activityCard: {
     flexDirection: 'row', alignItems: 'center',
