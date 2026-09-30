@@ -1,10 +1,10 @@
 export const washColors = {
-  background: '#FCF8F5',
+  background: '#F5F3EE',
   surface: '#FFFFFF',
   navyStart: '#00133F',
   navyEnd: '#0B2472',
   navySolid: '#0B2472',
-  red: '#E0141C',
+  red: '#FF3335',
   redDark: '#C10007',
   gold: '#FCEFD8',
   goldBorder: '#E2D3A0',

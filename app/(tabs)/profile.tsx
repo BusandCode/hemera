@@ -29,6 +29,7 @@ type MenuItem = {
 
 const accountItems: MenuItem[] = [
   { id: 'wallet', icon: 'credit-card', title: 'Wallet', route: '/wallet' },
+  { id: 'transactions', icon: 'file-text', title: 'Transactions', route: '/transactions' },
   { id: 'personal', icon: 'user', title: 'Personal Information', route: '/personal-information' },
   { id: 'addresses', icon: 'map-pin', title: 'Saved Addresses', route: '/saved-addresses' },
   { id: 'payment', icon: 'credit-card', title: 'Payment Methods', route: '/payment-methods' },
@@ -50,6 +51,7 @@ const preferenceItems: MenuItem[] = [
   { id: 'notifications', icon: 'bell', title: 'Notifications', route: '/notification-settings' },
   { id: 'language', icon: 'globe', title: 'Language & Location', route: '/language-location' },
   { id: 'delivery', icon: 'truck', title: 'Delivery Preferences', comingSoon: true },
+  { id: 'terms', icon: 'file-text', title: 'Terms of Service', route: '/terms-of-service' },
 ];
 
 const supportItems: MenuItem[] = [

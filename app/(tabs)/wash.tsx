@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -8,9 +8,48 @@ import { washColors } from '../../src/constants/washColors';
 import { fonts } from '../../src/constants/typography';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 
+type PlanStatus = 'none' | 'active' | 'expired';
+
+const planContent: Record<
+  PlanStatus,
+  {
+    badge: string;
+    icon: keyof typeof Feather.glyphMap;
+    description: string;
+    button: string;
+    route: string;
+  }
+> = {
+  none: {
+    badge: 'Get Started',
+    icon: 'zap',
+    description: 'Choose a laundry plan to enjoy\nconvenient pickups and savings.',
+    button: 'Choose a Plan',
+    route: '/choose-plan',
+  },
+  active: {
+    badge: 'Active',
+    icon: 'check-circle',
+    description: 'Renews on August 6, 2026 —\nenjoy seamless pickups and washes',
+    button: 'Manage Plan',
+    route: '/manage-plan',
+  },
+  expired: {
+    badge: 'Expired',
+    icon: 'clock',
+    description: 'Expired on July 6, 2026 —\nrenew to keep using your plan',
+    button: 'Renew Plan',
+    route: '/renew-plan',
+  },
+};
+
 export default function WashScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'order' | 'schedule'>('order');
+  const planStatus: PlanStatus = 'none';
+  const planName = 'Standard Plan';
+  const plan = planContent[planStatus];
+  const planTitle = planStatus === 'none' ? 'No Active Plan' : planName;
 
   return (
     <View style={styles.container}>
@@ -21,7 +60,6 @@ export default function WashScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Let help you with{'\n'}the washing today.</Text>
 
@@ -31,7 +69,6 @@ export default function WashScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Standard Plan Card */}
         <LinearGradient
           colors={[washColors.navyStart, washColors.navyEnd]}
           start={{ x: 0, y: 0 }}
@@ -39,28 +76,21 @@ export default function WashScreen() {
           style={styles.planCard}
         >
           <View style={styles.planTopRow}>
-            <Text style={styles.planTitle}>Standard Plan</Text>
-            <TouchableOpacity style={styles.transactionsButton}>
-              <Feather name="file-text" size={13} color="#fff" />
-              <Text style={styles.transactionsText}>Transactions</Text>
-            </TouchableOpacity>
+            <Text style={styles.planTitle}>{planTitle}</Text>
           </View>
 
           <View style={styles.expiredBadge}>
-            <Feather name="clock" size={12} color="#fff" />
-            <Text style={styles.expiredText}>Expired</Text>
+            <Feather name={plan.icon} size={12} color="#fff" />
+            <Text style={styles.expiredText}>{plan.badge}</Text>
           </View>
 
-          <Text style={styles.planDescription}>
-            Expired on July 6, 2026 — {'\n'}renew to keep using your plan
-          </Text>
+          <Text style={styles.planDescription}>{plan.description}</Text>
 
-          <TouchableOpacity style={styles.renewButton} onPress={() => router.push('/renew-plan' as any)}>
-            <Text style={styles.renewButtonText}>Renew Plan</Text>
+          <TouchableOpacity style={styles.renewButton} onPress={() => router.push(plan.route as any)}>
+            <Text style={styles.renewButtonText}>{plan.button}</Text>
           </TouchableOpacity>
         </LinearGradient>
 
-        {/* Action Buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.actionButton, styles.requestPickupButton]}
@@ -76,7 +106,6 @@ export default function WashScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Order / Schedule quick nav */}
         <View style={styles.quickNavRow}>
           <TouchableOpacity style={styles.quickNavItem} onPress={() => setActiveTab('order')}>
             <View style={styles.quickNavCircle}>
@@ -95,7 +124,6 @@ export default function WashScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Active Order */}
         <View style={styles.activeOrderCard}>
           <View style={styles.activeOrderHeader}>
             <Text style={styles.activeOrderTitle}>Active Order</Text>
@@ -151,7 +179,6 @@ export default function WashScreen() {
           </View>
         </View>
 
-        {/* Recent Orders */}
         <View style={styles.recentOrdersSection}>
           <Text style={styles.recentOrdersTitle}>Recent Orders</Text>
 
@@ -238,22 +265,6 @@ const styles = StyleSheet.create({
   planTitle: {
     fontSize: 20,
     fontFamily: fonts.poppins.bold,
-    color: '#fff',
-  },
-  transactionsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: washColors.overlay,
-    borderWidth: 1,
-    borderColor: washColors.overlayBorder,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 18,
-  },
-  transactionsText: {
-    fontSize: 10,
-    fontFamily: fonts.poppins.semiBold,
     color: '#fff',
   },
   expiredBadge: {
