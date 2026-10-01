@@ -1,5 +1,3 @@
-// src/constants/typography.ts
-// Poppins is used throughout the app for all text roles.
 export const fonts = {
   poppins: {
     regular: 'Poppins_400Regular',
@@ -8,9 +6,11 @@ export const fonts = {
     bold: 'Poppins_700Bold',
     extraBold: 'Poppins_800ExtraBold',
   },
+  serif: {
+    medium: 'PlayfairDisplay_500Medium',
+  },
 };
 
-// Convenience aliases for common text roles — all Poppins now.
 export const type = {
   h1: { fontFamily: fonts.poppins.extraBold },
   h2: { fontFamily: fonts.poppins.bold },

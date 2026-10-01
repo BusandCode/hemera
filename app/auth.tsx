@@ -1,467 +1,577 @@
-// app/auth.tsx
-import { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  import { useState } from 'react';
+  import {
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+  } from 'react-native';
+  import { Feather } from '@expo/vector-icons';
+  import { StatusBar } from 'expo-status-bar';
+  import { useRouter } from 'expo-router';
+  import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { foodColors } from '../src/constants/foodColors';
-import { fonts } from '../src/constants/typography';
-import { useAuth } from '../src/context/AuthContext';
+  import { foodColors } from '../src/constants/foodColors';
+  import { fonts } from '../src/constants/typography';
+  import { termsOfUse, privacyPolicy } from '../src/constants/legalContent';
+  import { useAuth } from '../src/context/AuthContext';
+  import { LegalModal } from '../src/components/auth/LegalModal';
 
-type Mode = 'signin' | 'signup';
-type Gender = 'Male' | 'Female' | '';
+  type Mode = 'signin' | 'signup';
+  type Gender = 'Male' | 'Female' | '';
 
-export default function AuthScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { signIn, signUp } = useAuth();
+  export default function AuthScreen() {
+    const router = useRouter();
+    const insets = useSafeAreaInsets();
+    const { signIn, signUp } = useAuth();
 
-  const [mode, setMode] = useState<Mode>('signin');
-  const [name, setName] = useState('');
-  const [gender, setGender] = useState<Gender>('');
-  const [phone, setPhone] = useState('');
-  const [dob, setDob] = useState('');
-  const [referredBy, setReferredBy] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [secure, setSecure] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+    const [mode, setMode] = useState<Mode>('signin');
+    const [name, setName] = useState('');
+    const [gender, setGender] = useState<Gender>('');
+    const [phone, setPhone] = useState('');
+    const [referredBy, setReferredBy] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [secure, setSecure] = useState(true);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const [agreed, setAgreed] = useState(false);
+    const [termsRead, setTermsRead] = useState(false);
+    const [termsOpen, setTermsOpen] = useState(false);
+    const [privacyOpen, setPrivacyOpen] = useState(false);
 
-  const isSignUp = mode === 'signup';
+    const isSignUp = mode === 'signup';
 
-  const canSubmit =
-    email.trim().length > 3 &&
-    password.trim().length >= 4 &&
-    (!isSignUp ||
-      (name.trim().length > 1 &&
-        gender.length > 0 &&
-        phone.trim().length > 6 &&
-        dob.trim().length > 3));
+    const canSubmit =
+      email.trim().length > 3 &&
+      password.trim().length >= 4 &&
+      (!isSignUp ||
+        (name.trim().length > 1 &&
+          gender.length > 0 &&
+          phone.trim().length > 6 &&
+          agreed));
 
-  const handleSubmit = async () => {
-    if (!canSubmit || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      if (isSignUp) {
-        await signUp({
-          fullName: name.trim(),
-          gender,
-          phone: phone.trim(),
-          dob: dob.trim(),
-          referredBy: referredBy.trim(),
-          email: email.trim(),
-          password,
-        });
-      } else {
-        await signIn(email.trim(), password);
+    const handleSubmit = async () => {
+      if (!canSubmit || busy) return;
+      setBusy(true);
+      setError('');
+      try {
+        if (isSignUp) {
+          await signUp({
+            fullName: name.trim(),
+            gender,
+            phone: phone.trim(),
+            referredBy: referredBy.trim(),
+            email: email.trim(),
+            password,
+          });
+        } else {
+          await signIn(email.trim(), password);
+        }
+        router.replace('/(tabs)' as any);
+      } catch (e: any) {
+        setError(e?.message ?? 'Something went wrong. Please try again.');
+      } finally {
+        setBusy(false);
       }
-      router.replace('/(tabs)' as any);
-    } catch (e: any) {
-      setError(e?.message ?? 'Something went wrong. Please try again.');
-    } finally {
-      setBusy(false);
-    }
-  };
+    };
 
-  const switchMode = (next: Mode) => {
-    setMode(next);
-    setError('');
-  };
+    const switchMode = (next: Mode) => {
+      setMode(next);
+      setError('');
+    };
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <StatusBar style="dark" />
+    const handleCheckboxPress = () => {
+      if (!termsRead) {
+        setTermsOpen(true);
+        return;
+      }
+      setAgreed((a) => !a);
+    };
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+    const handleTermsAgree = () => {
+      setTermsRead(true);
+      setAgreed(true);
+      setTermsOpen(false);
+    };
+
+    return (
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.brandRow}>
-          <View style={styles.logoDot} />
-          <Text style={styles.brand}>HEMERA</Text>
-        </View>
+        <StatusBar style="dark" />
 
-        <Text style={styles.title}>
-          {isSignUp ? 'Create your account' : 'Welcome back'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {isSignUp
-            ? 'Sign up to order food and schedule laundry pickups.'
-            : 'Sign in to continue where you left off.'}
-        </Text>
-
-        <View style={styles.tabsRow}>
-          <TouchableOpacity
-            style={[styles.tabBtn, mode === 'signin' && styles.tabBtnActive]}
-            onPress={() => switchMode('signin')}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}
-            >
-              Sign In
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
-            onPress={() => switchMode('signup')}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}
-            >
-              Create Account
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Full Name</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="user" size={16} color={foodColors.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. Suleiman Abubakar"
-                placeholderTextColor={foodColors.textMuted}
-                autoCapitalize="words"
-              />
-            </View>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.brandRow}>
+            <View style={styles.logoDot} />
+            <Text style={styles.brand}>HEMERA</Text>
           </View>
-        )}
 
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Gender</Text>
-            <View style={styles.genderRow}>
-              {(['Male', 'Female'] as Gender[]).map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.genderPill, gender === g && styles.genderPillActive]}
-                  onPress={() => setGender(g)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.genderPillText, gender === g && styles.genderPillTextActive]}>
-                    {g}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
+          <Text style={styles.title}>
+            {isSignUp ? 'Create your account' : 'Welcome back'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isSignUp
+              ? 'Sign up to order food and schedule laundry pickups.'
+              : 'Sign in to continue where you left off.'}
+          </Text>
 
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Phone Number</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="phone" size={16} color={foodColors.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="+234 803 123 4567"
-                placeholderTextColor={foodColors.textMuted}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-        )}
-
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Date of Birth</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="calendar" size={16} color={foodColors.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={dob}
-                onChangeText={setDob}
-                placeholder="e.g. 14 March 1998"
-                placeholderTextColor={foodColors.textMuted}
-              />
-            </View>
-          </View>
-        )}
-
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Referral Code (optional)</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="gift" size={16} color={foodColors.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={referredBy}
-                onChangeText={setReferredBy}
-                placeholder="e.g. ABCD1234"
-                placeholderTextColor={foodColors.textMuted}
-                autoCapitalize="characters"
-              />
-            </View>
-          </View>
-        )}
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Email Address</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="mail" size={16} color={foodColors.textMuted} />
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={foodColors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="lock" size={16} color={foodColors.textMuted} />
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="At least 4 characters"
-              placeholderTextColor={foodColors.textMuted}
-              secureTextEntry={secure}
-              autoCapitalize="none"
-            />
+          <View style={styles.tabsRow}>
             <TouchableOpacity
-              onPress={() => setSecure((s) => !s)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[styles.tabBtn, mode === 'signin' && styles.tabBtnActive]}
+              onPress={() => switchMode('signin')}
+              activeOpacity={0.85}
             >
-              <Feather
-                name={secure ? 'eye-off' : 'eye'}
-                size={16}
-                color={foodColors.textMuted}
-              />
+              <Text
+                style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}
+              >
+                Sign In
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
+              onPress={() => switchMode('signup')}
+              activeOpacity={0.85}
+            >
+              <Text
+                style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}
+              >
+                Create Account
+              </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={14} color="#FF3B30" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        <TouchableOpacity
-          style={[styles.submit, (!canSubmit || busy) && styles.submitDisabled]}
-          onPress={handleSubmit}
-          disabled={!canSubmit || busy}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.submitText}>
-            {busy
-              ? 'Please wait...'
-              : isSignUp
-              ? 'Create Account'
-              : 'Sign In'}
-          </Text>
-          {!busy && (
-            <Feather
-              name={isSignUp ? 'user-plus' : 'arrow-right'}
-              size={16}
-              color="#fff"
-            />
+          {isSignUp && (
+            <View style={styles.field}>
+              <Text style={styles.label}>Full Name</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="user" size={16} color={foodColors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. Suleiman Abubakar"
+                  placeholderTextColor={foodColors.textMuted}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
           )}
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.switchLink}
-          onPress={() => switchMode(isSignUp ? 'signin' : 'signup')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.switchText}>
-            {isSignUp
-              ? 'Already have an account? Sign In'
-              : "Don't have an account? Create one"}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
+          {isSignUp && (
+            <View style={styles.field}>
+              <Text style={styles.label}>Gender</Text>
+              <View style={styles.genderRow}>
+                {(['Male', 'Female'] as Gender[]).map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.genderPill, gender === g && styles.genderPillActive]}
+                    onPress={() => setGender(g)}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.genderPillText,
+                        gender === g && styles.genderPillTextActive,
+                      ]}
+                    >
+                      {g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: foodColors.background },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 24 },
+          {isSignUp && (
+            <View style={styles.field}>
+              <Text style={styles.label}>Phone Number</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="phone" size={16} color={foodColors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="+234 803 123 4567"
+                  placeholderTextColor={foodColors.textMuted}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+          )}
 
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 28,
-  },
-  logoDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: foodColors.primary,
-  },
-  brand: {
-    fontSize: 11,
-    fontFamily: fonts.poppins.bold,
-    letterSpacing: 2,
-    color: foodColors.primary,
-  },
+          {isSignUp && (
+            <View style={styles.field}>
+              <Text style={styles.label}>Referral Code (optional)</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="gift" size={16} color={foodColors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  value={referredBy}
+                  onChangeText={setReferredBy}
+                  placeholder="e.g. ABCD1234"
+                  placeholderTextColor={foodColors.textMuted}
+                  autoCapitalize="characters"
+                />
+              </View>
+            </View>
+          )}
 
-  title: {
-    fontSize: 28,
-    fontFamily: fonts.poppins.bold,
-    color: foodColors.textPrimary,
-    lineHeight: 34,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 13.5,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textSecondary,
-    lineHeight: 19,
-    marginBottom: 26,
-  },
+          <View style={styles.field}>
+            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.inputWrap}>
+              <Feather name="mail" size={16} color={foodColors.textMuted} />
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                placeholderTextColor={foodColors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
 
-  tabsRow: {
-    flexDirection: 'row',
-    backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 22,
-  },
-  tabBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 11,
-    borderRadius: 10,
-  },
-  tabBtnActive: { backgroundColor: foodColors.primaryDark },
-  tabText: {
-    fontSize: 13,
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.textSecondary,
-  },
-  tabTextActive: { color: '#fff' },
+          <View style={styles.field}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Password</Text>
+            </View>
+            <View style={styles.inputWrap}>
+              <Feather name="lock" size={16} color={foodColors.textMuted} />
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="At least 4 characters"
+                placeholderTextColor={foodColors.textMuted}
+                secureTextEntry={secure}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setSecure((s) => !s)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather
+                  name={secure ? 'eye-off' : 'eye'}
+                  size={16}
+                  color={foodColors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+            {!isSignUp && (
+                <TouchableOpacity
+                  onPress={() => router.push('/forgot-password' as any)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.forgotLink}>Forgot password?</Text>
+                </TouchableOpacity>
+              )}
+          </View>
 
-  field: { marginBottom: 16 },
-  label: {
-    fontSize: 12,
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.textSecondary,
-    marginBottom: 6,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: foodColors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 6,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textPrimary,
-    padding: 0,
-    minWidth: 0,
-  },
+          {isSignUp && (
+            <View style={styles.agreeBlock}>
+              <View style={styles.agreeRow}>
+                <TouchableOpacity
+                  style={[styles.checkbox, agreed && styles.checkboxChecked]}
+                  onPress={handleCheckboxPress}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {agreed && <Feather name="check" size={13} color="#fff" />}
+                </TouchableOpacity>
+                <Text style={styles.agreeText}>
+                  I agree to Hemera's{' '}
+                  <Text style={styles.agreeLink} onPress={() => setTermsOpen(true)}>
+                    Terms of Use
+                  </Text>{' '}
+                  and{' '}
+                  <Text style={styles.agreeLink} onPress={() => setPrivacyOpen(true)}>
+                    Privacy Policy
+                  </Text>
+                </Text>
+              </View>
+              {!termsRead && (
+                <Text style={styles.agreeHint}>
+                  Read the Terms of Use to the end before agreeing.
+                </Text>
+              )}
+            </View>
+          )}
 
-  genderRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  genderPill: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 13,
-    borderRadius: 12,
-    backgroundColor: foodColors.surface,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  genderPillActive: {
-    backgroundColor: foodColors.primaryDark,
-    borderColor: foodColors.primaryDark,
-  },
-  genderPillText: {
-    fontSize: 13.5,
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.textSecondary,
-  },
-  genderPillTextActive: { color: '#fff' },
+          {error ? (
+            <View style={styles.errorBox}>
+              <Feather name="alert-circle" size={14} color="#FF3B30" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,59,48,0.08)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  errorText: {
-    fontSize: 12,
-    fontFamily: fonts.poppins.medium,
-    color: '#FF3B30',
-    flexShrink: 1,
-  },
+          <TouchableOpacity
+            style={[styles.submit, (!canSubmit || busy) && styles.submitDisabled]}
+            onPress={handleSubmit}
+            disabled={!canSubmit || busy}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.submitText}>
+              {busy ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+            </Text>
+            {!busy && (
+              <Feather
+                name={isSignUp ? 'user-plus' : 'arrow-right'}
+                size={16}
+                color="#fff"
+              />
+            )}
+          </TouchableOpacity>
 
-  submit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: foodColors.primary,
-    paddingVertical: 16,
-    borderRadius: 26,
-    marginTop: 4,
-  },
-  submitDisabled: { opacity: 0.5 },
-  submitText: {
-    fontSize: 14,
-    fontFamily: fonts.poppins.bold,
-    color: '#fff',
-  },
+          <TouchableOpacity
+            style={styles.switchLink}
+            onPress={() => switchMode(isSignUp ? 'signin' : 'signup')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.switchText}>
+              {isSignUp
+                ? 'Already have an account? Sign In'
+                : "Don't have an account? Create one"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
 
-  switchLink: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 4,
-  },
-  switchText: {
-    fontSize: 12.5,
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.primary,
-  },
-});
+        <LegalModal
+          visible={termsOpen}
+          doc={termsOfUse}
+          requireRead
+          alreadyRead={termsRead}
+          onClose={() => setTermsOpen(false)}
+          onAgree={handleTermsAgree}
+        />
+
+        <LegalModal
+          visible={privacyOpen}
+          doc={privacyPolicy}
+          onClose={() => setPrivacyOpen(false)}
+        />
+      </KeyboardAvoidingView>
+    );
+  }
+
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: foodColors.background },
+    scroll: { flex: 1 },
+    content: { paddingHorizontal: 24 },
+
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 28,
+    },
+    logoDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: foodColors.primary,
+    },
+    brand: {
+      fontSize: 11,
+      fontFamily: fonts.poppins.bold,
+      letterSpacing: 2,
+      color: foodColors.primary,
+    },
+
+    title: {
+      fontSize: 28,
+      fontFamily: fonts.poppins.bold,
+      color: foodColors.textPrimary,
+      lineHeight: 34,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 13.5,
+      fontFamily: fonts.poppins.regular,
+      color: foodColors.textSecondary,
+      lineHeight: 19,
+      marginBottom: 26,
+    },
+
+    tabsRow: {
+      flexDirection: 'row',
+      backgroundColor: foodColors.surface,
+      borderRadius: 14,
+      padding: 4,
+      marginBottom: 22,
+    },
+    tabBtn: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 11,
+      borderRadius: 10,
+    },
+    tabBtnActive: { backgroundColor: foodColors.primaryDark },
+    tabText: {
+      fontSize: 13,
+      fontFamily: fonts.poppins.semiBold,
+      color: foodColors.textSecondary,
+    },
+    tabTextActive: { color: '#fff' },
+
+    field: { marginBottom: 16 },
+    label: {
+      fontSize: 12,
+      fontFamily: fonts.poppins.semiBold,
+      color: foodColors.textSecondary,
+      marginBottom: 6,
+    },
+    labelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 6,
+    },
+    forgotLink: {
+      fontSize: 12,
+      marginTop: 4,
+      fontFamily: fonts.poppins.semiBold,
+      color: foodColors.primary,
+    },
+    inputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: foodColors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: Platform.OS === 'ios' ? 13 : 6,
+    },
+    input: {
+      flex: 1,
+      fontSize: 14,
+      fontFamily: fonts.poppins.regular,
+      color: foodColors.textPrimary,
+      padding: 0,
+      minWidth: 0,
+    },
+
+    genderRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    genderPill: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 13,
+      borderRadius: 12,
+      backgroundColor: foodColors.surface,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    genderPillActive: {
+      backgroundColor: foodColors.primaryDark,
+      borderColor: foodColors.primaryDark,
+    },
+    genderPillText: {
+      fontSize: 13.5,
+      fontFamily: fonts.poppins.semiBold,
+      color: foodColors.textSecondary,
+    },
+    genderPillTextActive: { color: '#fff' },
+
+    agreeBlock: { marginBottom: 16 },
+    agreeRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 6,
+      borderWidth: 1.5,
+      borderColor: foodColors.textMuted,
+      backgroundColor: foodColors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 1,
+    },
+    checkboxChecked: {
+      backgroundColor: foodColors.primary,
+      borderColor: foodColors.primary,
+    },
+    agreeText: {
+      flex: 1,
+      fontSize: 12.5,
+      lineHeight: 19,
+      fontFamily: fonts.poppins.regular,
+      color: foodColors.textSecondary,
+    },
+    agreeLink: {
+      fontFamily: fonts.poppins.semiBold,
+      color: foodColors.primary,
+      textDecorationLine: 'underline',
+    },
+    agreeHint: {
+      fontSize: 11.5,
+      fontFamily: fonts.poppins.regular,
+      color: foodColors.textMuted,
+      marginTop: 6,
+      marginLeft: 30,
+    },
+
+    errorBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: 'rgba(255,59,48,0.08)',
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      marginBottom: 12,
+    },
+    errorText: {
+      fontSize: 12,
+      fontFamily: fonts.poppins.medium,
+      color: '#FF3B30',
+      flexShrink: 1,
+    },
+
+    submit: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: foodColors.primary,
+      paddingVertical: 16,
+      borderRadius: 26,
+      marginTop: 4,
+    },
+    submitDisabled: { opacity: 0.5 },
+    submitText: {
+      fontSize: 14,
+      fontFamily: fonts.poppins.bold,
+      color: '#fff',
+    },
+
+    switchLink: {
+      alignItems: 'center',
+      paddingVertical: 16,
+      marginTop: 4,
+    },
+    switchText: {
+      fontSize: 12.5,
+      fontFamily: fonts.poppins.semiBold,
+      color: foodColors.primary,
+    },
+  });

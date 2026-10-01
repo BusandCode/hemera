@@ -37,18 +37,28 @@ export default function EPlanScreen() {
   const { profile } = useProfile();
   const { session } = useAuth();
   const { balanceNaira } = useWalletBalance();
-  const [hasActivePlan, setHasActivePlan] = useState(false);
+  const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
+
+  const planReady = hasActivePlan !== null;
+  const active = hasActivePlan === true;
 
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        if (!session?.user.id) return;
-        const { data } = await supabase
+        if (!session?.user.id) {
+          setHasActivePlan((prev) => prev ?? false);
+          return;
+        }
+        const { data, error } = await supabase
           .from('eplan_plans')
           .select('id')
           .eq('user_id', session.user.id)
           .eq('status', 'active')
           .maybeSingle();
+        if (error) {
+          setHasActivePlan((prev) => prev ?? false);
+          return;
+        }
         setHasActivePlan(!!data);
       })();
     }, [session?.user.id])
@@ -105,7 +115,7 @@ export default function EPlanScreen() {
             <View style={styles.giftBadge}>
               <Feather name="gift" size={20} color="#fff" />
             </View>
-            {!hasActivePlan && (
+            {hasActivePlan === false && (
               <View style={styles.newPill}>
                 <Text style={styles.newPillText}>NEW</Text>
               </View>
@@ -113,25 +123,26 @@ export default function EPlanScreen() {
           </View>
 
           <Text style={styles.planTitle}>E-Plan</Text>
-          <Text style={styles.planDescription}>
-            {hasActivePlan
+          <Text style={[styles.planDescription, !planReady && styles.hidden]}>
+            {active
               ? 'You have an active E-Plan running right now.'
               : "Lock your budget, tell us what you won't eat, and we'll handle everything else."}
           </Text>
 
           <View style={styles.planDivider} />
 
-          <View style={styles.planFooter}>
+          <View style={[styles.planFooter, !planReady && styles.hidden]}>
             <View>
-              <Text style={styles.planFromLabel}>{hasActivePlan ? 'Status' : 'From'}</Text>
-              <Text style={styles.planPrice}>{hasActivePlan ? 'Active' : formatNaira(20000)}</Text>
+              <Text style={styles.planFromLabel}>{active ? 'Status' : 'From'}</Text>
+              <Text style={styles.planPrice}>{active ? 'Active' : formatNaira(20000)}</Text>
             </View>
             <TouchableOpacity
               style={styles.startBtn}
               activeOpacity={0.8}
-              onPress={() => router.push((hasActivePlan ? '/my-plan' : '/e-plan-setup') as any)}
+              disabled={!planReady}
+              onPress={() => router.push((active ? '/my-plan' : '/e-plan-setup') as any)}
             >
-              <Text style={styles.startBtnText}>{hasActivePlan ? 'View Plan' : 'Start'}</Text>
+              <Text style={styles.startBtnText}>{active ? 'View Plan' : 'Start'}</Text>
               <Feather name="arrow-right" size={15} color={foodColors.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -182,6 +193,7 @@ const styles = StyleSheet.create({
 
   planTitle: { fontSize: 20, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 6 },
   planDescription: { fontSize: 13, lineHeight: 19, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  hidden: { opacity: 0 },
 
   planDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: 16 },
 

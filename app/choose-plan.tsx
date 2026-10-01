@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,19 +6,22 @@ import {
   StyleSheet,
   TouchableOpacity,
   ImageBackground,
-  Modal,
-  Pressable,
+  BackHandler,
   Platform,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
+import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
 
 type PlanId = 'basic' | 'standard' | 'premium' | 'vip';
 type PaymentMethod = 'wallet' | 'card';
+type DurationKey = '1m' | '3m' | '6m' | '12m';
+type Step = 'plans' | 'duration';
 
 type Plan = {
   id: PlanId;
@@ -29,6 +32,13 @@ type Plan = {
   image: string;
   recommended?: boolean;
   features: string[];
+};
+
+type Duration = {
+  key: DurationKey;
+  label: string;
+  months: number;
+  savePct: number;
 };
 
 const plans: Plan[] = [
@@ -101,6 +111,13 @@ const plans: Plan[] = [
   },
 ];
 
+const durations: Duration[] = [
+  { key: '1m', label: '1 Month', months: 1, savePct: 0 },
+  { key: '3m', label: '3 Months', months: 3, savePct: 11 },
+  { key: '6m', label: '6 Months', months: 6, savePct: 19 },
+  { key: '12m', label: '12 Months', months: 12, savePct: 28 },
+];
+
 const savingsPoints = [
   'Enjoy consistent clean with monthly plans',
   'Unlock priority scheduling',
@@ -116,18 +133,136 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
 }
 
+function durationTotal(monthly: number, d: Duration) {
+  const raw = monthly * d.months * (1 - d.savePct / 100);
+  return Math.round(raw / 100) * 100;
+}
+
 export default function ChoosePlanScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [step, setStep] = useState<Step>('plans');
   const [selectedId, setSelectedId] = useState<PlanId>('standard');
   const [method, setMethod] = useState<PaymentMethod>('wallet');
-  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [durationKey, setDurationKey] = useState<DurationKey>('3m');
 
   const selectedPlan = plans.find((p) => p.id === selectedId)!;
+  const selectedDuration = durations.find((d) => d.key === durationKey)!;
   const methodLabel = paymentMethods.find((m) => m.id === method)!.label;
+  const total = durationTotal(selectedPlan.price, selectedDuration);
 
-  const handleConfirm = () => {
-    setConfirmVisible(false);
+  useEffect(() => {
+    if (step !== 'duration') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setStep('plans');
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
+
+  const handlePay = () => {
+    router.back();
   };
+
+  if (step === 'duration') {
+    return (
+      <View style={[styles.dContainer, { paddingTop: insets.top + 12 }]}>
+        <StatusBar style="dark" />
+
+        <View style={styles.dTitleRow}>
+          <TouchableOpacity style={styles.dBackBtn} onPress={() => setStep('plans')} activeOpacity={0.8}>
+            <Feather name="arrow-left" size={18} color={washColors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.dTitle}>Choose Duration</Text>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.dContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <LinearGradient
+            colors={[washColors.navyStart, washColors.navyEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.dPlanCard}
+          >
+            <Text style={styles.dPlanTitle}>{selectedPlan.name} Plan</Text>
+            <View style={styles.dBadge}>
+              <Feather name="check-circle" size={12} color="#fff" />
+              <Text style={styles.dBadgeText}>{formatNaira(selectedPlan.price)} / month</Text>
+            </View>
+            <Text style={styles.dPlanDescription}>
+              Pick a duration below to start your plan. Longer plans save you more.
+            </Text>
+          </LinearGradient>
+
+          <Text style={styles.sectionLabel}>CHOOSE DURATION</Text>
+          <View style={styles.durationList}>
+            {durations.map((d) => {
+              const active = d.key === durationKey;
+              const dTotal = durationTotal(selectedPlan.price, d);
+              const perMonthValue = Math.round(dTotal / d.months);
+              return (
+                <TouchableOpacity
+                  key={d.key}
+                  style={[styles.durationCard, active && styles.durationCardSelected]}
+                  activeOpacity={0.85}
+                  onPress={() => setDurationKey(d.key)}
+                >
+                  <View style={styles.durationRadio}>
+                    {active && <View style={styles.durationRadioDot} />}
+                  </View>
+
+                  <View style={styles.durationInfo}>
+                    <Text style={styles.durationLabel}>{d.label}</Text>
+                    <Text style={styles.durationSub}>{formatNaira(perMonthValue)} / month</Text>
+                  </View>
+
+                  <View style={styles.durationRight}>
+                    {d.savePct > 0 ? (
+                      <View style={styles.saveBadge}>
+                        <Text style={styles.saveBadgeText}>SAVE {d.savePct}%</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.durationPrice}>{formatNaira(dTotal)}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>WHAT'S INCLUDED</Text>
+          <View style={styles.includedCard}>
+            {selectedPlan.features.map((feature, i) => (
+              <View
+                key={feature}
+                style={[styles.includedRow, i !== selectedPlan.features.length - 1 && styles.includedRowDivider]}
+              >
+                <View style={styles.includedIconWrap}>
+                  <Feather name="check" size={16} color={washColors.navySolid} />
+                </View>
+                <Text style={styles.includedLabel}>{feature}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.dBottomSpacer} />
+        </ScrollView>
+
+        <View style={[styles.dFooter, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={styles.dFooterSummary}>
+            <Text style={styles.dFooterLabel}>Total · {methodLabel}</Text>
+            <Text style={styles.dFooterPrice}>{formatNaira(total)}</Text>
+          </View>
+          <TouchableOpacity style={styles.dPayButton} activeOpacity={0.85} onPress={handlePay}>
+            <Text style={styles.dPayButtonText}>Subscribe Now</Text>
+            <Feather name="arrow-right" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -247,76 +382,12 @@ export default function ChoosePlanScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.confirmButton}
-          onPress={() => setConfirmVisible(true)}
+          onPress={() => setStep('duration')}
           activeOpacity={0.9}
         >
           <Text style={styles.confirmText}>Confirm subscription</Text>
         </TouchableOpacity>
       </View>
-
-      <Modal
-        visible={confirmVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setConfirmVisible(false)}
-      >
-        <View style={styles.modalRoot}>
-          <Pressable style={styles.backdrop} onPress={() => setConfirmVisible(false)} />
-
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-
-            <View style={[styles.sheetIcon, { backgroundColor: `${selectedPlan.accent}1F` }]}>
-              <MaterialCommunityIcons name="washing-machine" size={28} color={selectedPlan.accent} />
-            </View>
-
-            <Text style={styles.sheetTitle}>Confirm your subscription</Text>
-            <Text style={styles.sheetSubtitle}>Review the details below before you continue.</Text>
-
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Plan</Text>
-                <Text style={styles.summaryValue}>{selectedPlan.name}</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Billing</Text>
-                <Text style={styles.summaryValue}>Monthly</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Pay with</Text>
-                <View style={styles.methodValue}>
-                  {method === 'wallet' ? (
-                    <MaterialCommunityIcons name="wallet-outline" size={16} color={foodColors.textPrimary} />
-                  ) : (
-                    <Feather name="credit-card" size={15} color={foodColors.textPrimary} />
-                  )}
-                  <Text style={styles.summaryValue}>{methodLabel}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total due today</Text>
-              <Text style={styles.totalValue}>{formatNaira(selectedPlan.price)}</Text>
-            </View>
-
-            <TouchableOpacity style={styles.sheetPrimary} onPress={handleConfirm} activeOpacity={0.9}>
-              <Text style={styles.sheetPrimaryText}>Pay {formatNaira(selectedPlan.price)}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.sheetSecondary}
-              onPress={() => setConfirmVisible(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.sheetSecondaryText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -528,113 +599,157 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: { height: 10 },
 
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(20,20,30,0.5)',
-  },
-  sheet: {
-    backgroundColor: foodColors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  dContainer: { flex: 1, backgroundColor: washColors.background },
+  dContent: { paddingHorizontal: 20, paddingBottom: 20 },
+  dTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  sheetHandle: {
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: foodColors.border,
-    marginBottom: 22,
-  },
-  sheetIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  dBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: washColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  dTitle: { fontSize: 20, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+
+  dPlanCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 24,
+  },
+  dPlanTitle: { fontSize: 20, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 12 },
+  dBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: washColors.overlay,
+    borderWidth: 1,
+    borderColor: washColors.overlayBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
     marginBottom: 14,
   },
-  sheetTitle: {
-    fontSize: 20,
-    fontFamily: fonts.poppins.bold,
-    color: foodColors.textPrimary,
-    textAlign: 'center',
-  },
-  sheetSubtitle: {
-    fontSize: 13.5,
+  dBadgeText: { fontSize: 12, fontFamily: fonts.poppins.bold, color: '#fff' },
+  dPlanDescription: {
+    fontSize: 13,
     fontFamily: fonts.poppins.regular,
-    color: foodColors.textSecondary,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20,
+    lineHeight: 19,
+    color: washColors.whiteText85,
   },
-  summaryCard: {
-    alignSelf: 'stretch',
-    backgroundColor: foodColors.background,
+
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: 12,
+  },
+  sectionSpacing: { marginTop: 26 },
+
+  durationList: { gap: 10 },
+  durationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: washColors.surface,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: washColors.grayBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  durationCardSelected: {
+    borderColor: washColors.navySolid,
+    backgroundColor: washColors.coveredBg,
+  },
+  durationRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: washColors.grayBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  durationRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: washColors.navySolid,
+  },
+  durationInfo: { flex: 1 },
+  durationLabel: { fontSize: 14.5, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  durationSub: { fontSize: 12, fontFamily: fonts.poppins.regular, color: washColors.textSecondary, marginTop: 2 },
+  durationRight: { alignItems: 'flex-end', gap: 4 },
+  saveBadge: {
+    backgroundColor: washColors.red,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  saveBadgeText: { fontSize: 9.5, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.3 },
+  durationPrice: { fontSize: 14, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+
+  includedCard: {
+    backgroundColor: washColors.surface,
     borderRadius: 18,
     paddingHorizontal: 16,
   },
-  summaryRow: {
+  includedRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     paddingVertical: 14,
   },
-  summaryDivider: { height: 1, backgroundColor: foodColors.border },
-  summaryLabel: {
-    fontSize: 13.5,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textSecondary,
+  includedRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: washColors.divider,
   },
-  summaryValue: {
-    fontSize: 14,
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.textPrimary,
+  includedIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: washColors.coveredBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  methodValue: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  totalRow: {
-    alignSelf: 'stretch',
+  includedLabel: { flex: 1, fontSize: 13, fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
+
+  dBottomSpacer: { height: 100 },
+
+  dFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 20,
-    paddingHorizontal: 4,
+    gap: 14,
+    backgroundColor: washColors.background,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: washColors.divider,
   },
-  totalLabel: {
-    fontSize: 14,
-    fontFamily: fonts.poppins.medium,
-    color: foodColors.textPrimary,
-  },
-  totalValue: {
-    fontSize: 22,
-    fontFamily: fonts.poppins.bold,
-    color: foodColors.textPrimary,
-  },
-  sheetPrimary: {
-    alignSelf: 'stretch',
-    backgroundColor: foodColors.badgeBlue,
-    paddingVertical: 17,
-    borderRadius: 30,
+  dFooterSummary: { flex: 1 },
+  dFooterLabel: { fontSize: 12, fontFamily: fonts.poppins.regular, color: washColors.textSecondary },
+  dFooterPrice: { fontSize: 20, fontFamily: fonts.poppins.bold, color: washColors.textPrimary, marginTop: 2 },
+  dPayButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    backgroundColor: washColors.red,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 26,
   },
-  sheetPrimaryText: {
-    fontSize: 16,
-    fontFamily: fonts.poppins.semiBold,
-    color: '#fff',
-  },
-  sheetSecondary: {
-    alignSelf: 'stretch',
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  sheetSecondaryText: {
-    fontSize: 14.5,
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.textSecondary,
-  },
+  dPayButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
 });

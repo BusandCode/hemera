@@ -65,11 +65,11 @@ type PromoCard = {
 
 const promoCards: PromoCard[] = [
   { id: 'echop-offer', label: 'E-Chop', title: 'Special Offers', subtitle: 'Up to 20% off', bg: '#FDEAE4', iconBg: foodColors.primary, image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200' },
-  { id: 'ewash-offer', label: 'E-Wash', title: 'Fresh & Clean', subtitle: '20% off this week', bg: '#E4ECFB', iconBg: foodColors.badgeBlue, image: 'https://images.unsplash.com/photo-1washer-1523293182086-7651a899d37f?w=200' },
+  { id: 'ewash-offer', label: 'E-Wash', title: 'Fresh & Clean', subtitle: '20% off this week', bg: '#E4ECFB', iconBg: foodColors.badgeBlue, image: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=200' },
   { id: 'refer-offer', label: 'Refer & Earn', title: 'Invite & get', subtitle: 'amazing rewards', bg: '#E3F6E9', iconBg: foodColors.forestGreen, image: 'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?w=200' },
   { id: 'track-offer', label: 'Track Order', title: 'Live Tracking', subtitle: 'Know it in real-time', bg: '#FDEAE4', iconBg: foodColors.primary, image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=200' },
-  { id: 'support-offer', label: 'Support', title: "We're here", subtitle: '24/7 assistance', bg: '#E4ECFB', iconBg: foodColors.badgeBlue, image: 'https://images.unsplash.com/photo-1553775282-20af80779df7?w=200' },
-  { id: 'quality-offer', label: 'Quality Promise', title: 'Verified Partners', subtitle: 'Trusted service', bg: '#E3F6E9', iconBg: foodColors.success, image: 'https://images.unsplash.com/photo-1584515933487-779824d29309?w=200' },
+  { id: 'support-offer', label: 'Support', title: "We're here", subtitle: '24/7 assistance', bg: '#E4ECFB', iconBg: foodColors.badgeBlue, image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=200' },
+  { id: 'quality-offer', label: 'Quality Promise', title: 'Verified Partners', subtitle: 'Trusted service', bg: '#E3F6E9', iconBg: foodColors.success, image: 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200' },
 ];
 
 function firstName(fullName: string) {
@@ -140,7 +140,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/echop')}
           >
             <Text style={styles.heroButtonText}>Order E-Chop</Text>
-            <Feather name="arrow-right" size={15} color={foodColors.textPrimary} />
+            <Feather name="arrow-right" size={13} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Image
             source={{ uri: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400' }}
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   greetingBlock: { flex: 1 },
   greeting: { fontSize: 16, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
@@ -277,34 +277,48 @@ const styles = StyleSheet.create({
 
   heroCard: {
     borderRadius: 20,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 16,
     overflow: 'hidden',
-    minHeight: 190,
+    minHeight: 128,
   },
   heroTag: {
     alignSelf: 'flex-start',
     backgroundColor: foodColors.primary,
-    paddingHorizontal: 4, paddingVertical: 4,
+    paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: 6,
+    marginBottom: 8,
+  },
+  heroTagText: { fontSize: 9, fontFamily: fonts.poppins.bold, color: '#fff' },
+  heroTitle: {
+    fontSize: 19,
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+    lineHeight: 23,
+    marginBottom: 4,
+    maxWidth: '68%',
+  },
+  heroSubtitle: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.regular,
+    color: 'rgba(255,255,255,0.8)',
+    maxWidth: '60%',
     marginBottom: 12,
   },
-  heroTagText: { fontSize: 8, fontFamily: fonts.poppins.bold, color: '#fff' },
-  heroTitle: { fontSize: 22, fontFamily: fonts.poppins.bold, color: '#fff', lineHeight: 27, marginBottom: 8, maxWidth: '65%' },
-  heroSubtitle: { fontSize: 12, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.8)', maxWidth: '60%', marginBottom: 16 },
   heroButton: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start',
     backgroundColor: '#fff',
-    paddingHorizontal: 8, paddingVertical: 9,
-    borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 10,
   },
   heroButtonText: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   heroImage: {
     position: 'absolute',
-    right: -10, bottom: -10,
-    width: 160, height: 160,
-    borderRadius: 80,
+    right: -8, bottom: -8,
+    width: 130, height: 130,
+    borderRadius: 65,
   },
 
   promoScroll: { marginBottom: 8, marginHorizontal: -20 },
@@ -314,7 +328,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 14,
     padding: 8,
-    // gap: 40,
     justifyContent: 'flex-start',
     overflow: 'hidden',
   },
@@ -341,7 +354,7 @@ const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 14,
-    marginTop: -10
+    marginTop: -10,
   },
   sectionTitle: { fontSize: 16, fontFamily: fonts.poppins.bold, marginBottom: 5, color: foodColors.textPrimary },
   seeAll: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },

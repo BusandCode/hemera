@@ -8,15 +8,25 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 
 const QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
+const MAX_DIGITS = 10;
+
+// "1234567" -> "1,234,567"
+const formatWithCommas = (digits: string) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 export default function FundWalletAmountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  // const [amount, setAmount] = useState('20000');
+  // Raw digits only (no commas); formatting is applied for display
   const [amount, setAmount] = useState('0');
 
   const numericAmount = parseInt(amount || '0', 10);
   const canContinue = numericAmount >= 100;
+
+  const handleAmountChange = (text: string) => {
+    // Strip commas and any non-digits, then drop leading zeros
+    const digits = text.replace(/[^0-9]/g, '').replace(/^0+/, '').slice(0, MAX_DIGITS);
+    setAmount(digits === '' ? '0' : digits);
+  };
 
   const handleContinue = () => {
     Keyboard.dismiss();
@@ -54,8 +64,8 @@ export default function FundWalletAmountScreen() {
               <Text style={styles.currencySign}>₦</Text>
               <TextInput
                 style={styles.amountInput}
-                value={amount}
-                onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
+                value={formatWithCommas(amount)}
+                onChangeText={handleAmountChange}
                 keyboardType="number-pad"
                 placeholder="0"
                 returnKeyType="done"
@@ -79,7 +89,7 @@ export default function FundWalletAmountScreen() {
                     activeOpacity={0.85}
                   >
                     <Text style={[styles.quickPillText, active && styles.quickPillTextActive]}>
-                      ₦{q.toLocaleString()}
+                      ₦{formatWithCommas(String(q))}
                     </Text>
                   </TouchableOpacity>
                 );

@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Modal,
+  Pressable,
   Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -40,11 +42,10 @@ export default function EditProfileScreen() {
   const { profile, updateProfile } = useProfile();
 
   const [draft, setDraft] = useState(profile);
-  const [saved, setSaved] = useState(false);
+  const [successVisible, setSuccessVisible] = useState(false);
 
   const update = (key: keyof typeof profile, value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
-    setSaved(false);
   };
 
   const pickPhoto = async () => {
@@ -66,7 +67,6 @@ export default function EditProfileScreen() {
 
     if (!result.canceled && result.assets[0]?.uri) {
       setDraft((prev) => ({ ...prev, photoUri: result.assets[0].uri }));
-      setSaved(false);
     }
   };
 
@@ -88,7 +88,6 @@ export default function EditProfileScreen() {
 
     if (!result.canceled && result.assets[0]?.uri) {
       setDraft((prev) => ({ ...prev, photoUri: result.assets[0].uri }));
-      setSaved(false);
     }
   };
 
@@ -106,8 +105,12 @@ export default function EditProfileScreen() {
 
   const handleSave = () => {
     updateProfile(draft);
-    setSaved(true);
-    setTimeout(() => router.back(), 900);
+    setSuccessVisible(true);
+  };
+
+  const handleDone = () => {
+    setSuccessVisible(false);
+    router.back();
   };
 
   const avatarSource = draft.photoUri
@@ -156,13 +159,6 @@ export default function EditProfileScreen() {
           ))}
         </View>
 
-        {saved && (
-          <View style={styles.savedBanner}>
-            <Feather name="check-circle" size={14} color={foodColors.success} />
-            <Text style={styles.savedBannerText}>Profile updated successfully</Text>
-          </View>
-        )}
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
@@ -171,6 +167,33 @@ export default function EditProfileScreen() {
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={successVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={handleDone}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.backdrop} onPress={handleDone} />
+
+          <View style={styles.modalCard}>
+            <View style={styles.badgeRing}>
+              <View style={styles.badgeCore}>
+                <Feather name="check" size={30} color="#fff" />
+              </View>
+            </View>
+
+            <Text style={styles.modalTitle}>Profile Updated</Text>
+            <Text style={styles.modalMessage}>Your changes have been saved successfully.</Text>
+
+            <TouchableOpacity style={styles.modalButton} onPress={handleDone} activeOpacity={0.85}>
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -210,22 +233,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
-  savedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 18,
-    backgroundColor: 'rgba(52,199,89,0.1)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  savedBannerText: {
-    fontSize: 12,
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.success,
-  },
-
   bottomSpacer: { height: 90 },
 
   footer: {
@@ -244,6 +251,75 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: 14,
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
+
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(20,20,30,0.5)',
+  },
+  modalCard: {
+    alignSelf: 'stretch',
+    backgroundColor: '#fff',
+    borderRadius: 26,
+    paddingHorizontal: 24,
+    paddingTop: 30,
+    paddingBottom: 22,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  badgeRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: foodColors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  badgeCore: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: foodColors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 22,
+  },
+  modalButton: {
+    alignSelf: 'stretch',
+    backgroundColor: foodColors.primary,
+    paddingVertical: 15,
+    borderRadius: 26,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 14.5,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

@@ -1,40 +1,108 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { useAuth } from '../src/context/AuthContext';
+import { supabase } from '../src/lib/supabase';
 
-type Card = {
+const CARD_RED = '#E4342D';
+
+type BankAccount = {
   id: string;
-  brand: 'Visa' | 'Mastercard' | 'Verve';
-  last4: string;
-  expiry: string;
-  isDefault: boolean;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
 };
-
-const brandColors: Record<Card['brand'], string> = {
-  Visa: '#1A1F71',
-  Mastercard: '#EB001B',
-  Verve: '#1B4332',
-};
-
-const initialCards: Card[] = [
-  { id: 'card-1', brand: 'Verve', last4: '4821', expiry: '09/28', isDefault: true },
-  { id: 'card-2', brand: 'Mastercard', last4: '7734', expiry: '02/27', isDefault: false },
-];
 
 export default function PaymentMethodsScreen() {
-  const [cards, setCards] = useState<Card[]>(initialCards);
+  const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user.id;
 
-  const setDefault = (id: string) => {
-    setCards((prev) => prev.map((c) => ({ ...c, isDefault: c.id === id })));
+  const [account, setAccount] = useState<BankAccount | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      (async () => {
+        if (!userId) {
+          setAccount(null);
+          setLoading(false);
+          return;
+        }
+
+        setLoading(true);
+        setLoadError(false);
+
+        try {
+          const { data, error } = await supabase
+            .from('bank_accounts')
+            .select('id, bank_name, account_name, account_number')
+            .eq('user_id', userId)
+            .eq('is_default', true)
+            .limit(1)
+            .maybeSingle();
+
+          if (cancelled) return;
+
+          if (error) {
+            console.warn('Failed to load bank account:', error.message);
+            setAccount(null);
+            setLoadError(true);
+          } else {
+            setAccount(data);
+          }
+        } catch (e) {
+          if (cancelled) return;
+          console.warn('Failed to load bank account:', e);
+          setAccount(null);
+          setLoadError(true);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [userId, reloadKey])
+  );
+
+  const confirmRemove = () => {
+    if (!account) return;
+    Alert.alert(
+      'Remove bank account',
+      'You will need to add a bank account again before you can withdraw.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: handleRemove },
+      ]
+    );
   };
 
-  const removeCard = (id: string) => {
-    setCards((prev) => prev.filter((c) => c.id !== id));
+  const handleRemove = async () => {
+    if (!account || removing) return;
+    setRemoving(true);
+    try {
+      const { error } = await supabase.from('bank_accounts').delete().eq('id', account.id);
+      if (error) throw error;
+      setAccount(null);
+    } catch (e: any) {
+      console.warn('Failed to remove bank account:', e?.message ?? e);
+      Alert.alert('Could not remove account', e?.message ?? 'Something went wrong. Please try again.');
+    } finally {
+      setRemoving(false);
+    }
   };
 
   return (
@@ -47,71 +115,69 @@ export default function PaymentMethodsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.list}>
-          {cards.map((card) => (
-            <View
-              key={card.id}
-              style={[styles.cardTile, { backgroundColor: brandColors[card.brand] }]}
-            >
+        {loading ? (
+          <ActivityIndicator color={CARD_RED} style={styles.loader} />
+        ) : loadError ? (
+          <TouchableOpacity style={styles.retryCard} activeOpacity={0.85} onPress={() => setReloadKey((k) => k + 1)}>
+            <Feather name="refresh-cw" size={16} color={foodColors.badgeBlue} />
+            <Text style={styles.retryText}>Couldn't load your bank account. Tap to retry</Text>
+          </TouchableOpacity>
+        ) : account ? (
+          <View style={styles.list}>
+            <View style={[styles.cardTile, { backgroundColor: CARD_RED }]}>
               <View style={styles.cardTopRow}>
-                <MaterialCommunityIcons
-                  name="credit-card-chip-outline"
-                  size={26}
-                  color="rgba(255,255,255,0.9)"
-                />
-                {card.isDefault && (
-                  <View style={styles.defaultPill}>
-                    <Text style={styles.defaultPillText}>Default</Text>
-                  </View>
-                )}
+                <MaterialCommunityIcons name="bank-outline" size={26} color="rgba(255,255,255,0.9)" />
+                <View style={styles.defaultPill}>
+                  <Text style={styles.defaultPillText}>Default</Text>
+                </View>
               </View>
 
-              <Text style={styles.cardNumber}>•••• •••• •••• {card.last4}</Text>
+              <Text style={styles.bankName}>{account.bank_name}</Text>
 
               <View style={styles.cardBottomRow}>
-                <View>
-                  <Text style={styles.cardMetaLabel}>Expires</Text>
-                  <Text style={styles.cardMetaValue}>{card.expiry}</Text>
+                <View style={styles.metaBlock}>
+                  <Text style={styles.cardMetaLabel}>Account name</Text>
+                  <Text style={styles.cardMetaValue} numberOfLines={1}>{account.account_name}</Text>
                 </View>
-                <Text style={styles.cardBrand}>{card.brand}</Text>
+                <View style={styles.metaBlockRight}>
+                  <Text style={styles.cardMetaLabel}>Account number</Text>
+                  <Text style={styles.cardMetaValue}>{account.account_number}</Text>
+                </View>
               </View>
             </View>
-          ))}
 
-          {cards.length === 0 && (
-            <Text style={styles.emptyText}>No payment methods saved yet.</Text>
-          )}
-
-          <View style={styles.actionsGroup}>
-            {cards.map((card) => (
-              <View key={`actions-${card.id}`} style={styles.actionsRow}>
-                <Text style={styles.actionsLabel}>
-                  {card.brand} •••• {card.last4}
+            <View style={styles.actionsGroup}>
+              <View style={styles.actionsRow}>
+                <Text style={styles.actionsLabel} numberOfLines={1}>
+                  {account.bank_name} • {account.account_number}
                 </Text>
-                <View style={styles.actionsButtons}>
-                  {!card.isDefault && (
-                    <TouchableOpacity onPress={() => setDefault(card.id)}>
-                      <Text style={styles.actionText}>Set default</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity onPress={() => removeCard(card.id)}>
+                <TouchableOpacity onPress={confirmRemove} disabled={removing}>
+                  {removing ? (
+                    <ActivityIndicator size="small" color="#FF3B30" />
+                  ) : (
                     <Text style={[styles.actionText, styles.removeText]}>Remove</Text>
-                  </TouchableOpacity>
-                </View>
+                  )}
+                </TouchableOpacity>
               </View>
-            ))}
+            </View>
           </View>
-        </View>
-
-        <View style={styles.bottomSpacer} />
+        ) : (
+          <Text style={styles.emptyText}>No bank account linked yet.</Text>
+        )}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.addButton} activeOpacity={0.85}>
-          <Feather name="plus" size={17} color="#fff" />
-          <Text style={styles.addButtonText}>Add Payment Method</Text>
-        </TouchableOpacity>
-      </View>
+      {!loading && !loadError && !account && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.addButton}
+            activeOpacity={0.85}
+            onPress={() => router.push('/add-bank-account' as any)}
+          >
+            <Feather name="plus" size={17} color="#fff" />
+            <Text style={styles.addButtonText}>Add Bank Account</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -121,11 +187,25 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
 
+  loader: { marginTop: 40 },
+
+  retryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: foodColors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 20,
+  },
+  retryText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
+
   list: { gap: 14 },
   cardTile: {
     borderRadius: 18,
     padding: 18,
-    minHeight: 130,
+    minHeight: 150,
     justifyContent: 'space-between',
   },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -140,10 +220,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
-  cardNumber: {
-    fontSize: 17,
+  bankName: {
+    fontSize: 18,
     fontFamily: fonts.poppins.bold,
-    letterSpacing: 1.5,
     color: '#fff',
     marginTop: 18,
   },
@@ -151,8 +230,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    gap: 12,
     marginTop: 14,
   },
+  metaBlock: { flex: 1 },
+  metaBlockRight: { alignItems: 'flex-end' },
   cardMetaLabel: {
     fontSize: 9,
     fontFamily: fonts.poppins.regular,
@@ -161,11 +243,6 @@ const styles = StyleSheet.create({
   },
   cardMetaValue: {
     fontSize: 12,
-    fontFamily: fonts.poppins.bold,
-    color: '#fff',
-  },
-  cardBrand: {
-    fontSize: 13,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
@@ -187,10 +264,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     paddingHorizontal: 14,
     paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   actionsLabel: {
     fontSize: 12,
@@ -198,15 +274,12 @@ const styles = StyleSheet.create({
     color: foodColors.textPrimary,
     flexShrink: 1,
   },
-  actionsButtons: { flexDirection: 'row', gap: 16 },
   actionText: {
     fontSize: 12,
     fontFamily: fonts.poppins.bold,
     color: foodColors.badgeBlue,
   },
   removeText: { color: '#FF3B30' },
-
-  bottomSpacer: { height: 90 },
 
   footer: {
     backgroundColor: foodColors.surface,

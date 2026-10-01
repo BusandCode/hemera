@@ -52,7 +52,7 @@ export function EPlanHeader({
           </TouchableOpacity>
         )}
 
-        {initials && onPressAvatar && (
+        {/* {initials && onPressAvatar && (
           <TouchableOpacity
             style={styles.avatar}
             onPress={onPressAvatar}
@@ -60,7 +60,7 @@ export function EPlanHeader({
           >
             <Text style={styles.avatarText}>{initials}</Text>
           </TouchableOpacity>
-        )}
+        )} */}
       </View>
     </View>
   );
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   logo: {
     fontFamily: serif,
     fontWeight: '700',
-    fontSize: 24,
+    fontSize: 20,
     color: foodColors.textPrimary,
   },
   logoAccent: {

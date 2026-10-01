@@ -33,19 +33,22 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 18,
-    fontFamily: fonts.poppins.bold,
+    fontSize: 27,
+    lineHeight: 34,
+    letterSpacing: -0.5,
+    fontFamily: fonts.serif.medium,
     color: foodColors.textPrimary,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: 0,
   },
   seeAll: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
+    marginTop: 8,
   },
 });

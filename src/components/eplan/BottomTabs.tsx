@@ -48,7 +48,10 @@ export function BottomTabs() {
             key={tab.key}
             style={styles.tabItem}
             activeOpacity={0.7}
-            onPress={() => router.push(tab.route as any)}
+            onPress={() => {
+              if (pathname === tab.route) return;
+              router.replace(tab.route as any);
+            }}
           >
             <Feather
               name={tab.icon as any}

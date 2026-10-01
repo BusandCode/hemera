@@ -1,16 +1,45 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+} from 'react-native';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
-import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
+import { useProfile } from '../src/context/ProfileContext';
+
+const ui = {
+  background: '#F7F8FC',
+  surface: '#FFFFFF',
+  border: '#EEF0F6',
+  blue: '#1B3BD8',
+  blueSoft: '#EEF2FF',
+  navy: '#001040',
+  arc: '#2F5BFF',
+  textPrimary: '#0B1020',
+  textSecondary: '#6B7185',
+  textMuted: '#8A90A2',
+  green: '#22A35A',
+  orange: '#F59E0B',
+  warningBg: '#FFF6EE',
+  warningBorder: '#FCE7D2',
+};
+
+const RING = 76;
+const RING_STROKE = 4;
 
 type AccountDetails = {
   accountNumber: string;
+  accountName?: string;
   bankName: string;
   reference: string;
   amount: number;
@@ -27,9 +56,36 @@ function formatClock(totalSeconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function formatAccountNumber(value: string) {
+  return value.replace(/\s/g, '').replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+function ExpiryRing({ fraction, label }: { fraction: number; label: string }) {
+  const angle = Math.min(1, Math.max(0, fraction)) * 360;
+  const rightRotation = Math.min(angle, 180) - 135;
+  const leftRotation = angle > 180 ? angle - 135 : 45;
+
+  return (
+    <View style={ringStyles.wrap}>
+      <View style={ringStyles.track} />
+      <View style={ringStyles.rightClip}>
+        <View style={[ringStyles.arc, { left: -RING / 2, transform: [{ rotate: `${rightRotation}deg` }] }]} />
+      </View>
+      <View style={ringStyles.leftClip}>
+        <View style={[ringStyles.arc, { left: 0, transform: [{ rotate: `${leftRotation}deg` }] }]} />
+      </View>
+      <View style={ringStyles.center}>
+        <Text style={ringStyles.time}>{label}</Text>
+        <Text style={ringStyles.unit}>mins</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function FundWalletAccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { profile } = useProfile();
   const { amount } = useLocalSearchParams<{ amount: string }>();
 
   const [details, setDetails] = useState<AccountDetails | null>(null);
@@ -74,8 +130,6 @@ export default function FundWalletAccountScreen() {
     return () => clearInterval(t);
   }, [secondsLeft > 0]);
 
-  // Auto-detect payment confirmation via the webhook updating the transaction row —
-  // this fires the success modal on its own, with no button click required.
   useEffect(() => {
     if (!details || confirmed) return;
 
@@ -149,85 +203,155 @@ export default function FundWalletAccountScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <StatusBar style="dark" />
-        <ActivityIndicator size="large" color={foodColors.badgeBlue} />
+        <ActivityIndicator size="large" color={ui.blue} />
       </View>
     );
   }
+
+  const nameParts = profile.fullName.trim().split(/\s+/).filter(Boolean);
+  const derivedName = nameParts.length
+    ? `Hemera • ${nameParts[0]}${nameParts.length > 1 ? ` ${nameParts[nameParts.length - 1][0].toUpperCase()}.` : ''}`
+    : 'Hemera';
+  const accountName = details.accountName ?? derivedName;
+  const fraction = details.expiresInSeconds > 0 ? secondsLeft / details.expiresInSeconds : 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <StatusBar style="dark" />
 
-      <View style={styles.titleRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>Fund Wallet</Text>
-        </View>
-        <View style={styles.amountBadge}>
-          <Text style={styles.amountBadgeLabel}>Amount to pay</Text>
-          <Text style={styles.amountBadgeValue}>{formatNaira(details.amount)}</Text>
-        </View>
-      </View>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+              <Feather name="arrow-left" size={18} color={ui.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Fund Wallet</Text>
+            <Text style={styles.subtitle}>
+              Transfer <Text style={styles.subtitleBlue}>exactly {formatNaira(details.amount)}</Text> to the account
+              below to fund your wallet.
+            </Text>
+          </View>
 
-      <View style={styles.content}>
-        <Text style={styles.subtitle}>
-          Transfer exactly <Text style={styles.subtitleBold}>{formatNaira(details.amount)}</Text> to the account below to fund your wallet.
-        </Text>
+          <View style={styles.amountBadge}>
+            <Text style={styles.amountBadgeLabel}>Amount to pay</Text>
+            <Text style={styles.amountBadgeValue}>{formatNaira(details.amount)}</Text>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.changeText}>Change</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.infoCard}>
-          <Feather name="shield" size={18} color={foodColors.badgeBlue} />
+          <View style={styles.infoIconCircle}>
+            <Feather name="shield" size={20} color={ui.blue} />
+          </View>
           <View style={styles.infoTextBlock}>
             <Text style={styles.infoTitle}>One-time Virtual Account</Text>
-            <Text style={styles.infoSubtitle}>This account is unique to this payment and can only be used once.</Text>
+            <Text style={styles.infoSubtitle}>
+              This account is unique to this payment and can only be used once.
+            </Text>
+          </View>
+          <View style={styles.illustration}>
+            <MaterialCommunityIcons name="bank" size={46} color={ui.blue} />
+            <View style={styles.illustrationBadge}>
+              <MaterialCommunityIcons name="shield-check" size={14} color={ui.green} />
+            </View>
           </View>
         </View>
 
         <View style={styles.detailsCard}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>BANK</Text>
-            <Text style={styles.detailValue}>{details.bankName}</Text>
-          </View>
-          <View style={styles.detailDivider} />
-          <View style={styles.detailRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.detailLabel}>ACCOUNT NUMBER</Text>
-              <Text style={styles.detailValueLarge}>{details.accountNumber}</Text>
+            <View style={styles.iconTile}>
+              <MaterialCommunityIcons name="bank-outline" size={22} color={ui.blue} />
             </View>
-            <TouchableOpacity style={styles.copyBtn} onPress={() => copy(details.accountNumber)}>
-              <Feather name="copy" size={13} color={foodColors.badgeBlue} />
+            <View style={styles.detailBody}>
+              <Text style={styles.detailLabel}>BANK</Text>
+              <Text style={styles.detailValue}>{details.bankName}</Text>
+              <View style={styles.licensedRow}>
+                <MaterialCommunityIcons name="shield-check" size={13} color={ui.green} />
+                <Text style={styles.licensedText}>Licensed by CBN</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.detailDivider} />
+
+          <View style={styles.detailRow}>
+            <View style={styles.iconTile}>
+              <MaterialCommunityIcons name="wallet-outline" size={22} color={ui.blue} />
+            </View>
+            <View style={styles.detailBody}>
+              <Text style={styles.detailLabel}>ACCOUNT NUMBER</Text>
+              <Text style={styles.detailValueLarge}>{formatAccountNumber(details.accountNumber)}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={() => copy(details.accountNumber)}
+              activeOpacity={0.8}
+            >
+              <Feather name="copy" size={14} color={ui.blue} />
               <Text style={styles.copyBtnText}>Copy</Text>
             </TouchableOpacity>
           </View>
+
           <View style={styles.detailDivider} />
+
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>REFERENCE</Text>
-            <Text style={styles.detailValue}>{details.reference}</Text>
+            <View style={styles.iconTile}>
+              <Feather name="user" size={20} color={ui.blue} />
+            </View>
+            <View style={styles.detailBody}>
+              <Text style={styles.detailLabel}>ACCOUNT NAME</Text>
+              <Text style={styles.detailValue}>{accountName}</Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.copyBtnSmall} onPress={() => copy(details.reference)}>
-            <Feather name="copy" size={13} color={foodColors.badgeBlue} />
-            <Text style={styles.copyBtnText}>Copy</Text>
-          </TouchableOpacity>
+
+          <View style={styles.detailDivider} />
+
+          <View style={styles.detailRow}>
+            <View style={styles.iconTile}>
+              <Feather name="file-text" size={20} color={ui.blue} />
+            </View>
+            <View style={styles.detailBody}>
+              <Text style={styles.detailLabel}>REFERENCE</Text>
+              <Text style={styles.detailValueSmall}>{details.reference}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={() => copy(details.reference)}
+              activeOpacity={0.8}
+            >
+              <Feather name="copy" size={14} color={ui.blue} />
+              <Text style={styles.copyBtnText}>Copy</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.expiryBanner}>
-          <Text style={styles.expiryClock}>{formatClock(secondsLeft)}</Text>
+          <ExpiryRing fraction={fraction} label={formatClock(secondsLeft)} />
           <View style={styles.expiryTextBlock}>
             <Text style={styles.expiryTitle}>Account expires in {formatClock(secondsLeft)}</Text>
-            <Text style={styles.expirySubtitle}>This account will expire if we don't detect your payment.</Text>
+            <Text style={styles.expirySubtitle}>
+              This account will expire if we don't detect your payment.
+            </Text>
           </View>
         </View>
 
         <View style={styles.warningBanner}>
-          <Feather name="alert-circle" size={16} color="#B8860B" />
-          <Text style={styles.warningText}>
-            Transfer exactly {formatNaira(details.amount)} to this account. Payments above or below this amount may not be credited.
-          </Text>
+          <Feather name="alert-circle" size={28} color={ui.orange} />
+          <View style={styles.warningTextBlock}>
+            <Text style={styles.warningTitle}>Important</Text>
+            <Text style={styles.warningText}>
+              Transfer <Text style={styles.warningAmount}>exactly {formatNaira(details.amount)}</Text> to this account.
+            </Text>
+            <Text style={styles.warningText}>Payments above or below this amount may not be credited.</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={[styles.confirmButton, checking && styles.confirmButtonDisabled]}
           activeOpacity={0.85}
@@ -239,92 +363,267 @@ export default function FundWalletAccountScreen() {
           ) : (
             <>
               <Text style={styles.confirmButtonText}>I've Made the Transfer</Text>
-              <Feather name="arrow-right" size={16} color="#fff" />
+              <Feather name="arrow-right" size={20} color="#fff" style={styles.confirmArrow} />
             </>
           )}
         </TouchableOpacity>
-      </View>
+
+        <TouchableOpacity
+          style={styles.helpLink}
+          onPress={() => router.push('/contact-support' as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.helpText}>Need Help?</Text>
+        </TouchableOpacity>
+
+        <View style={styles.securedRow}>
+          <Feather name="lock" size={14} color={ui.green} />
+          <Text style={styles.securedText}>Secured by Flutterwave</Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
+const ringStyles = StyleSheet.create({
+  wrap: { width: RING, height: RING },
+  track: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: RING,
+    height: RING,
+    borderRadius: RING / 2,
+    borderWidth: RING_STROKE,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  rightClip: {
+    position: 'absolute',
+    top: 0,
+    left: RING / 2,
+    width: RING / 2,
+    height: RING,
+    overflow: 'hidden',
+  },
+  leftClip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: RING / 2,
+    height: RING,
+    overflow: 'hidden',
+  },
+  arc: {
+    position: 'absolute',
+    top: 0,
+    width: RING,
+    height: RING,
+    borderRadius: RING / 2,
+    borderWidth: RING_STROKE,
+    borderColor: 'transparent',
+    borderTopColor: ui.arc,
+    borderRightColor: ui.arc,
+  },
+  center: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  time: { fontSize: 16, fontFamily: fonts.poppins.bold, color: '#fff', lineHeight: 20 },
+  unit: { fontSize: 10.5, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.7)' },
+});
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: foodColors.background },
+  container: { flex: 1, backgroundColor: ui.background },
   centered: { justifyContent: 'center', alignItems: 'center', gap: 14, paddingHorizontal: 30 },
-  errorText: { fontSize: 13.5, fontFamily: fonts.poppins.medium, color: foodColors.textSecondary, textAlign: 'center' },
-  retryBtn: { backgroundColor: foodColors.badgeBlue, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20 },
+  errorText: { fontSize: 13.5, fontFamily: fonts.poppins.medium, color: ui.textSecondary, textAlign: 'center' },
+  retryBtn: { backgroundColor: ui.blue, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20 },
   retryBtnText: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
 
-  content: { flex: 1, paddingHorizontal: 20 },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 4 },
 
-  titleRow: {
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-    paddingHorizontal: 20, marginBottom: 18,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 18,
   },
+  headerLeft: { flex: 1 },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ui.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  titleBlock: { flex: 1, marginLeft: 12 },
-  title: { fontSize: 22, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  amountBadge: {
-    backgroundColor: foodColors.surface, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8,
-    alignItems: 'flex-end',
+  title: { fontSize: 30, lineHeight: 38, fontFamily: fonts.poppins.bold, color: ui.textPrimary },
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: fonts.poppins.regular,
+    color: ui.textSecondary,
+    marginTop: 4,
   },
-  amountBadgeLabel: { fontSize: 9.5, fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
-  amountBadgeValue: { fontSize: 15, fontFamily: fonts.poppins.bold, color: foodColors.badgeBlue },
+  subtitleBlue: { fontFamily: fonts.poppins.semiBold, color: ui.blue },
 
-  subtitle: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 18, marginBottom: 16 },
-  subtitleBold: { fontFamily: fonts.poppins.bold, color: foodColors.badgeBlue },
+  amountBadge: {
+    backgroundColor: ui.surface,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 54,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  amountBadgeLabel: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  amountBadgeValue: { fontSize: 20, fontFamily: fonts.poppins.bold, color: ui.blue, marginVertical: 2 },
+  changeText: { fontSize: 12.5, fontFamily: fonts.poppins.semiBold, color: ui.blue, marginTop: 4 },
 
   infoCard: {
-    flexDirection: 'row', gap: 12, backgroundColor: 'rgba(46,90,172,0.06)',
-    borderRadius: 16, padding: 14, marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#EFF3FF',
+    borderWidth: 1,
+    borderColor: '#E1E8FB',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  infoIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E1E8FB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoTextBlock: { flex: 1 },
-  infoTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 3 },
-  infoSubtitle: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 16 },
+  infoTitle: { fontSize: 13.5, fontFamily: fonts.poppins.bold, color: ui.textPrimary, marginBottom: 3 },
+  infoSubtitle: { fontSize: 11.5, lineHeight: 17, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  illustration: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  illustrationBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   detailsCard: {
-    backgroundColor: foodColors.surface, borderRadius: 18, paddingHorizontal: 16, marginBottom: 16,
-    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+    backgroundColor: ui.surface,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  detailRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 10 },
-  detailDivider: { height: 1, backgroundColor: foodColors.border },
-  detailLabel: { fontSize: 10.5, fontFamily: fonts.poppins.bold, letterSpacing: 0.5, color: foodColors.textMuted, marginBottom: 3 },
-  detailValue: { fontSize: 14, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  detailValueLarge: { fontSize: 18, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, letterSpacing: 0.5 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
+  detailDivider: { height: 1, backgroundColor: ui.border },
+  iconTile: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: ui.blueSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailBody: { flex: 1 },
+  detailLabel: {
+    fontSize: 11,
+    fontFamily: fonts.poppins.medium,
+    letterSpacing: 0.6,
+    color: ui.textSecondary,
+    marginBottom: 2,
+  },
+  detailValue: { fontSize: 16, fontFamily: fonts.poppins.bold, color: ui.textPrimary },
+  detailValueLarge: { fontSize: 24, fontFamily: fonts.poppins.bold, color: ui.textPrimary, letterSpacing: 0.5 },
+  detailValueSmall: { fontSize: 14.5, fontFamily: fonts.poppins.semiBold, color: ui.textPrimary },
+  licensedRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  licensedText: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
   copyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1, borderColor: foodColors.badgeBlue, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.2,
+    borderColor: ui.blue,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  copyBtnSmall: {
-    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-end',
-    borderWidth: 1, borderColor: foodColors.badgeBlue, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7,
-    marginBottom: 14, marginTop: -8,
-  },
-  copyBtnText: { fontSize: 11.5, fontFamily: fonts.poppins.bold, color: foodColors.badgeBlue },
+  copyBtnText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: ui.blue },
 
   expiryBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#0B1020', borderRadius: 16, padding: 16, marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    backgroundColor: ui.navy,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 14,
   },
-  expiryClock: { fontSize: 18, fontFamily: fonts.poppins.bold, color: '#fff' },
   expiryTextBlock: { flex: 1 },
-  expiryTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
-  expirySubtitle: { fontSize: 11, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+  expiryTitle: { fontSize: 14.5, fontFamily: fonts.poppins.bold, color: '#fff' },
+  expirySubtitle: {
+    fontSize: 11.5,
+    lineHeight: 18,
+    fontFamily: fonts.poppins.regular,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+  },
 
   warningBanner: {
-    flexDirection: 'row', gap: 10,
-    backgroundColor: '#FDF3E3', borderRadius: 14, padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: ui.warningBg,
+    borderWidth: 1,
+    borderColor: ui.warningBorder,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
   },
-  warningText: { flex: 1, fontSize: 11.5, fontFamily: fonts.poppins.regular, color: '#7A5A10', lineHeight: 16 },
+  warningTextBlock: { flex: 1 },
+  warningTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: ui.textPrimary, marginBottom: 2 },
+  warningText: { fontSize: 12, lineHeight: 18, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  warningAmount: { fontFamily: fonts.poppins.bold, color: ui.orange },
 
-  footer: { paddingHorizontal: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: foodColors.border },
   confirmButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: foodColors.badgeBlue, paddingVertical: 16, borderRadius: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: ui.blue,
+    height: 58,
+    borderRadius: 16,
   },
   confirmButtonDisabled: { opacity: 0.7 },
-  confirmButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  confirmButtonText: { fontSize: 16, fontFamily: fonts.poppins.semiBold, color: '#fff' },
+  confirmArrow: { position: 'absolute', right: 20 },
+
+  helpLink: { alignItems: 'center', paddingVertical: 16 },
+  helpText: { fontSize: 14, fontFamily: fonts.poppins.semiBold, color: ui.blue },
+
+  securedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  securedText: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
 });

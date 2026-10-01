@@ -11,6 +11,7 @@ import { Poppins_500Medium } from '@expo-google-fonts/poppins/500Medium';
 import { Poppins_600SemiBold } from '@expo-google-fonts/poppins/600SemiBold';
 import { Poppins_700Bold } from '@expo-google-fonts/poppins/700Bold';
 import { Poppins_800ExtraBold } from '@expo-google-fonts/poppins/800ExtraBold';
+import { PlayfairDisplay_500Medium } from '@expo-google-fonts/playfair-display/500Medium';
 
 import { LocationProvider } from '../src/context/LocationContext';
 import { CartProvider } from '../src/context/CartContext';
@@ -30,6 +31,7 @@ export default function RootLayout() {
     Poppins_600SemiBold,
     Poppins_700Bold,
     Poppins_800ExtraBold,
+    PlayfairDisplay_500Medium,
   });
 
   // Hide the native splash immediately — our own SplashScreenView takes over
@@ -63,6 +65,10 @@ export default function RootLayout() {
                       >
                         <Stack.Screen name="onboarding" />
                         <Stack.Screen name="auth" />
+                        <Stack.Screen
+                          name="forgot-password"
+                          options={{ presentation: 'card', animation: 'slide_from_right' }}
+                        />
                         <Stack.Screen name="(tabs)" />
 
                         {/* Modal — a temporary picker that should slide over the current screen */}
@@ -92,15 +98,17 @@ export default function RootLayout() {
                         <Stack.Screen name="confirm-withdrawal" />
 
                         {/* E-Plan flow — full-screen pushes */}
-                        <Stack.Screen name="e-plan" />
-                        <Stack.Screen name="e-plan-setup" />
+                        <Stack.Screen name="e-plan" options={{ animation: 'none' }} />
+                        <Stack.Screen name="e-plan-setup" options={{ animation: 'none' }} />
                         <Stack.Screen name="e-plan-exclusions" />
                         <Stack.Screen name="e-plan-review" />
                         <Stack.Screen
                           name="e-plan-success"
                           options={{ gestureEnabled: false }}
                         />
-                        <Stack.Screen name="my-plan" />
+                        <Stack.Screen name="my-plan" options={{ animation: 'none' }} />
+                        <Stack.Screen name="payments" options={{ animation: 'none' }} />
+                        <Stack.Screen name="eplan-transaction" />
                       </Stack>
                     </EPlanDraftProvider>
                   </ProfileProvider>

@@ -6,7 +6,6 @@ type SignUpDetails = {
   fullName: string;
   gender: string;
   phone: string;
-  dob: string;
   referredBy: string;
   email: string;
   password: string;
@@ -44,11 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message);
   };
 
-  const signUp = async ({ fullName, gender, phone, dob, referredBy, email, password }: SignUpDetails) => {
+  const signUp = async ({ fullName, gender, phone, referredBy, email, password }: SignUpDetails) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, gender, phone, dob, referred_by: referredBy } },
+      options: { data: { full_name: fullName, gender, phone, referred_by: referredBy } },
     });
     if (error) throw new Error(error.message);
   };

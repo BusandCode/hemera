@@ -23,6 +23,7 @@
       "package": "com.busandcode.hemera",
       "versionCode": 1,
       "permissions": [
+        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -54,6 +55,12 @@
       "eas": {
         "projectId": "92a2d1c3-f97e-4713-b213-91a622d9c040"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/92a2d1c3-f97e-4713-b213-91a622d9c040"
     }
   }
 }

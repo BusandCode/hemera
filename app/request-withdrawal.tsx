@@ -1,5 +1,15 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -34,165 +44,226 @@ export default function RequestWithdrawalScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { balanceNaira } = useWalletBalance();
+  const balance = balanceNaira ?? 0;
 
   const [amount, setAmount] = useState('10000');
   const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
   const [loadingAccount, setLoadingAccount] = useState(true);
+  const [accountError, setAccountError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const userId = session?.user.id;
 
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
+
       (async () => {
-        if (!session?.user.id) return;
+        if (!userId) {
+          // No session yet: don't leave the spinner running forever.
+          // This effect re-runs when the session arrives.
+          setBankAccount(null);
+          setLoadingAccount(false);
+          return;
+        }
+
         setLoadingAccount(true);
-        const { data } = await supabase
-          .from('bank_accounts')
-          .select('id, bank_name, account_name, account_number')
-          .eq('user_id', session.user.id)
-          .eq('is_default', true)
-          .maybeSingle();
-        setBankAccount(data);
-        setLoadingAccount(false);
+        setAccountError(false);
+
+        try {
+          const { data, error } = await supabase
+            .from('bank_accounts')
+            .select('id, bank_name, account_name, account_number')
+            .eq('user_id', userId)
+            .eq('is_default', true)
+            .limit(1)
+            .maybeSingle();
+
+          if (cancelled) return;
+
+          if (error) {
+            console.warn('Failed to load bank account:', error.message);
+            setBankAccount(null);
+            setAccountError(true);
+          } else {
+            setBankAccount(data);
+          }
+        } catch (e) {
+          if (cancelled) return;
+          console.warn('Failed to load bank account:', e);
+          setBankAccount(null);
+          setAccountError(true);
+        } finally {
+          if (!cancelled) setLoadingAccount(false);
+        }
       })();
-    }, [session?.user.id])
+
+      return () => {
+        cancelled = true;
+      };
+    }, [userId, reloadKey])
   );
 
   const numericAmount = parseInt(amount || '0', 10);
-  const canContinue = numericAmount >= MIN_WITHDRAWAL && numericAmount <= balanceNaira && !!bankAccount;
+  const canContinue = numericAmount >= MIN_WITHDRAWAL && numericAmount <= balance && !!bankAccount;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
-      <StatusBar style="dark" />
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+        <StatusBar style="dark" />
 
-      <View style={styles.titleRow}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.title}>Request Withdrawal</Text>
-        <Text style={styles.subtitle}>Withdraw your available balance to your linked bank account.</Text>
-
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
-          <Text style={styles.balanceValue}>{formatNaira(balanceNaira)}</Text>
-          <Text style={styles.balanceHint}>This is your available balance for withdrawal.</Text>
-        </View>
-
-        <Text style={styles.sectionLabel}>Amount to withdraw</Text>
-        <View style={styles.amountInputRow}>
-          <Text style={styles.currencySign}>₦</Text>
-          <TextInput
-            style={styles.amountInput}
-            value={amount}
-            onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-            placeholder="0"
-          />
-        </View>
-        <Text style={styles.amountHint}>
-          Minimum withdrawal amount is {formatNaira(MIN_WITHDRAWAL)}
-          {numericAmount > balanceNaira ? ' • Exceeds available balance' : ''}
-        </Text>
-
-        <View style={styles.quickRow}>
-          {QUICK_AMOUNTS.map((q) => {
-            const active = numericAmount === q;
-            return (
-              <TouchableOpacity
-                key={q}
-                style={[styles.quickPill, active && styles.quickPillActive]}
-                onPress={() => setAmount(String(q))}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.quickPillText, active && styles.quickPillTextActive]}>
-                  {formatNaira(q)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Withdraw to</Text>
-        {loadingAccount ? (
-          <ActivityIndicator color={WALLET_BLUE} style={{ marginVertical: 14 }} />
-        ) : bankAccount ? (
-          <TouchableOpacity
-            style={styles.bankCard}
-            activeOpacity={0.85}
-            onPress={() => router.push('/add-bank-account' as any)}
-          >
-            <View style={styles.bankLogo}>
-              <Feather name="credit-card" size={18} color="#fff" />
-            </View>
-            <View style={styles.bankInfo}>
-              <Text style={styles.bankName}>{bankAccount.bank_name}</Text>
-              <Text style={styles.bankSub}>{bankAccount.account_name}</Text>
-              <Text style={styles.bankSub}>{maskAccount(bankAccount.account_number)}</Text>
-            </View>
-            <Text style={styles.changeLink}>Change</Text>
-            <Feather name="chevron-right" size={16} color={foodColors.textMuted} />
+        <View style={styles.titleRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.addBankCard}
-            activeOpacity={0.85}
-            onPress={() => router.push('/add-bank-account' as any)}
-          >
-            <Feather name="plus-circle" size={18} color={WALLET_BLUE} />
-            <Text style={styles.addBankText}>Add a bank account to withdraw</Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.infoCard}>
-          <Feather name="info" size={18} color={WALLET_BLUE} />
-          <View style={styles.infoTextBlock}>
-            <Text style={styles.infoTitle}>Withdrawal Information</Text>
-            <Text style={styles.infoSubtitle}>Withdrawals are usually processed within 24 hours on business days.</Text>
-          </View>
         </View>
 
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Withdrawal Summary</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Amount to withdraw</Text>
-            <Text style={styles.summaryValue}>{formatNaira(numericAmount)}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Withdrawal fee</Text>
-            <Text style={styles.summaryFree}>Free</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabelBold}>You will receive</Text>
-            <Text style={styles.summaryValueBold}>{formatNaira(numericAmount)}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-          activeOpacity={0.85}
-          disabled={!canContinue}
-          onPress={() =>
-            router.push({
-              pathname: '/confirm-withdrawal',
-              params: { amount: String(numericAmount), bankAccountId: bankAccount!.id },
-            } as any)
-          }
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.continueButtonText}>Request Withdrawal</Text>
-          <Feather name="arrow-right" size={16} color="#fff" />
-        </TouchableOpacity>
+          <Text style={styles.title}>Request Withdrawal</Text>
+          <Text style={styles.subtitle}>Withdraw your available balance to your linked bank account.</Text>
+
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
+            <Text style={styles.balanceValue}>{formatNaira(balance)}</Text>
+            <Text style={styles.balanceHint}>This is your available balance for withdrawal.</Text>
+          </View>
+
+          <Text style={styles.sectionLabel}>Amount to withdraw</Text>
+          <View style={styles.amountInputRow}>
+            <Text style={styles.currencySign}>₦</Text>
+            <TextInput
+              style={styles.amountInput}
+              value={amount}
+              onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              placeholder="0"
+              returnKeyType="done"
+            />
+          </View>
+          <Text style={styles.amountHint}>
+            Minimum withdrawal amount is {formatNaira(MIN_WITHDRAWAL)}
+            {numericAmount > balance ? ' • Exceeds available balance' : ''}
+          </Text>
+
+          <View style={styles.quickRow}>
+            {QUICK_AMOUNTS.map((q) => {
+              const active = numericAmount === q;
+              return (
+                <TouchableOpacity
+                  key={q}
+                  style={[styles.quickPill, active && styles.quickPillActive]}
+                  onPress={() => setAmount(String(q))}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.quickPillText, active && styles.quickPillTextActive]}>
+                    {formatNaira(q)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Withdraw to</Text>
+          {loadingAccount ? (
+            <ActivityIndicator color={WALLET_BLUE} style={{ marginVertical: 14 }} />
+          ) : accountError ? (
+            <TouchableOpacity
+              style={styles.addBankCard}
+              activeOpacity={0.85}
+              onPress={() => setReloadKey((k) => k + 1)}
+            >
+              <Feather name="refresh-cw" size={16} color={WALLET_BLUE} />
+              <Text style={styles.addBankText}>Couldn't load your bank account. Tap to retry</Text>
+            </TouchableOpacity>
+          ) : bankAccount ? (
+            <TouchableOpacity
+              style={styles.bankCard}
+              activeOpacity={0.85}
+              onPress={() => router.push('/add-bank-account' as any)}
+            >
+              <View style={styles.bankLogo}>
+                <Feather name="credit-card" size={18} color="#fff" />
+              </View>
+              <View style={styles.bankInfo}>
+                <Text style={styles.bankName}>{bankAccount.bank_name}</Text>
+                <Text style={styles.bankSub}>{bankAccount.account_name}</Text>
+                <Text style={styles.bankSub}>{maskAccount(bankAccount.account_number)}</Text>
+              </View>
+              <Text style={styles.changeLink}>Change</Text>
+              <Feather name="chevron-right" size={16} color={foodColors.textMuted} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.addBankCard}
+              activeOpacity={0.85}
+              onPress={() => router.push('/add-bank-account' as any)}
+            >
+              <Feather name="plus-circle" size={18} color={WALLET_BLUE} />
+              <Text style={styles.addBankText}>Add a bank account to withdraw</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.infoCard}>
+            <Feather name="info" size={18} color={WALLET_BLUE} />
+            <View style={styles.infoTextBlock}>
+              <Text style={styles.infoTitle}>Withdrawal Information</Text>
+              <Text style={styles.infoSubtitle}>Withdrawals are usually processed within 24 hours on business days.</Text>
+            </View>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Withdrawal Summary</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Amount to withdraw</Text>
+              <Text style={styles.summaryValue}>{formatNaira(numericAmount)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Withdrawal fee</Text>
+              <Text style={styles.summaryFree}>Free</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabelBold}>You will receive</Text>
+              <Text style={styles.summaryValueBold}>{formatNaira(numericAmount)}</Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity
+            style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
+            activeOpacity={0.85}
+            disabled={!canContinue}
+            onPress={() => {
+              if (!bankAccount) return;
+              router.push({
+                pathname: '/confirm-withdrawal',
+                params: { amount: String(numericAmount), bankAccountId: bankAccount.id },
+              } as any);
+            }}
+          >
+            <Text style={styles.continueButtonText}>Request Withdrawal</Text>
+            <Feather name="arrow-right" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: { flex: 1, backgroundColor: foodColors.background },
-  content: { flex: 1, paddingHorizontal: 20 },
+  content: { paddingHorizontal: 20, paddingBottom: 24 },
 
   titleRow: { paddingHorizontal: 20, marginBottom: 4 },
   backBtn: {

@@ -15,6 +15,6 @@ export function NearbyPartners() {
 }
 
 const styles = StyleSheet.create({
-  heading: { fontSize: 11, fontWeight: '700', color: foodColors.textMuted, letterSpacing: 0.5, marginBottom: 10 },
-  row: { gap: 14, paddingRight: 20 },
+  heading: { fontSize: 11, fontWeight: '700', color: foodColors.textMuted, letterSpacing: 0.5, marginBottom: 6 },
+  row: { gap: 14, paddingLeft: 2, paddingRight: 20, paddingTop: 4, paddingBottom: 14 },
 });
