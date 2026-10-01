@@ -83,8 +83,8 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 26, paddingBottom: 18 },
   searchSection: { marginBottom: 14 },
   bannerSection: { marginBottom: 22 },
-  categorySection: { marginBottom: 23 },
-  partnersSection: { marginBottom: 24 },
+  categorySection: { marginBottom: 20 },
+  partnersSection: { marginBottom: 5 },
   menuSection: { marginBottom: 10 },
   footer: {
     backgroundColor: foodColors.background,

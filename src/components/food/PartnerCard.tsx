@@ -10,7 +10,7 @@ export function PartnerCard({ partner, onPress }: { partner: Partner; onPress?: 
       <View style={styles.imageWrap}>
         <Image source={{ uri: partner.image }} style={styles.image} />
         <View style={styles.logo}>
-          <Image source={{ uri: partner.logo }} style={styles.logoImage} />
+          <Image source={partner.logo} style={styles.logoImage} resizeMode="cover" />
         </View>
       </View>
       <View style={styles.textBlock}>

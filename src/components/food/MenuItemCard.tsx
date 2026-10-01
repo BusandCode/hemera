@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   popularText: { fontSize: 9, fontWeight: '700', color: foodColors.popularText },
-  name: { fontSize: 15, fontWeight: '700', color: foodColors.textPrimary, marginTop: 6 },
+  name: { fontSize: 14, fontWeight: '700', color: foodColors.textPrimary, marginTop: 6 },
   description: { fontSize: 8.5, color: foodColors.textSecondary, marginTop: 3 },
   bottomRow: { marginTop: 10, gap: 4 },
   price: { fontSize: 15, fontWeight: '700', color: foodColors.textPrimary },

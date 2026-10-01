@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { todaysMenu } from '../../constants/foodData';
 import { MenuItemCard } from './MenuItemCard';
@@ -12,8 +13,9 @@ export function TodaysMenu() {
           <Text style={styles.title}>Today's Menu</Text>
           <Text style={styles.subtitle}>Fresh, hot and ready to order</Text>
         </View>
-        <TouchableOpacity>
-          <Text style={styles.seeAll}>See All →</Text>
+        <TouchableOpacity style={styles.seeAllBtn} activeOpacity={0.7}>
+          <Text style={styles.seeAll}>See All</Text>
+          <Feather name="arrow-right" size={14} color={foodColors.primary} />
         </TouchableOpacity>
       </View>
       <View style={{ gap: 12 }}>
@@ -43,12 +45,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 0,
+    marginTop: -1,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
   },
   seeAll: {
     fontSize: 12.5,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
-    marginTop: 8,
   },
 });

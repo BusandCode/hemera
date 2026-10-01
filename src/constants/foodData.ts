@@ -1,3 +1,5 @@
+import { ImageSourcePropType } from 'react-native';
+
 export type FoodCategory =
   | 'All'
   | 'Rice Dishes'
@@ -21,7 +23,7 @@ export type Partner = {
   rating: number;
   etaMinutes: number;
   image: string;
-  logo: string;
+  logo: ImageSourcePropType;
 };
 
 export const partners: Partner[] = [
@@ -32,8 +34,9 @@ export const partners: Partner[] = [
     etaMinutes: 20,
     image:
       'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=400&q=80',
-    logo:
-      'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=100&q=80',
+    logo: {
+      uri: 'https://api.dicebear.com/7.x/initials/png?seed=Mama%20Titi&backgroundColor=F59E0B&textColor=ffffff&fontWeight=700',
+    },
   },
   {
     id: 'suya-spot',
@@ -42,8 +45,9 @@ export const partners: Partner[] = [
     etaMinutes: 15,
     image:
       'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&q=80',
-    logo:
-      'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=100&q=80',
+    logo: {
+      uri: 'https://api.dicebear.com/7.x/initials/png?seed=Suya%20Spot&backgroundColor=B91C1C&textColor=ffffff&fontWeight=700',
+    },
   },
 ];
 

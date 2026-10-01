@@ -80,7 +80,7 @@ export default function WashScreen() {
           </View>
 
           <View style={styles.expiredBadge}>
-            <Feather name={plan.icon} size={12} color="#fff" />
+            <Feather name={plan.icon} size={11} color="#fff" />
             <Text style={styles.expiredText}>{plan.badge}</Text>
           </View>
 
@@ -252,56 +252,57 @@ const styles = StyleSheet.create({
     color: washColors.red,
   },
   planCard: {
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 18,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginBottom: 16,
   },
   planTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 8,
   },
   planTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   expiredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     alignSelf: 'flex-start',
     backgroundColor: washColors.overlay,
     borderWidth: 1,
     borderColor: washColors.overlayBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginBottom: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 10,
   },
   expiredText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   planDescription: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontFamily: fonts.poppins.regular,
-    lineHeight: 19,
+    lineHeight: 18,
     color: washColors.whiteText85,
-    marginBottom: 24,
+    marginBottom: 12,
     maxWidth: '78%',
   },
   renewButton: {
     alignSelf: 'flex-end',
     backgroundColor: washColors.red,
-    paddingHorizontal: 26,
-    paddingVertical: 12,
-    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 18,
   },
   renewButtonText: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
