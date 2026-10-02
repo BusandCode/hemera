@@ -6,12 +6,12 @@ import { PartnerCard } from './PartnerCard';
 const SIDE_PADDING = 26; // matches partnersSection paddingHorizontal in the screen
 const LEFT_PAD = 2;
 const GAP = 10;
-const PEEK = 0.05; // fraction of the third card visible
+const PEEK = 0.1; // fraction of the third card visible
 
 export function NearbyPartners() {
   const { width: screenWidth } = useWindowDimensions();
 
-  // Two full cards + two gaps + 5% of the third card fill the visible list area
+  // Two full cards + two gaps + 10% of the third card fill the visible list area
   const cardWidth = (screenWidth - SIDE_PADDING - LEFT_PAD - GAP * 2) / (2 + PEEK);
 
   return (
