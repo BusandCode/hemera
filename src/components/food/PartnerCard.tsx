@@ -4,9 +4,17 @@ import { foodColors } from '../../constants/foodColors';
 import { Partner } from '../../constants/foodData';
 import { fonts } from '../../constants/typography';
 
-export function PartnerCard({ partner, onPress }: { partner: Partner; onPress?: () => void }) {
+export function PartnerCard({
+  partner,
+  onPress,
+  width = 172,
+}: {
+  partner: Partner;
+  onPress?: () => void;
+  width?: number;
+}) {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.card, { width }]} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.imageWrap}>
         <Image source={{ uri: partner.image }} style={styles.image} />
         <View style={styles.logo}>
@@ -26,7 +34,6 @@ export function PartnerCard({ partner, onPress }: { partner: Partner; onPress?: 
 
 const styles = StyleSheet.create({
   card: {
-    width: 160,
     padding: 5,
     borderRadius: 16,
     backgroundColor: foodColors.surface,

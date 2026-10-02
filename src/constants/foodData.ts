@@ -49,6 +49,17 @@ export const partners: Partner[] = [
       uri: 'https://api.dicebear.com/7.x/initials/png?seed=Suya%20Spot&backgroundColor=B91C1C&textColor=ffffff&fontWeight=700',
     },
   },
+  {
+    id: 'amala-joint',
+    name: 'Amala Joint',
+    rating: 4.7,
+    etaMinutes: 25,
+    image:
+      'https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80',
+    logo: {
+      uri: 'https://api.dicebear.com/7.x/initials/png?seed=Amala%20Joint&backgroundColor=15803D&textColor=ffffff&fontWeight=700',
+    },
+  },
 ];
 
 export type MenuItem = {
