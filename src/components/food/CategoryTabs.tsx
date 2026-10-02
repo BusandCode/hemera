@@ -25,14 +25,14 @@ export function CategoryTabs({ active, onSelect }: { active: FoodCategory; onSel
 }
 
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 5,marginTop:-4 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 5, marginTop: -4 },
   headerLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, letterSpacing: 0.8, color: foodColors.textMuted },
   headerLine: { flex: 1, height: 1, backgroundColor: foodColors.border },
-  row: { gap: 8, paddingRight: 20 },
-  pill: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 20, borderWidth: 1 },
+  row: { gap: 6, paddingRight: 16 },
+  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   pillActive: { backgroundColor: foodColors.primaryDark, borderColor: foodColors.primaryDark },
   pillInactive: { backgroundColor: foodColors.surface, borderColor: foodColors.border },
-  pillText: { fontSize: 12.5, fontFamily: fonts.poppins.semiBold },
+  pillText: { fontSize: 11, fontFamily: fonts.poppins.semiBold },
   pillTextActive: { color: '#fff' },
   pillTextInactive: { color: foodColors.textSecondary },
 });

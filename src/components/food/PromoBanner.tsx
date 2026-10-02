@@ -15,10 +15,10 @@ export function PromoBanner() {
 }
 
 const styles = StyleSheet.create({
-  banner: { height: 170, borderRadius: 18, overflow: 'hidden', justifyContent: 'center' },
+  banner: { height: 170, width: '100%', overflow: 'hidden',borderRadius: 10, justifyContent: 'center' },
   image: { resizeMode: 'cover' },
   overlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(10,10,20,0.45)' },
-  textBlock: { paddingHorizontal: 20 },
+  textBlock: { paddingHorizontal: 26 },
   title: { fontSize: 26, fontFamily: fonts.poppins.bold, color: '#fff', lineHeight: 30 },
   titleAccent: { color: foodColors.primary, fontStyle: 'italic' },
   subtitle: { fontSize: 12, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.85)', marginTop: 6 },
