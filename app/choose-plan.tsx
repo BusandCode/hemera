@@ -8,6 +8,7 @@ import {
   ImageBackground,
   BackHandler,
   Platform,
+  Alert,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,9 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
+import { supabase } from '../src/lib/supabase';
+import { useAuth } from '../src/context/AuthContext';
+import { useReferral } from '../src/context/ReferralContext';
+import { REFERRAL_LAUNDRY_PERCENT } from '../src/constants/referral';
 
 type PlanId = 'basic' | 'standard' | 'premium' | 'vip';
-type PaymentMethod = 'wallet' | 'card';
+type PaymentMethod = 'transfer' | 'card';
 type DurationKey = '1m' | '3m' | '6m' | '12m';
 type Step = 'plans' | 'duration';
 
@@ -105,7 +110,7 @@ const plans: Plan[] = [
       'Wash, dry, iron & fold',
       'Same day express turnaround (24 hrs)',
       'Personal Hemera VIP bag',
-      'Fast pickup and delivery 🚚',
+      'Fast pickup and delivery',
       'Dedicated support line',
     ],
   },
@@ -124,9 +129,9 @@ const savingsPoints = [
   'Save up to 20% on every order',
 ];
 
-const paymentMethods: { id: PaymentMethod; label: string }[] = [
-  { id: 'wallet', label: 'Wallet' },
-  { id: 'card', label: 'Card' },
+const paymentMethods: { id: PaymentMethod; label: string; comingSoon?: boolean }[] = [
+  { id: 'transfer', label: 'Transfer' },
+  { id: 'card', label: 'Card', comingSoon: true },
 ];
 
 function formatNaira(amount: number) {
@@ -141,15 +146,24 @@ function durationTotal(monthly: number, d: Duration) {
 export default function ChoosePlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
+  const { rewards, refresh: refreshReferrals } = useReferral();
   const [step, setStep] = useState<Step>('plans');
   const [selectedId, setSelectedId] = useState<PlanId>('standard');
-  const [method, setMethod] = useState<PaymentMethod>('wallet');
+  const [method, setMethod] = useState<PaymentMethod>('transfer');
   const [durationKey, setDurationKey] = useState<DurationKey>('3m');
+  const [agreed, setAgreed] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   const selectedPlan = plans.find((p) => p.id === selectedId)!;
   const selectedDuration = durations.find((d) => d.key === durationKey)!;
   const methodLabel = paymentMethods.find((m) => m.id === method)!.label;
-  const total = durationTotal(selectedPlan.price, selectedDuration);
+  const subtotal = durationTotal(selectedPlan.price, selectedDuration);
+  const laundryReward = rewards.laundry;
+  const referralDiscount = laundryReward
+    ? Math.round((subtotal * REFERRAL_LAUNDRY_PERCENT) / 100)
+    : 0;
+  const total = subtotal - referralDiscount;
 
   useEffect(() => {
     if (step !== 'duration') return;
@@ -160,7 +174,50 @@ export default function ChoosePlanScreen() {
     return () => sub.remove();
   }, [step]);
 
-  const handlePay = () => {
+  const selectMethod = (m: { id: PaymentMethod; label: string; comingSoon?: boolean }) => {
+    if (m.comingSoon) {
+      Alert.alert('Coming soon', `${m.label} payments are coming soon. Please use Transfer for now.`);
+      return;
+    }
+    setMethod(m.id);
+  };
+
+  const handlePay = async () => {
+    if (!agreed || paying) return;
+    setPaying(true);
+
+    const ref = `WSH-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const { error } = await supabase.from('orders').insert({
+      order_type: 'ewash',
+      status: 'placed',
+      total_kobo: total * 100,
+      metadata: {
+        ref,
+        kind: 'subscription',
+        title: `${selectedPlan.name} Plan · ${selectedDuration.label}`,
+        plan_id: selectedPlan.id,
+        duration_months: selectedDuration.months,
+        subtotal,
+        total,
+        payment_method: method,
+        customer_email: session?.user.email ?? '',
+        ...(laundryReward && {
+          referral_reward_id: laundryReward.id,
+          referral_discount: referralDiscount,
+        }),
+      },
+    });
+
+    setPaying(false);
+
+    if (error) {
+      if (laundryReward) refreshReferrals();
+      Alert.alert('Subscription failed', error.message);
+      return;
+    }
+
+    refreshReferrals();
     router.back();
   };
 
@@ -247,17 +304,45 @@ export default function ChoosePlanScreen() {
             ))}
           </View>
 
+          <TouchableOpacity
+            style={styles.termsBox}
+            onPress={() => setAgreed((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
+              {agreed && <Feather name="check" size={13} color="#fff" />}
+            </View>
+            <Text style={styles.agreeText}>
+              By ticking this box, you agree to our{' '}
+              <Text
+                style={styles.agreeLink}
+                onPress={() => router.push('/terms' as any)}
+                suppressHighlighting
+              >
+                Terms & Conditions
+              </Text>.
+            </Text>
+          </TouchableOpacity>
+
           <View style={styles.dBottomSpacer} />
         </ScrollView>
 
         <View style={[styles.dFooter, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.dFooterSummary}>
-            <Text style={styles.dFooterLabel}>Total · {methodLabel}</Text>
+            <Text style={styles.dFooterLabel}>
+              Total · {methodLabel}
+              {referralDiscount > 0 ? ` · ${REFERRAL_LAUNDRY_PERCENT}% referral reward` : ''}
+            </Text>
             <Text style={styles.dFooterPrice}>{formatNaira(total)}</Text>
           </View>
-          <TouchableOpacity style={styles.dPayButton} activeOpacity={0.85} onPress={handlePay}>
-            <Text style={styles.dPayButtonText}>Subscribe Now</Text>
-            <Feather name="arrow-right" size={16} color="#fff" />
+          <TouchableOpacity
+            style={[styles.dPayButton, (!agreed || paying) && styles.dPayButtonDisabled]}
+            activeOpacity={0.85}
+            onPress={handlePay}
+            disabled={!agreed || paying}
+          >
+            <Text style={[styles.dPayButtonText, !agreed && styles.dPayButtonTextDisabled]}>Subscribe Now</Text>
+            <Feather name="arrow-right" size={16} color={agreed ? '#fff' : washColors.textMuted} />
           </TouchableOpacity>
         </View>
       </View>
@@ -350,27 +435,41 @@ export default function ChoosePlanScreen() {
         <View style={styles.paymentRow}>
           {paymentMethods.map((m) => {
             const active = m.id === method;
+            const iconColor = m.comingSoon
+              ? '#9A9A9A'
+              : active
+                ? foodColors.badgeBlue
+                : foodColors.textPrimary;
             return (
               <TouchableOpacity
                 key={m.id}
-                style={[styles.paymentTile, active && styles.paymentTileActive]}
+                style={[
+                  styles.paymentTile,
+                  active && styles.paymentTileActive,
+                  m.comingSoon && styles.paymentTileDisabled,
+                ]}
                 activeOpacity={0.85}
-                onPress={() => setMethod(m.id)}
+                onPress={() => selectMethod(m)}
               >
-                {m.id === 'wallet' ? (
-                  <MaterialCommunityIcons
-                    name="wallet-outline"
-                    size={22}
-                    color={active ? foodColors.badgeBlue : foodColors.textPrimary}
-                  />
+                {m.id === 'transfer' ? (
+                  <MaterialCommunityIcons name="bank-transfer" size={24} color={iconColor} />
                 ) : (
-                  <Feather
-                    name="credit-card"
-                    size={20}
-                    color={active ? foodColors.badgeBlue : foodColors.textPrimary}
-                  />
+                  <Feather name="credit-card" size={20} color={iconColor} />
                 )}
-                <Text style={[styles.paymentLabel, active && styles.paymentLabelActive]}>{m.label}</Text>
+                <Text
+                  style={[
+                    styles.paymentLabel,
+                    active && styles.paymentLabelActive,
+                    m.comingSoon && styles.paymentLabelDisabled,
+                  ]}
+                >
+                  {m.label}
+                </Text>
+                {m.comingSoon && (
+                  <View style={styles.soonPill}>
+                    <Text style={styles.soonText}>SOON</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -573,12 +672,26 @@ const styles = StyleSheet.create({
     backgroundColor: foodColors.surface,
   },
   paymentTileActive: { borderColor: foodColors.badgeBlue },
+  paymentTileDisabled: { opacity: 0.6 },
   paymentLabel: {
     fontSize: 14.5,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   paymentLabelActive: { color: foodColors.badgeBlue },
+  paymentLabelDisabled: { color: '#9A9A9A' },
+  soonPill: {
+    backgroundColor: '#F0B429',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  soonText: {
+    fontSize: 9.5,
+    fontFamily: fonts.poppins.bold,
+    letterSpacing: 0.4,
+    color: foodColors.textPrimary,
+  },
 
   footer: {
     paddingHorizontal: 20,
@@ -723,6 +836,42 @@ const styles = StyleSheet.create({
   },
   includedLabel: { flex: 1, fontSize: 13, fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
 
+  termsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FBF3D9',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 24,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: washColors.textSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: washColors.navySolid,
+    borderColor: washColors.navySolid,
+  },
+  agreeText: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textSecondary,
+  },
+  agreeLink: {
+    fontFamily: fonts.poppins.bold,
+    color: washColors.navySolid,
+    textDecorationLine: 'underline',
+  },
+
   dBottomSpacer: { height: 100 },
 
   dFooter: {
@@ -751,5 +900,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 26,
   },
+  dPayButtonDisabled: { backgroundColor: washColors.grayBorder },
   dPayButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  dPayButtonTextDisabled: { color: washColors.textMuted },
 });

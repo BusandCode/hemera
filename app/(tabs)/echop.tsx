@@ -78,14 +78,14 @@ export default function FoodScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  header: { paddingHorizontal: 26, paddingTop: 55, paddingBottom: 8 },
+  header: { paddingHorizontal: 16, paddingTop: 55, paddingBottom: 8 },
   scroll: { flex: 1 },
   content: { paddingBottom: 18 },
-  searchSection: { paddingHorizontal: 26, marginBottom: 14 },
-  bannerSection: { marginBottom: 22 },
-  categorySection: { paddingHorizontal: 26, marginBottom: 20 },
-  partnersSection: { paddingHorizontal: 26, marginBottom: 5 },
-  menuSection: { paddingHorizontal: 26, marginBottom: 10 },
+  searchSection: { paddingHorizontal: 16, marginBottom: 14 },
+  bannerSection: { paddingHorizontal: 16, marginBottom: 22 },
+  categorySection: { paddingHorizontal: 16, marginBottom: 20 },
+  partnersSection: { paddingHorizontal: 16, marginBottom: 5 },
+  menuSection: { paddingHorizontal: 16, marginBottom: 10 },
   footer: {
     backgroundColor: foodColors.background,
     borderTopWidth: 1,

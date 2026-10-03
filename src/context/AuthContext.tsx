@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { getPendingReferral, clearPendingReferral } from '../lib/referralLink';
 
 type SignUpDetails = {
   fullName: string;
@@ -44,12 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async ({ fullName, gender, phone, referredBy, email, password }: SignUpDetails) => {
+    const pending = await getPendingReferral();
+    const referral = (referredBy || pending || '').trim().toUpperCase();
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, gender, phone, referred_by: referredBy } },
+      options: { data: { full_name: fullName, gender, phone, referred_by: referral } },
     });
     if (error) throw new Error(error.message);
+    await clearPendingReferral();
   };
 
   const signOut = async () => {

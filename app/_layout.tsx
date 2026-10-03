@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Linking from 'expo-linking';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,6 +21,10 @@ import { ProfileProvider } from '../src/context/ProfileContext';
 import { OnboardingProvider } from '../src/context/OnboardingContext';
 import { AuthProvider } from '../src/context/AuthContext';
 import { EPlanDraftProvider } from '../src/context/EPlanDraftContext';
+import { FavoritesProvider } from '../src/context/FavoritesContext';
+import { ReferralProvider } from '../src/context/ReferralContext';
+import { ReferralRewardPrompt } from '../src/components/referral/ReferralRewardPrompt';
+import { capturePendingReferral } from '../src/lib/referralLink';
 import { SplashScreenView } from '../src/components/SplashScreenView';
 
 SplashScreen.preventAutoHideAsync();
@@ -41,6 +46,12 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, []);
 
+  useEffect(() => {
+    Linking.getInitialURL().then(capturePendingReferral);
+    const sub = Linking.addEventListener('url', ({ url }) => capturePendingReferral(url));
+    return () => sub.remove();
+  }, []);
+
   if (!fontsLoaded && !fontError) {
     return <SplashScreenView />;
   }
@@ -54,63 +65,72 @@ export default function RootLayout() {
               <CartProvider>
                 <AppDataProvider>
                   <ProfileProvider>
-                    <EPlanDraftProvider>
-                      <StatusBar style="dark" />
-                      <Stack
-                        screenOptions={{
-                          headerShown: false,
-                          presentation: 'card',
-                          animation: 'slide_from_right',
-                        }}
-                      >
-                        <Stack.Screen name="onboarding" />
-                        <Stack.Screen name="auth" />
-                        <Stack.Screen
-                          name="forgot-password"
-                          options={{ presentation: 'card', animation: 'slide_from_right' }}
-                        />
-                        <Stack.Screen name="(tabs)" />
+                    <ReferralProvider>
+                      <EPlanDraftProvider>
+                        <FavoritesProvider>
+                          <StatusBar style="dark" />
+                          <Stack
+                            screenOptions={{
+                              headerShown: false,
+                              presentation: 'card',
+                              animation: 'slide_from_right',
+                            }}
+                          >
+                            <Stack.Screen name="onboarding" />
+                            <Stack.Screen name="auth" />
+                            <Stack.Screen
+                              name="forgot-password"
+                              options={{ presentation: 'card', animation: 'slide_from_right' }}
+                            />
+                            <Stack.Screen name="(tabs)" />
 
-                        {/* Modal — a temporary picker that should slide over the current screen */}
-                        <Stack.Screen
-                          name="location-picker"
-                          options={{ presentation: 'modal' }}
-                        />
+                            {/* Modal — a temporary picker that should slide over the current screen */}
+                            <Stack.Screen
+                              name="location-picker"
+                              options={{ presentation: 'modal' }}
+                            />
 
-                        <Stack.Screen name="checkout" />
-                        <Stack.Screen
-                          name="order-success"
-                          options={{ gestureEnabled: false }}
-                        />
+                            <Stack.Screen name="checkout" />
+                            <Stack.Screen
+                              name="order-success"
+                              options={{ gestureEnabled: false }}
+                            />
 
-                        {/* Wallet home — plain push */}
-                        <Stack.Screen name="wallet" />
+                            {/* Wallet home — plain push */}
+                            <Stack.Screen name="wallet" />
 
-                        {/* Wallet funding flow — full-screen pushes, not modals */}
-                        <Stack.Screen name="fund-wallet-amount" />
-                        <Stack.Screen
-                          name="fund-wallet-account"
-                          options={{ gestureEnabled: false }}
-                        />
+                            {/* Wallet funding flow — full-screen pushes, not modals */}
+                            <Stack.Screen name="fund-wallet-amount" />
+                            <Stack.Screen
+                              name="fund-wallet-account"
+                              options={{ gestureEnabled: false }}
+                            />
 
-                        {/* Withdrawal flow — full-screen pushes */}
-                        <Stack.Screen name="request-withdrawal" />
-                        <Stack.Screen name="confirm-withdrawal" />
+                            {/* Withdrawal flow — full-screen pushes */}
+                            <Stack.Screen name="request-withdrawal" />
+                            <Stack.Screen name="confirm-withdrawal" />
 
-                        {/* E-Plan flow — full-screen pushes */}
-                        <Stack.Screen name="e-plan" options={{ animation: 'none' }} />
-                        <Stack.Screen name="e-plan-setup" options={{ animation: 'none' }} />
-                        <Stack.Screen name="e-plan-exclusions" />
-                        <Stack.Screen name="e-plan-review" />
-                        <Stack.Screen
-                          name="e-plan-success"
-                          options={{ gestureEnabled: false }}
-                        />
-                        <Stack.Screen name="my-plan" options={{ animation: 'none' }} />
-                        <Stack.Screen name="payments" options={{ animation: 'none' }} />
-                        <Stack.Screen name="eplan-transaction" />
-                      </Stack>
-                    </EPlanDraftProvider>
+                            {/* E-Plan flow — full-screen pushes */}
+                            <Stack.Screen name="e-plan" options={{ animation: 'none' }} />
+                            <Stack.Screen name="e-plan-setup" options={{ animation: 'none' }} />
+                            <Stack.Screen name="e-plan-exclusions" />
+                            <Stack.Screen name="e-plan-review" />
+                            <Stack.Screen
+                              name="e-plan-success"
+                              options={{ gestureEnabled: false }}
+                            />
+                            <Stack.Screen name="my-plan" options={{ animation: 'none' }} />
+                            <Stack.Screen name="payments" options={{ animation: 'none' }} />
+                            <Stack.Screen name="eplan-transaction" />
+                            <Stack.Screen name="quality-promise" />
+                            <Stack.Screen name="offers" />
+                            <Stack.Screen name="track-order" />
+                            <Stack.Screen name="confirm-schedule" />
+                          </Stack>
+                          <ReferralRewardPrompt />
+                        </FavoritesProvider>
+                      </EPlanDraftProvider>
+                    </ReferralProvider>
                   </ProfileProvider>
                 </AppDataProvider>
               </CartProvider>

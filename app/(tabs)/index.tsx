@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,11 +25,16 @@ const PROMO_GAP = 5;
 const PROMO_VISIBLE = 2.95;
 const PROMO_ROW_WIDTH = SCREEN_WIDTH - 20;
 const PROMO_CARD_WIDTH = (PROMO_ROW_WIDTH - PROMO_GAP * (Math.ceil(PROMO_VISIBLE) - 1)) / PROMO_VISIBLE;
+const PROMO_STEP = PROMO_CARD_WIDTH + PROMO_GAP;
 const SERVICE_GRID_GAP = 12;
 const SERVICE_COLUMNS = 4;
 const SERVICE_CARD_WIDTH =
   (CARD_WIDTH - SERVICE_GRID_GAP * (SERVICE_COLUMNS - 1)) / SERVICE_COLUMNS;
 const SERVICE_CARD_INNER_WIDTH = SERVICE_CARD_WIDTH * 0.92;
+
+// How long each card rests, and how long the slide to the next card takes.
+const AUTO_SLIDE_MS = 2200;
+const SLIDE_DURATION_MS = 700;
 
 const BADGE_BLUE_DARK = '#1E3F82';
 
@@ -43,14 +48,14 @@ type QuickService = {
 };
 
 const quickServices: QuickService[] = [
-  { id: 'echop', icon: 'coffee', title: 'E-Chop', subtitle: 'Order food you love', bgColor: foodColors.primary, route: '/echop' },
-  { id: 'ewash', icon: 'droplet', title: 'E-Wash', subtitle: 'Laundry & dry cleaning', bgColor: foodColors.badgeBlue, route: '/wash' },
-  { id: 'track', icon: 'map-pin', title: 'Track Order', subtitle: 'Track your orders live', bgColor: foodColors.forestGreen },
-  { id: 'refer', icon: 'user-plus', title: 'Refer & Earn', subtitle: 'Invite friends & earn', bgColor: foodColors.primary, route: '/refer-earn' },
-  { id: 'support', icon: 'message-circle', title: 'Support', subtitle: 'Get help anytime', bgColor: foodColors.badgeBlue },
-  { id: 'quality', icon: 'shield', title: 'Quality Promise', subtitle: 'Top quality assurance', bgColor: foodColors.primary },
-  { id: 'schedule', icon: 'clock', title: 'Schedule', subtitle: 'Pick a time that suits you', bgColor: foodColors.forestGreen },
-  { id: 'offers', icon: 'tag', title: 'Offers', subtitle: 'Exclusive deals for you', bgColor: foodColors.badgeBlue },
+  { id: 'echop',    icon: 'coffee',         title: 'E-Chop',          subtitle: 'Order food you love',      bgColor: foodColors.primary,     route: '/echop' },
+  { id: 'ewash',    icon: 'droplet',        title: 'E-Wash',          subtitle: 'Laundry & dry cleaning',   bgColor: foodColors.badgeBlue,   route: '/wash' },
+  { id: 'track',    icon: 'map-pin',        title: 'Track Order',     subtitle: 'Track your orders live',   bgColor: foodColors.forestGreen, route: '/track-order' },
+  { id: 'pickup',   icon: 'truck',          title: 'Request Pickup',  subtitle: 'Schedule a pickup',        bgColor: foodColors.primary,     route: '/request-pickup' },
+  { id: 'support',  icon: 'message-circle', title: 'Support',         subtitle: 'Get help anytime',         bgColor: foodColors.badgeBlue,   route: '/contact-support' },
+  { id: 'quality',  icon: 'shield',         title: 'Quality Promise', subtitle: 'Top quality assurance',    bgColor: foodColors.primary,     route: '/quality-promise' },
+  { id: 'eplan',    icon: 'calendar',       title: 'E-Plan',          subtitle: 'Plan meals ahead',         bgColor: foodColors.forestGreen, route: '/e-plan' },
+  { id: 'offers',   icon: 'tag',            title: 'Offers',          subtitle: 'Exclusive deals for you',  bgColor: foodColors.badgeBlue,   route: '/offers' },
 ];
 
 type PromoCard = {
@@ -72,6 +77,10 @@ const promoCards: PromoCard[] = [
   { id: 'quality-offer', label: 'Quality Promise', title: 'Verified Partners', subtitle: 'Trusted service', bg: '#E3F6E9', iconBg: foodColors.success, image: 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200' },
 ];
 
+// Two sets of cards back-to-back so the slide can loop seamlessly.
+const LOOPED_CARDS = [...promoCards, ...promoCards];
+const PROMO_TRACK_WIDTH = 20 + LOOPED_CARDS.length * PROMO_STEP;
+
 function firstName(fullName: string) {
   if (!fullName.trim()) return '';
   return fullName.trim().split(' ')[0];
@@ -81,14 +90,57 @@ export default function HomeScreen() {
   const router = useRouter();
   const { profile } = useProfile();
   const [activeDot, setActiveDot] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
 
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / (PROMO_CARD_WIDTH + PROMO_GAP));
-    setActiveDot(index);
-  };
+  // The promo track is moved with a native-driven translateX, so the slide
+  // runs on the UI thread and stays smooth even while the JS thread is busy.
+  const translateX = useRef(new Animated.Value(0)).current;
+  const currentIndexRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const slideToNext = () => {
+      const next = currentIndexRef.current + 1;
+      setActiveDot(next % promoCards.length);
+
+      Animated.timing(translateX, {
+        toValue: -next * PROMO_STEP,
+        duration: SLIDE_DURATION_MS,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished || cancelled) return;
+
+        // After the last card of the first set, the second set looks identical,
+        // so jump back to the start without the user seeing anything change.
+        currentIndexRef.current = next % promoCards.length;
+        if (next >= promoCards.length) {
+          translateX.setValue(-currentIndexRef.current * PROMO_STEP);
+        }
+
+        timer = setTimeout(slideToNext, AUTO_SLIDE_MS);
+      });
+    };
+
+    timer = setTimeout(slideToNext, AUTO_SLIDE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      translateX.stopAnimation();
+    };
+  }, [translateX]);
 
   const greetingName = firstName(profile.fullName) || 'there';
+
+  const handleServicePress = (service: QuickService) => {
+    if (service.route) {
+      router.push(service.route as any);
+    } else {
+      router.push('/support' as any);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -148,30 +200,29 @@ export default function HomeScreen() {
           />
         </LinearGradient>
 
-        {/* Promo carousel */}
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          snapToInterval={PROMO_CARD_WIDTH + PROMO_GAP}
-          decelerationRate="fast"
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          style={styles.promoScroll}
-          contentContainerStyle={styles.promoScrollContent}
-        >
-          {promoCards.map((card) => (
-            <View key={card.id} style={[styles.promoCard, { backgroundColor: card.bg }]}>
-              <Text style={[styles.promoLabel, { color: card.iconBg }]} numberOfLines={1}>{card.label}</Text>
-              <Text style={styles.promoTitle} numberOfLines={1}>{card.title}</Text>
-              <Text style={styles.promoSubtitle} numberOfLines={1}>{card.subtitle}</Text>
-              <View style={[styles.promoIconCircle, { backgroundColor: card.iconBg }]}>
-                <Feather name="arrow-right" size={12} color="#fff" />
+        {/* Promo carousel (auto-sliding, seamless loop) */}
+        <View style={styles.promoViewport}>
+          <Animated.View
+            style={[styles.promoTrack, { transform: [{ translateX }] }]}
+          >
+            {LOOPED_CARDS.map((card, i) => (
+              <View
+                key={`${card.id}-${i}`}
+                style={[styles.promoCard, { backgroundColor: card.bg }]}
+              >
+                <Text style={[styles.promoLabel, { color: card.iconBg }]} numberOfLines={1}>
+                  {card.label}
+                </Text>
+                <Text style={styles.promoTitle} numberOfLines={1}>{card.title}</Text>
+                <Text style={styles.promoSubtitle} numberOfLines={1}>{card.subtitle}</Text>
+                <View style={[styles.promoIconCircle, { backgroundColor: card.iconBg }]}>
+                  <Feather name="arrow-right" size={12} color="#fff" />
+                </View>
+                <Image source={{ uri: card.image }} style={styles.promoImage} />
               </View>
-              <Image source={{ uri: card.image }} style={styles.promoImage} />
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </Animated.View>
+        </View>
 
         <View style={styles.dotsRow}>
           {promoCards.map((_, i) => (
@@ -193,7 +244,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={styles.serviceCard}
                 activeOpacity={0.8}
-                onPress={() => service.route && router.push(service.route as any)}
+                onPress={() => handleServicePress(service)}
               >
                 <View style={[styles.serviceIconWrap, { backgroundColor: service.bgColor }]}>
                   <Feather name={service.icon} size={16} color="#fff" />
@@ -321,8 +372,19 @@ const styles = StyleSheet.create({
     borderRadius: 65,
   },
 
-  promoScroll: { marginBottom: 8, marginHorizontal: -20 },
-  promoScrollContent: { gap: PROMO_GAP, paddingLeft: 20, paddingRight: 0 },
+  promoViewport: {
+    marginBottom: 8,
+    marginHorizontal: -20,
+    height: 80,
+    overflow: 'hidden',
+  },
+  promoTrack: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: PROMO_GAP,
+    paddingLeft: 20,
+    width: PROMO_TRACK_WIDTH,
+  },
   promoCard: {
     width: PROMO_CARD_WIDTH,
     height: 80,

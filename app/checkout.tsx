@@ -1,4 +1,3 @@
-// app/checkout.tsx
 import { useMemo, useState } from 'react';
 import {
   View,
@@ -8,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -16,9 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { supabase } from '../src/lib/supabase';
+import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLocation } from '../src/context/LocationContext';
 import { useAppData } from '../src/context/AppDataContext';
+import { useReferral } from '../src/context/ReferralContext';
+import { REFERRAL_FOOD_DISCOUNT } from '../src/constants/referral';
 
 const DELIVERY_FEE = 500;
 const SERVICE_FEE = 200;
@@ -30,6 +34,28 @@ const TIME_SLOTS = [
   'Later today',
 ];
 
+type PaymentMethod = {
+  id: 'transfer' | 'cash';
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  subtitle: string;
+};
+
+const PAYMENT_METHODS: PaymentMethod[] = [
+  {
+    id: 'transfer',
+    icon: 'bank-transfer',
+    label: 'Pay with Transfer',
+    subtitle: 'Bank transfer to the provided account',
+  },
+  {
+    id: 'cash',
+    icon: 'currency-ngn',
+    label: 'Pay with Cash',
+    subtitle: 'Pay the rider on delivery',
+  },
+];
+
 function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
 }
@@ -38,53 +64,98 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ promoApplied?: string; discount?: string }>();
+  const { session } = useAuth();
   const { lines, itemCount, total: itemsTotal, clear } = useCart();
   const { formatted } = useLocation();
-  const { addresses, cards } = useAppData();
+  const { addresses } = useAppData();
+  const { rewards, refresh: refreshReferrals } = useReferral();
 
   const defaultAddress =
     addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
-  const defaultCard =
-    cards.find((c) => c.isDefault) ?? cards[0] ?? null;
 
   const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id ?? '');
-  const [selectedCardId, setSelectedCardId] = useState(defaultCard?.id ?? '');
+  const [selectedPaymentId, setSelectedPaymentId] = useState<PaymentMethod['id']>('transfer');
   const [slot, setSlot] = useState(TIME_SLOTS[0]);
   const [placing, setPlacing] = useState(false);
 
   const promoApplied = params.promoApplied === '1';
-  const discount = Number(params.discount ?? 0);
+  const promoDiscount = promoApplied ? Number(params.discount ?? 0) : 0;
+  const foodReward = rewards.food;
+  const referralDiscount = foodReward
+    ? Math.min(REFERRAL_FOOD_DISCOUNT, Math.max(itemsTotal - promoDiscount, 0))
+    : 0;
+  const discount = promoDiscount + referralDiscount;
 
   const { total } = useMemo(() => {
-    const base = itemsTotal - discount;
+    const base = Math.max(itemsTotal - discount, 0);
     return { total: base + (lines.length > 0 ? DELIVERY_FEE + SERVICE_FEE : 0) };
   }, [itemsTotal, discount, lines.length]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? defaultAddress;
-  const selectedCard = cards.find((c) => c.id === selectedCardId) ?? defaultCard;
+  const selectedPayment = PAYMENT_METHODS.find((p) => p.id === selectedPaymentId)!;
 
   const canPlace =
-    lines.length > 0 && !!selectedAddress && !!selectedCard && !placing;
+    lines.length > 0 && !!selectedAddress && !!selectedPayment && !placing;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!canPlace) return;
     setPlacing(true);
 
-    const orderId = `#${Math.floor(100000 + Math.random() * 900000)}`;
+    const ref = `CHP-${Math.floor(100000 + Math.random() * 900000)}`;
+    const firstName = lines[0].item.name;
+    const title =
+      lines.length > 1 ? `${firstName} + ${lines.length - 1} more` : firstName;
 
-    setTimeout(() => {
-      clear();
+    const { error } = await supabase.from('orders').insert({
+      order_type: 'echop',
+      status: 'placed',
+      total_kobo: total * 100,
+      metadata: {
+        ref,
+        title,
+        customer_email: session?.user.email ?? '',
+        total,
+        subtotal: itemsTotal,
+        discount,
+        ...(foodReward && {
+          referral_reward_id: foodReward.id,
+          referral_discount: referralDiscount,
+        }),
+        items: itemCount,
+        slot,
+        payment_method: selectedPayment.id,
+        address: selectedAddress
+          ? `${selectedAddress.line}, ${selectedAddress.details}`
+          : '',
+        lines: lines.map(({ item, qty }) => ({
+          id: item.id,
+          name: item.name,
+          qty,
+          price: item.price,
+        })),
+      },
+    });
+
+    if (error) {
       setPlacing(false);
-      router.replace({
-        pathname: '/order-success',
-        params: {
-          orderId,
-          total: String(total),
-          items: String(itemCount),
-          slot,
-        },
-      } as any);
-    }, 900);
+      if (foodReward) refreshReferrals();
+      Alert.alert('Order failed', error.message);
+      return;
+    }
+
+    clear();
+    refreshReferrals();
+    setPlacing(false);
+    router.replace({
+      pathname: '/order-success',
+      params: {
+        orderId: ref,
+        total: String(total),
+        items: String(itemCount),
+        slot,
+        paymentMethod: selectedPayment.id,
+      },
+    } as any);
   };
 
   if (lines.length === 0) {
@@ -202,28 +273,26 @@ export default function CheckoutScreen() {
         {/* Payment method */}
         <Text style={styles.sectionLabel}>Payment method</Text>
         <View style={styles.group}>
-          {cards.map((card, i) => {
-            const active = card.id === selectedCardId;
-            const isLast = i === cards.length - 1;
+          {PAYMENT_METHODS.map((method, i) => {
+            const active = method.id === selectedPaymentId;
+            const isLast = i === PAYMENT_METHODS.length - 1;
             return (
               <TouchableOpacity
-                key={card.id}
+                key={method.id}
                 style={[styles.row, isLast && styles.rowLast]}
-                onPress={() => setSelectedCardId(card.id)}
+                onPress={() => setSelectedPaymentId(method.id)}
                 activeOpacity={0.7}
               >
                 <View style={styles.iconWrap}>
                   <MaterialCommunityIcons
-                    name="credit-card-chip-outline"
-                    size={16}
+                    name={method.icon}
+                    size={method.id === 'transfer' ? 20 : 18}
                     color={foodColors.primary}
                   />
                 </View>
                 <View style={styles.rowTextBlock}>
-                  <Text style={styles.rowTitle}>
-                    {card.brand} •••• {card.last4}
-                  </Text>
-                  <Text style={styles.rowSubtitle}>Expires {card.expiry}</Text>
+                  <Text style={styles.rowTitle}>{method.label}</Text>
+                  <Text style={styles.rowSubtitle}>{method.subtitle}</Text>
                 </View>
                 {active && (
                   <Feather name="check-circle" size={18} color={foodColors.primary} />
@@ -231,16 +300,6 @@ export default function CheckoutScreen() {
               </TouchableOpacity>
             );
           })}
-          <TouchableOpacity
-            style={[styles.row, styles.rowLast]}
-            onPress={() => router.push('/add-payment-method' as any)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconWrap}>
-              <Feather name="plus" size={16} color={foodColors.primary} />
-            </View>
-            <Text style={styles.rowTitle}>Add payment method</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Items preview */}
@@ -276,7 +335,7 @@ export default function CheckoutScreen() {
             <Text style={styles.summaryLabel}>Subtotal</Text>
             <Text style={styles.summaryValue}>{formatNaira(itemsTotal)}</Text>
           </View>
-          {promoApplied && discount > 0 && (
+          {discount > 0 && (
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, styles.discountLabel]}>Discount</Text>
               <Text style={[styles.summaryValue, styles.discountLabel]}>

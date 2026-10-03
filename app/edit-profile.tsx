@@ -23,18 +23,18 @@ import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { useProfile } from '../src/context/ProfileContext';
 
 type Field = {
-  key: 'fullName' | 'email' | 'phone' | 'gender' | 'dob';
+  key: 'fullName' | 'email' | 'phone' | 'gender';
   label: string;
   icon: keyof typeof Feather.glyphMap;
+  editable: boolean;
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
 };
 
 const fields: Field[] = [
-  { key: 'fullName', label: 'Full Name', icon: 'user' },
-  { key: 'email', label: 'Email Address', icon: 'mail', keyboardType: 'email-address' },
-  { key: 'phone', label: 'Phone Number', icon: 'phone', keyboardType: 'phone-pad' },
-  { key: 'gender', label: 'Gender', icon: 'users' },
-  { key: 'dob', label: 'Date of Birth', icon: 'calendar' },
+  { key: 'fullName', label: 'Full Name', icon: 'user', editable: false },
+  { key: 'email', label: 'Email Address', icon: 'mail', editable: true, keyboardType: 'email-address' },
+  { key: 'phone', label: 'Phone Number', icon: 'phone', editable: true, keyboardType: 'phone-pad' },
+  { key: 'gender', label: 'Gender', icon: 'users', editable: false },
 ];
 
 export default function EditProfileScreen() {
@@ -145,15 +145,20 @@ export default function EditProfileScreen() {
           {fields.map((field) => (
             <View key={field.key} style={styles.fieldBlock}>
               <Text style={styles.fieldLabel}>{field.label}</Text>
-              <View style={styles.fieldInputWrap}>
+              <View style={[styles.fieldInputWrap, !field.editable && styles.fieldInputLocked]}>
                 <Feather name={field.icon} size={16} color={foodColors.textMuted} />
                 <TextInput
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, !field.editable && styles.fieldInputTextLocked]}
                   value={draft[field.key]}
                   onChangeText={(text) => update(field.key, text)}
                   keyboardType={field.keyboardType ?? 'default'}
                   placeholderTextColor={foodColors.textMuted}
+                  editable={field.editable}
+                  selectTextOnFocus={field.editable}
                 />
+                {!field.editable && (
+                  <Feather name="lock" size={14} color={foodColors.textMuted} />
+                )}
               </View>
             </View>
           ))}
@@ -224,6 +229,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 13 : 4,
   },
+  fieldInputLocked: { opacity: 0.7 },
   fieldInput: {
     flex: 1,
     fontSize: 14,
@@ -232,6 +238,7 @@ const styles = StyleSheet.create({
     padding: 0,
     minWidth: 0,
   },
+  fieldInputTextLocked: { color: foodColors.textSecondary },
 
   bottomSpacer: { height: 90 },
 

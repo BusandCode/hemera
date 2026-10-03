@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -15,31 +16,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { FilterTabs } from '../src/components/profile/FilterTabs';
+import type { Order } from '../src/components/profile/OrderCard';
+import { useOrders } from '../src/hooks/useOrders';
 
-type ActivityType = 'echop' | 'ewash';
-type ActivityStatus = 'Completed' | 'In Progress' | 'Scheduled' | 'Cancelled';
+type ActivityLabel = 'Completed' | 'In Progress' | 'Scheduled' | 'Cancelled';
 
-type Activity = {
-  id: string;
-  type: ActivityType;
-  title: string;
-  subtitle: string;
-  date: string;
-  amount: number;
-  status: ActivityStatus;
-};
-
-const activities: Activity[] = [
-  { id: 'a1', type: 'ewash', title: 'E-Wash Pickup', subtitle: 'Laundry · 10 items', date: 'Today, 10:30 AM', amount: 3500, status: 'In Progress' },
-  { id: 'a2', type: 'echop', title: 'Party Jollof Rice', subtitle: "Mama Titi's · 2 items", date: 'Today, 1:20 PM', amount: 7700, status: 'In Progress' },
-  { id: 'a3', type: 'ewash', title: 'Dry Cleaning', subtitle: 'Express · 4 items', date: 'June 20, 2026', amount: 5200, status: 'Completed' },
-  { id: 'a4', type: 'echop', title: 'Beef Suya Platter', subtitle: 'Suya Spot · 1 item', date: 'June 28, 2026', amount: 3200, status: 'Completed' },
-  { id: 'a5', type: 'ewash', title: 'Laundry Pickup', subtitle: 'Standard wash · 7 items', date: 'May 28, 2026', amount: 2900, status: 'Completed' },
-  { id: 'a6', type: 'echop', title: 'Amala & Ewedu Combo', subtitle: "Mama Titi's · 3 items", date: 'June 10, 2026', amount: 4600, status: 'Cancelled' },
-  { id: 'a7', type: 'ewash', title: 'Laundry Pickup', subtitle: 'Scheduled · 6 items', date: 'July 12, 2026', amount: 3100, status: 'Scheduled' },
-];
-
-const statusStyles: Record<ActivityStatus, { bg: string; text: string }> = {
+const statusStyles: Record<ActivityLabel, { bg: string; text: string }> = {
   Completed: { bg: 'rgba(52,199,89,0.12)', text: foodColors.success },
   'In Progress': { bg: 'rgba(46,90,172,0.1)', text: foodColors.badgeBlue },
   Scheduled: { bg: 'rgba(226,58,46,0.1)', text: foodColors.primary },
@@ -52,8 +34,13 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
 }
 
-function ActivityRow({ item }: { item: Activity }) {
-  const statusStyle = statusStyles[item.status];
+function toLabel(status: Order['status']): ActivityLabel {
+  return status === 'Delivered' ? 'Completed' : (status as ActivityLabel);
+}
+
+function ActivityRow({ item }: { item: Order }) {
+  const label = toLabel(item.status);
+  const statusStyle = statusStyles[label];
   const isEchop = item.type === 'echop';
 
   return (
@@ -71,14 +58,14 @@ function ActivityRow({ item }: { item: Activity }) {
           <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
           <Text style={styles.rowAmount}>{formatNaira(item.amount)}</Text>
         </View>
-        <Text style={styles.rowSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+        <Text style={styles.rowSubtitle} numberOfLines={1}>{item.meta}</Text>
         <View style={styles.rowBottom}>
           <View style={styles.dateRow}>
             <Feather name="clock" size={11} color={foodColors.textMuted} />
             <Text style={styles.rowDate}>{item.date}</Text>
           </View>
           <View style={[styles.statusPill, { backgroundColor: statusStyle.bg }]}>
-            <Text style={[styles.statusText, { color: statusStyle.text }]}>{item.status}</Text>
+            <Text style={[styles.statusText, { color: statusStyle.text }]}>{label}</Text>
           </View>
         </View>
       </View>
@@ -90,18 +77,18 @@ export default function RecentActivityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('All');
+  const { orders, loading, error } = useOrders();
 
   const filtered = useMemo(() => {
-    if (activeTab === 'All') return activities;
-    const type: ActivityType = activeTab === 'E-Chop' ? 'echop' : 'ewash';
-    return activities.filter((a) => a.type === type);
-  }, [activeTab]);
+    if (activeTab === 'All') return orders;
+    const type: Order['type'] = activeTab === 'E-Chop' ? 'echop' : 'ewash';
+    return orders.filter((o) => o.type === type);
+  }, [activeTab, orders]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -116,7 +103,6 @@ export default function RecentActivityScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filter tabs */}
       <View style={styles.tabsWrap}>
         <FilterTabs
           tabs={tabs as unknown as string[]}
@@ -125,26 +111,35 @@ export default function RecentActivityScreen() {
         />
       </View>
 
-      {/* List */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.list}>
-          {filtered.map((item) => (
-            <ActivityRow key={item.id} item={item} />
-          ))}
-          {filtered.length === 0 && (
-            <View style={styles.emptyState}>
-              <Feather name="inbox" size={38} color={foodColors.textMuted} />
-              <Text style={styles.emptyTitle}>No activity yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Your E-Chop orders and E-Wash pickups will appear here.
-              </Text>
-            </View>
-          )}
-        </View>
+        {loading ? (
+          <ActivityIndicator style={styles.loader} color={foodColors.primary} />
+        ) : error ? (
+          <View style={styles.emptyState}>
+            <Feather name="alert-circle" size={38} color={foodColors.textMuted} />
+            <Text style={styles.emptyTitle}>Couldn't load activity</Text>
+            <Text style={styles.emptySubtitle}>{error}</Text>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {filtered.map((item) => (
+              <ActivityRow key={item.id} item={item} />
+            ))}
+            {filtered.length === 0 && (
+              <View style={styles.emptyState}>
+                <Feather name="inbox" size={38} color={foodColors.textMuted} />
+                <Text style={styles.emptyTitle}>No activity yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  Your E-Chop orders and E-Wash pickups will appear here.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
@@ -191,6 +186,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
   list: { gap: 12 },
+  loader: { marginTop: 48 },
 
   row: {
     flexDirection: 'row',

@@ -17,6 +17,7 @@ import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useOnboarding } from '../../src/context/OnboardingContext';
+import { useFavorites } from '../../src/context/FavoritesContext';
 
 type MenuItem = {
   id: string;
@@ -45,6 +46,10 @@ const orderItems: MenuItem[] = [
 
 const referralItems: MenuItem[] = [
   { id: 'refer-earn', icon: 'gift', title: 'Refer & Earn', route: '/refer-earn', highlight: true },
+];
+
+const favoriteItems: MenuItem[] = [
+  { id: 'favorites', icon: 'heart', title: 'Favourite Restaurants', route: '/favorites' },
 ];
 
 const preferenceItems: MenuItem[] = [
@@ -131,6 +136,7 @@ export default function FoodProfileScreen() {
   const { profile } = useProfile();
   const { signOut } = useAuth();
   const { resetOnboarding } = useOnboarding();
+  const { favoriteIds } = useFavorites();
 
   const handleItemPress = (item: MenuItem) => {
     if (item.comingSoon) {
@@ -230,6 +236,11 @@ export default function FoodProfileScreen() {
         <MenuSection title="ACCOUNT" items={accountItems} onPressItem={handleItemPress} />
         <MenuSection title="ORDERS" items={orderItems} onPressItem={handleItemPress} />
         <MenuSection title="REFERRAL" items={referralItems} onPressItem={handleItemPress} />
+        <MenuSection
+          title={favoriteIds.length ? `FAVOURITES (${favoriteIds.length})` : 'FAVOURITES'}
+          items={favoriteItems}
+          onPressItem={handleItemPress}
+        />
         <MenuSection title="PREFERENCES" items={preferenceItems} onPressItem={handleItemPress} />
         <MenuSection title="HELP & SUPPORT" items={supportItems} onPressItem={handleItemPress} />
 

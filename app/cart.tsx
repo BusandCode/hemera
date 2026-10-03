@@ -1,4 +1,3 @@
-// app/cart.tsx
 import {
   View,
   Text,
@@ -9,8 +8,10 @@ import {
   TextInput,
   Dimensions,
   Platform,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -18,10 +19,19 @@ import { useRouter } from 'expo-router';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useCart } from '../src/context/CartContext';
+import type { MenuItem } from '../src/constants/foodData';
+import { useAllMenuItems } from '../src/hooks/useFood';
+import { useReferral } from '../src/context/ReferralContext';
+import { REFERRAL_FOOD_DISCOUNT } from '../src/constants/referral';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = SCREEN_WIDTH * 0.055;
 const ITEM_IMAGE_SIZE = SCREEN_WIDTH * 0.18;
+const SUGGESTION_IMAGE_SIZE = SCREEN_WIDTH * 0.24;
 
 const DELIVERY_FEE = 500;
 const SERVICE_FEE = 200;
@@ -30,25 +40,90 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
 }
 
+function animateLayout() {
+  LayoutAnimation.configureNext({
+    duration: 260,
+    create: { type: 'easeInEaseOut', property: 'opacity' },
+    update: { type: 'easeInEaseOut' },
+    delete: { type: 'easeInEaseOut', property: 'opacity' },
+  });
+}
+
 export default function CartScreen() {
   const router = useRouter();
-  const { lines, setQty, removeItem, itemCount, total: itemsTotal } = useCart();
+  const {
+    lines,
+    addItem,
+    setQty,
+    removeItem,
+    itemCount,
+    total: itemsTotal,
+    quantityOf,
+  } = useCart();
+  const { items: allMenuItems } = useAllMenuItems();
+  const { rewards } = useReferral();
 
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
 
-  const { discount, total } = useMemo(() => {
+  const hasFoodReward = !!rewards.food;
+
+  const { discount, referralDiscount, total } = useMemo(() => {
     const discount = promoApplied ? Math.round(itemsTotal * 0.1) : 0;
+    const referralDiscount = hasFoodReward
+      ? Math.min(REFERRAL_FOOD_DISCOUNT, Math.max(itemsTotal - discount, 0))
+      : 0;
     const total =
-      itemsTotal - discount + (lines.length > 0 ? DELIVERY_FEE + SERVICE_FEE : 0);
-    return { discount, total };
-  }, [itemsTotal, promoApplied, lines.length]);
+      Math.max(itemsTotal - discount - referralDiscount, 0) +
+      (lines.length > 0 ? DELIVERY_FEE + SERVICE_FEE : 0);
+    return { discount, referralDiscount, total };
+  }, [itemsTotal, promoApplied, lines.length, hasFoodReward]);
 
   const applyPromo = () => {
     if (promoCode.trim().length > 0) {
+      animateLayout();
       setPromoApplied(true);
     }
   };
+
+  const handleAdd = (item: MenuItem) => {
+    animateLayout();
+    addItem(item, 1);
+  };
+
+  const handleSetQty = (id: string, qty: number) => {
+    animateLayout();
+    setQty(id, qty);
+  };
+
+  const handleRemove = (id: string) => {
+    animateLayout();
+    removeItem(id);
+  };
+
+  // Suggest items not already in the cart, prioritizing same partner names
+  // as items currently in the cart, then popular items.
+  const [suggestions, setSuggestions] = useState<MenuItem[]>([]);
+  const suggestionsBuilt = useRef(false);
+
+  useEffect(() => {
+    if (suggestionsBuilt.current || allMenuItems.length === 0) return;
+    suggestionsBuilt.current = true;
+
+    const inCartIds = new Set(lines.map((l) => l.item.id));
+    const cartPartners = new Set(lines.map((l) => l.item.partnerName));
+
+    const available = allMenuItems.filter((it) => !inCartIds.has(it.id));
+
+    const score = (it: MenuItem) => {
+      let s = 0;
+      if (cartPartners.has(it.partnerName)) s += 2;
+      if (it.isPopular) s += 1;
+      return s;
+    };
+
+    setSuggestions([...available].sort((a, b) => score(b) - score(a)).slice(0, 8));
+  }, [allMenuItems]);
 
   const isEmpty = lines.length === 0;
 
@@ -122,7 +197,7 @@ export default function CartScreen() {
                       <View style={styles.stepper}>
                         <TouchableOpacity
                           style={styles.stepperButton}
-                          onPress={() => setQty(item.id, qty - 1)}
+                          onPress={() => handleSetQty(item.id, qty - 1)}
                         >
                           <Feather
                             name={qty === 1 ? 'trash-2' : 'minus'}
@@ -133,7 +208,7 @@ export default function CartScreen() {
                         <Text style={styles.stepperValue}>{qty}</Text>
                         <TouchableOpacity
                           style={[styles.stepperButton, styles.stepperButtonPrimary]}
-                          onPress={() => setQty(item.id, qty + 1)}
+                          onPress={() => handleSetQty(item.id, qty + 1)}
                         >
                           <Feather name="plus" size={13} color="#fff" />
                         </TouchableOpacity>
@@ -143,7 +218,7 @@ export default function CartScreen() {
 
                   <TouchableOpacity
                     style={styles.removeButton}
-                    onPress={() => removeItem(item.id)}
+                    onPress={() => handleRemove(item.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Feather name="x" size={14} color={foodColors.textMuted} />
@@ -164,7 +239,10 @@ export default function CartScreen() {
                     value={promoCode}
                     onChangeText={(text) => {
                       setPromoCode(text);
-                      if (promoApplied) setPromoApplied(false);
+                      if (promoApplied) {
+                        animateLayout();
+                        setPromoApplied(false);
+                      }
                     }}
                     autoCapitalize="characters"
                   />
@@ -192,13 +270,13 @@ export default function CartScreen() {
                   <Text style={styles.summaryValue}>{formatNaira(itemsTotal)}</Text>
                 </View>
 
-                {promoApplied && (
+                {discount + referralDiscount > 0 && (
                   <View style={styles.summaryRow}>
                     <Text style={[styles.summaryLabel, styles.discountLabel]}>
                       Discount
                     </Text>
                     <Text style={[styles.summaryValue, styles.discountLabel]}>
-                      -{formatNaira(discount)}
+                      -{formatNaira(discount + referralDiscount)}
                     </Text>
                   </View>
                 )}
@@ -221,6 +299,66 @@ export default function CartScreen() {
                 </View>
               </View>
             </View>
+
+            {/* Suggestions */}
+            {suggestions.length > 0 && (
+              <View style={styles.suggestionsSection}>
+                <View style={styles.suggestionsHeader}>
+                  <Text style={styles.sectionLabel}>You might also like</Text>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.suggestionsRow}
+                >
+                  {suggestions.map((item) => {
+                    const inCart = quantityOf(item.id) > 0;
+                    return (
+                      <View key={item.id} style={styles.suggestionCard}>
+                        <Image
+                          source={{ uri: item.image }}
+                          style={styles.suggestionImage}
+                        />
+
+                        <Text
+                          style={styles.suggestionPartner}
+                          numberOfLines={1}
+                        >
+                          {item.partnerName}
+                        </Text>
+                        <Text style={styles.suggestionName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.suggestionPrice}>
+                          {formatNaira(item.price)}
+                        </Text>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.suggestionAdd,
+                            inCart && styles.suggestionAddActive,
+                          ]}
+                          onPress={() => {
+                            if (!inCart) handleAdd(item);
+                          }}
+                          activeOpacity={0.85}
+                        >
+                          <Feather
+                            name={inCart ? 'check' : 'plus'}
+                            size={13}
+                            color="#fff"
+                          />
+                          <Text style={styles.suggestionAddText}>
+                            {inCart ? 'Added' : 'Add'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
@@ -439,7 +577,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
 
-  summarySection: { marginBottom: 8 },
+  summarySection: { marginBottom: 22 },
   summaryCard: {
     backgroundColor: foodColors.surface,
     borderRadius: 16,
@@ -470,6 +608,67 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: 6 },
   totalLabel: { fontSize: 15, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   totalValue: { fontSize: 17, fontFamily: fonts.poppins.bold, color: foodColors.primary },
+
+  suggestionsSection: { marginBottom: 8, marginHorizontal: -HORIZONTAL_PADDING },
+  suggestionsHeader: {
+    paddingHorizontal: HORIZONTAL_PADDING,
+    marginBottom: 10,
+  },
+  suggestionsRow: {
+    paddingHorizontal: HORIZONTAL_PADDING,
+    gap: 12,
+  },
+  suggestionCard: {
+    width: SUGGESTION_IMAGE_SIZE + 40,
+    backgroundColor: foodColors.surface,
+    borderRadius: 16,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  suggestionImage: {
+    width: '100%',
+    height: SUGGESTION_IMAGE_SIZE,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  suggestionPartner: {
+    fontSize: 9.5,
+    fontFamily: fonts.poppins.bold,
+    letterSpacing: 0.3,
+    color: foodColors.badgeBlue,
+  },
+  suggestionName: {
+    fontSize: 13,
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    marginTop: 1,
+  },
+  suggestionPrice: {
+    fontSize: 12.5,
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.textSecondary,
+    marginTop: 3,
+    marginBottom: 8,
+  },
+  suggestionAdd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: foodColors.primaryDark,
+    paddingVertical: 8,
+    borderRadius: 18,
+  },
+  suggestionAddActive: { backgroundColor: foodColors.success },
+  suggestionAddText: {
+    fontSize: 11.5,
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
 
   bottomSpacer: { height: 100 },
 

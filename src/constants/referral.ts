@@ -1,0 +1,2 @@
+export const REFERRAL_FOOD_DISCOUNT = 1000;
+export const REFERRAL_LAUNDRY_PERCENT = 5;

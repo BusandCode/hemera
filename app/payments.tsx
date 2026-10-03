@@ -154,7 +154,7 @@ export default function PaymentsScreen() {
               <Text style={styles.balanceBtnText}>Fund Wallet</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.balanceBtn}
+              style={[styles.balanceBtn, styles.balanceBtnRight]}
               activeOpacity={0.85}
               onPress={() => router.push('/request-withdrawal' as any)}
             >
@@ -247,90 +247,90 @@ export default function PaymentsScreen() {
               const failed = t.status === 'failed';
               const pending = t.status === 'pending';
               return (
-  <TouchableOpacity
-    key={t.id}
-    style={styles.txnRow}
-    activeOpacity={0.7}
-    onPress={() =>
-      router.push({
-        pathname: '/eplan-transaction',
-        params: { id: t.id },
-      } as any)
-    }
-  >
-    <View
-      style={[
-        styles.txnIconWrap,
-        refund
-          ? { backgroundColor: 'rgba(30,158,85,0.10)' }
-          : { backgroundColor: 'rgba(30,63,234,0.08)' },
-      ]}
-    >
-      <Feather
-        name={refund ? 'rotate-ccw' : 'gift'}
-        size={16}
-        color={refund ? '#1E9E55' : ACCENT_BLUE}
-      />
-    </View>
+                <TouchableOpacity
+                  key={t.id}
+                  style={styles.txnRow}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/eplan-transaction',
+                      params: { id: t.id },
+                    } as any)
+                  }
+                >
+                  <View
+                    style={[
+                      styles.txnIconWrap,
+                      refund
+                        ? { backgroundColor: 'rgba(30,158,85,0.10)' }
+                        : { backgroundColor: 'rgba(30,63,234,0.08)' },
+                    ]}
+                  >
+                    <Feather
+                      name={refund ? 'rotate-ccw' : 'gift'}
+                      size={16}
+                      color={refund ? '#1E9E55' : ACCENT_BLUE}
+                    />
+                  </View>
 
-    <View style={styles.txnInfo}>
-      <Text style={styles.txnTitle} numberOfLines={1}>
-        {t.title}
-      </Text>
-      <Text style={styles.txnSub} numberOfLines={1}>
-        {formatDate(t.created_at)} • {formatTime(t.created_at)}
-      </Text>
-      {t.reference && (
-        <Text style={styles.txnRef} numberOfLines={1}>
-          Ref: {t.reference}
-        </Text>
-      )}
-    </View>
+                  <View style={styles.txnInfo}>
+                    <Text style={styles.txnTitle} numberOfLines={1}>
+                      {t.title}
+                    </Text>
+                    <Text style={styles.txnSub} numberOfLines={1}>
+                      {formatDate(t.created_at)} • {formatTime(t.created_at)}
+                    </Text>
+                    {t.reference && (
+                      <Text style={styles.txnRef} numberOfLines={1}>
+                        Ref: {t.reference}
+                      </Text>
+                    )}
+                  </View>
 
-    <View style={styles.txnRight}>
-      <Text
-        style={[
-          styles.txnAmount,
-          refund && !failed && styles.txnAmountCredit,
-          failed && styles.txnAmountMuted,
-        ]}
-      >
-        {refund ? '+' : '-'}
-        {formatNaira(t.amount)}
-      </Text>
-      <View
-        style={[
-          styles.statusPill,
-          t.status === 'success' && styles.statusSuccess,
-          pending && styles.statusPending,
-          failed && styles.statusFailed,
-        ]}
-      >
-        <Text
-          style={[
-            styles.statusText,
-            t.status === 'success' && styles.statusTextSuccess,
-            pending && styles.statusTextPending,
-            failed && styles.statusTextFailed,
-          ]}
-        >
-          {t.status === 'success'
-            ? 'Successful'
-            : pending
-            ? 'Pending'
-            : 'Failed'}
-        </Text>
-      </View>
-    </View>
+                  <View style={styles.txnRight}>
+                    <Text
+                      style={[
+                        styles.txnAmount,
+                        refund && !failed && styles.txnAmountCredit,
+                        failed && styles.txnAmountMuted,
+                      ]}
+                    >
+                      {refund ? '+' : '-'}
+                      {formatNaira(t.amount)}
+                    </Text>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        t.status === 'success' && styles.statusSuccess,
+                        pending && styles.statusPending,
+                        failed && styles.statusFailed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusText,
+                          t.status === 'success' && styles.statusTextSuccess,
+                          pending && styles.statusTextPending,
+                          failed && styles.statusTextFailed,
+                        ]}
+                      >
+                        {t.status === 'success'
+                          ? 'Successful'
+                          : pending
+                          ? 'Pending'
+                          : 'Failed'}
+                      </Text>
+                    </View>
+                  </View>
 
-    <Feather
-      name="chevron-right"
-      size={16}
-      color={foodColors.textMuted}
-      style={styles.txnChevron}
-    />
-  </TouchableOpacity>
-);
+                  <Feather
+                    name="chevron-right"
+                    size={16}
+                    color={foodColors.textMuted}
+                    style={styles.txnChevron}
+                  />
+                </TouchableOpacity>
+              );
             })}
           </View>
         )}
@@ -392,7 +392,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginBottom: 16,
   },
-  balanceActions: { flexDirection: 'row', gap: 10 },
+  balanceActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   balanceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -401,6 +405,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 12,
+  },
+  balanceBtnRight: {
+    // No extra styles needed – it's just the second item in a space-between row
   },
   balanceBtnText: {
     fontSize: 12,
@@ -429,8 +436,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   txnChevron: {
-  marginLeft: 4,
-},
+    marginLeft: 4,
+  },
   statValue: {
     fontSize: 15,
     fontFamily: fonts.poppins.bold,

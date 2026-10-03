@@ -1,11 +1,14 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { foodColors } from '../../constants/foodColors';
 import { todaysMenu } from '../../constants/foodData';
 import { MenuItemCard } from './MenuItemCard';
 import { fonts } from '../../constants/typography';
 
 export function TodaysMenu() {
+  const router = useRouter();
+
   return (
     <View>
       <View style={styles.header}>
@@ -13,7 +16,11 @@ export function TodaysMenu() {
           <Text style={styles.title}>Today's Menu</Text>
           <Text style={styles.subtitle}>Fresh, hot and ready to order</Text>
         </View>
-        <TouchableOpacity style={styles.seeAllBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.seeAllBtn}
+          activeOpacity={0.7}
+          onPress={() => router.push('/todays-menu' as any)}
+        >
           <Text style={styles.seeAll}>See All</Text>
           <Feather name="arrow-right" size={14} color={foodColors.primary} />
         </TouchableOpacity>

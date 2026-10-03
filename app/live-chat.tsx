@@ -3,6 +3,7 @@ import {
   View,
   Text,
   FlatList,
+  Image,
   StyleSheet,
   TouchableOpacity,
   TextInput,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import * as ImagePicker from 'expo-image-picker';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
@@ -20,11 +22,12 @@ type Message = {
   id: string;
   from: 'user' | 'agent';
   text: string;
+  imageUri?: string;
   time: string;
 };
 
 const initialMessages: Message[] = [
-  { id: 'm1', from: 'agent', text: "Hi Suleiman 👋 I'm Ada from BusandCode support. How can I help you today?", time: '10:02 AM' },
+  { id: 'm1', from: 'agent', text: "Hi Suleiman 👋 I'm Ada from hemera support. How can I help you today?", time: '10:02 AM' },
   { id: 'm2', from: 'user', text: 'Hey, my laundry order #239604 still shows "Scheduled" — is that normal?', time: '10:04 AM' },
   { id: 'm3', from: 'agent', text: "Yes, that's expected until the rider picks it up. Pickup is set for 2:00 PM today.", time: '10:05 AM' },
 ];
@@ -32,15 +35,33 @@ const initialMessages: Message[] = [
 export default function LiveChatScreen() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [draft, setDraft] = useState('');
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setPendingImage(result.assets[0].uri);
+    }
+  };
 
   const send = () => {
     const trimmed = draft.trim();
-    if (!trimmed) return;
+    if (!trimmed && !pendingImage) return;
     setMessages((prev) => [
       ...prev,
-      { id: `u-${Date.now()}`, from: 'user', text: trimmed, time: 'Now' },
+      {
+        id: `u-${Date.now()}`,
+        from: 'user',
+        text: trimmed,
+        imageUri: pendingImage ?? undefined,
+        time: 'Now',
+      },
     ]);
     setDraft('');
+    setPendingImage(null);
   };
 
   return (
@@ -81,34 +102,65 @@ export default function LiveChatScreen() {
               style={[
                 styles.bubble,
                 item.from === 'user' ? styles.bubbleUser : styles.bubbleAgent,
+                item.imageUri && styles.bubbleWithImage,
               ]}
             >
-              <Text
-                style={[
-                  styles.bubbleText,
-                  item.from === 'user' && styles.bubbleTextUser,
-                ]}
-              >
-                {item.text}
-              </Text>
+              {item.imageUri && (
+                <Image
+                  source={{ uri: item.imageUri }}
+                  style={[styles.messageImage, !!item.text && styles.messageImageSpaced]}
+                  resizeMode="cover"
+                />
+              )}
+              {!!item.text && (
+                <Text
+                  style={[
+                    styles.bubbleText,
+                    item.from === 'user' && styles.bubbleTextUser,
+                    item.imageUri && styles.bubbleTextWithImage,
+                  ]}
+                >
+                  {item.text}
+                </Text>
+              )}
             </View>
             <Text style={styles.timeText}>{item.time}</Text>
           </View>
         )}
       />
 
-      <View style={styles.inputBar}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message..."
-          placeholderTextColor={foodColors.textMuted}
-          value={draft}
-          onChangeText={setDraft}
-          multiline
-        />
-        <TouchableOpacity style={styles.sendButton} onPress={send} activeOpacity={0.8}>
-          <Feather name="send" size={16} color="#fff" />
-        </TouchableOpacity>
+      <View style={styles.footer}>
+        {pendingImage && (
+          <View style={styles.previewRow}>
+            <View>
+              <Image source={{ uri: pendingImage }} style={styles.previewImage} />
+              <TouchableOpacity
+                style={styles.previewRemove}
+                onPress={() => setPendingImage(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="x" size={12} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.inputBar}>
+          <TouchableOpacity style={styles.attachButton} onPress={pickImage} activeOpacity={0.8}>
+            <Feather name="image" size={18} color={foodColors.textSecondary} />
+          </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Type a message..."
+            placeholderTextColor={foodColors.textMuted}
+            value={draft}
+            onChangeText={setDraft}
+            multiline
+          />
+          <TouchableOpacity style={styles.sendButton} onPress={send} activeOpacity={0.8}>
+            <Feather name="send" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -156,6 +208,7 @@ const styles = StyleSheet.create({
   bubbleRowUser: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   bubbleRowAgent: { alignSelf: 'flex-start', alignItems: 'flex-start' },
   bubble: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
+  bubbleWithImage: { padding: 4 },
   bubbleAgent: { backgroundColor: foodColors.surface, borderBottomLeftRadius: 4 },
   bubbleUser: { backgroundColor: foodColors.primary, borderBottomRightRadius: 4 },
   bubbleText: {
@@ -165,6 +218,9 @@ const styles = StyleSheet.create({
     color: foodColors.textPrimary,
   },
   bubbleTextUser: { color: '#fff' },
+  bubbleTextWithImage: { paddingHorizontal: 10, paddingBottom: 6 },
+  messageImage: { width: 220, height: 220, borderRadius: 12 },
+  messageImageSpaced: { marginBottom: 8 },
   timeText: {
     fontSize: 10,
     fontFamily: fonts.poppins.regular,
@@ -172,6 +228,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  footer: {
+    backgroundColor: foodColors.surface,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.04)',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    paddingHorizontal: '5.5%',
+    paddingTop: 12,
+  },
+  previewImage: { width: 64, height: 64, borderRadius: 12 },
+  previewRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: foodColors.textPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -179,9 +257,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: '5.5%',
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 26 : 14,
-    backgroundColor: foodColors.surface,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.04)',
+  },
+  attachButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: foodColors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,

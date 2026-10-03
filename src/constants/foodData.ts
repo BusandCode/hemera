@@ -26,42 +26,6 @@ export type Partner = {
   logo: ImageSourcePropType;
 };
 
-export const partners: Partner[] = [
-  {
-    id: 'mama-titis',
-    name: "Mama Titi's",
-    rating: 4.8,
-    etaMinutes: 20,
-    image:
-      'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=400&q=80',
-    logo: {
-      uri: 'https://api.dicebear.com/7.x/initials/png?seed=Mama%20Titi&backgroundColor=F59E0B&textColor=ffffff&fontWeight=700',
-    },
-  },
-  {
-    id: 'suya-spot',
-    name: 'Suya Spot',
-    rating: 4.9,
-    etaMinutes: 15,
-    image:
-      'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&q=80',
-    logo: {
-      uri: 'https://api.dicebear.com/7.x/initials/png?seed=Suya%20Spot&backgroundColor=B91C1C&textColor=ffffff&fontWeight=700',
-    },
-  },
-  {
-    id: 'amala-joint',
-    name: 'Amala Joint',
-    rating: 4.7,
-    etaMinutes: 25,
-    image:
-      'https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80',
-    logo: {
-      uri: 'https://api.dicebear.com/7.x/initials/png?seed=Amala%20Joint&backgroundColor=15803D&textColor=ffffff&fontWeight=700',
-    },
-  },
-];
-
 export type MenuItem = {
   id: string;
   partnerName: string;
@@ -74,23 +38,30 @@ export type MenuItem = {
   image: string;
 };
 
-const partyJollof: Omit<MenuItem, 'id'> = {
-  partnerName: "MAMA TITI'S",
-  isPopular: true,
-  name: 'Party Jollof Rice',
-  description:
-    'Smoky firewood jollof with fried plantain and coleslaw',
-  price: 4000,
-  rating: 4.9,
-  etaMinutes: 20,
-  image:
-    'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?w=400&q=80',
+export type PartnerCategory = {
+  id: string;
+  title: string;
+  items: MenuItem[];
 };
 
-export const todaysMenu: MenuItem[] = [
-  { id: 'party-jollof-1', ...partyJollof },
-  { id: 'party-jollof-2', ...partyJollof },
-  { id: 'party-jollof-3', ...partyJollof },
-  { id: 'party-jollof-4', ...partyJollof },
-  { id: 'party-jollof-5', ...partyJollof },
-];
+export type PartnerReview = {
+  id: string;
+  author: string;
+  initials: string;
+  rating: number;
+  date: string;
+  comment: string;
+};
+
+export type PartnerDetail = Partner & {
+  tagline: string;
+  cuisine: string;
+  address: string;
+  distanceKm: number;
+  priceLevel: '₦';
+  openNow: boolean;
+  hours: string;
+  reviewCount: number;
+  categories: PartnerCategory[];
+  reviews: PartnerReview[];
+};

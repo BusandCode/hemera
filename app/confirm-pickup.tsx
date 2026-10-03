@@ -25,7 +25,8 @@ export default function ConfirmPickupScreen() {
 
   const subtotal = orderItems.reduce((acc, item) => acc + item.price, 0);
   const deliveryFee = 2500;
-  const total = subtotal + deliveryFee;
+  const serviceCharge = 500;
+  const total = subtotal + deliveryFee + serviceCharge;
 
   const handlePay = () => {
     // Handle payment logic here
@@ -98,6 +99,10 @@ export default function ConfirmPickupScreen() {
           <View style={styles.paymentRow}>
             <Text style={styles.summaryLabel}>Delivery fee</Text>
             <Text style={styles.summaryValue}>₦{deliveryFee.toLocaleString('en-US')}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.summaryLabel}>Service charge</Text>
+            <Text style={styles.summaryValue}>₦{serviceCharge.toLocaleString('en-US')}</Text>
           </View>
 
           <View style={styles.divider} />

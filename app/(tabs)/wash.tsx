@@ -4,52 +4,65 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { washColors } from '../../src/constants/washColors';
+import { foodColors } from '../../src/constants/foodColors';
 import { fonts } from '../../src/constants/typography';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
+import { usePlanStatus, PlanStatus } from '../../src/hooks/usePlanStatus';
 
-type PlanStatus = 'none' | 'active' | 'expired';
-
-const planContent: Record<
-  PlanStatus,
-  {
-    badge: string;
-    icon: keyof typeof Feather.glyphMap;
-    description: string;
-    button: string;
-    route: string;
-  }
-> = {
-  none: {
-    badge: 'Get Started',
-    icon: 'zap',
-    description: 'Choose a laundry plan to enjoy\nconvenient pickups and savings.',
-    button: 'Choose a Plan',
-    route: '/choose-plan',
-  },
-  active: {
-    badge: 'Active',
-    icon: 'check-circle',
-    description: 'Renews on August 6, 2026 —\nenjoy seamless pickups and washes',
-    button: 'Manage Plan',
-    route: '/manage-plan',
-  },
-  expired: {
-    badge: 'Expired',
-    icon: 'clock',
-    description: 'Expired on July 6, 2026 —\nrenew to keep using your plan',
-    button: 'Renew Plan',
-    route: '/renew-plan',
-  },
+type PlanCardContent = {
+  badge: string;
+  icon: keyof typeof Feather.glyphMap;
+  description: string;
+  button: string;
+  route: string;
 };
+
+function getPlanContent(
+  status: PlanStatus,
+  renewsOn: string | null,
+  expiredOn: string | null
+): PlanCardContent {
+  switch (status) {
+    case 'active':
+      return {
+        badge: 'Active',
+        icon: 'check-circle',
+        description: renewsOn
+          ? `Renews on ${renewsOn} —\nenjoy seamless pickups and washes`
+          : 'Enjoy seamless pickups\nand washes',
+        button: 'Manage Plan',
+        route: '/manage-plan',
+      };
+    case 'expired':
+      return {
+        badge: 'Expired',
+        icon: 'clock',
+        description: expiredOn
+          ? `Expired on ${expiredOn} —\nrenew to keep using your plan`
+          : 'Your plan has expired —\nrenew to keep using your plan',
+        button: 'Renew Plan',
+        route: '/renew-plan',
+      };
+    case 'none':
+    default:
+      return {
+        badge: 'Get Started',
+        icon: 'zap',
+        description: 'Choose a laundry plan to enjoy\nconvenient pickups and savings.',
+        button: 'Choose a Plan',
+        route: '/choose-plan',
+      };
+  }
+}
 
 export default function WashScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'order' | 'schedule'>('order');
-  const planStatus: PlanStatus = 'none';
-  const planName = 'Standard Plan';
-  const plan = planContent[planStatus];
-  const planTitle = planStatus === 'none' ? 'No Active Plan' : planName;
+
+  const { status: planStatus, planName, renewsOn, expiredOn } = usePlanStatus();
+  const plan = getPlanContent(planStatus, renewsOn, expiredOn);
+  const planTitle = planStatus === 'none' ? 'No Active Plan' : planName ?? 'Your Plan';
+  const isCoveredByPlan = planStatus === 'active';
 
   return (
     <View style={styles.container}>
@@ -63,14 +76,14 @@ export default function WashScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Let help you with{'\n'}the washing today.</Text>
 
-          <TouchableOpacity style={styles.referButton}>
-            <Feather name="gift" size={16} color={washColors.red} />
+          {/* <TouchableOpacity style={styles.referButton}>
+            <Feather name="gift" size={16} color={foodColors.primary} />
             <Text style={styles.referText}>REFER</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         <LinearGradient
-          colors={[washColors.navyStart, washColors.navyEnd]}
+          colors={[foodColors.badgeBlue, foodColors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.planCard}
@@ -79,15 +92,15 @@ export default function WashScreen() {
             <Text style={styles.planTitle}>{planTitle}</Text>
           </View>
 
-          <View style={styles.expiredBadge}>
+          <View style={styles.planBadge}>
             <Feather name={plan.icon} size={11} color="#fff" />
-            <Text style={styles.expiredText}>{plan.badge}</Text>
+            <Text style={styles.planBadgeText}>{plan.badge}</Text>
           </View>
 
           <Text style={styles.planDescription}>{plan.description}</Text>
 
-          <TouchableOpacity style={styles.renewButton} onPress={() => router.push(plan.route as any)}>
-            <Text style={styles.renewButtonText}>{plan.button}</Text>
+          <TouchableOpacity style={styles.planButton} onPress={() => router.push(plan.route as any)}>
+            <Text style={styles.planButtonText}>{plan.button}</Text>
           </TouchableOpacity>
         </LinearGradient>
 
@@ -100,25 +113,40 @@ export default function WashScreen() {
             <Text style={styles.actionButtonText}>Request Pickup</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.payPerOrderButton]} onPress={() => router.push('/pay-per-pickup' as any)}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.payPerOrderButton]}
+            onPress={() => router.push('/pay-per-pickup' as any)}
+          >
             <MaterialCommunityIcons name="moped-outline" size={20} color="#fff" />
             <Text style={styles.actionButtonText}>Pay Per Order</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.quickNavRow}>
-          <TouchableOpacity style={styles.quickNavItem} onPress={() => setActiveTab('order')}>
+          <TouchableOpacity
+            style={styles.quickNavItem}
+            onPress={() => {
+              setActiveTab('order');
+              router.push('/order' as any);
+            }}
+          >
             <View style={styles.quickNavCircle}>
-              <Feather name="clipboard" size={20} color={washColors.textPrimary} />
+              <Feather name="clipboard" size={20} color={foodColors.textPrimary} />
             </View>
             <Text style={styles.quickNavLabel}>Order</Text>
           </TouchableOpacity>
 
           <View style={styles.quickNavDivider} />
 
-          <TouchableOpacity style={styles.quickNavItem} onPress={() => setActiveTab('schedule')}>
+          <TouchableOpacity
+            style={styles.quickNavItem}
+            onPress={() => {
+              setActiveTab('schedule');
+              router.push('/schedule' as any);
+            }}
+          >
             <View style={styles.quickNavCircle}>
-              <Feather name="calendar" size={20} color={washColors.textPrimary} />
+              <Feather name="calendar" size={20} color={foodColors.textPrimary} />
             </View>
             <Text style={styles.quickNavLabel}>Schedule</Text>
           </TouchableOpacity>
@@ -128,8 +156,14 @@ export default function WashScreen() {
           <View style={styles.activeOrderHeader}>
             <Text style={styles.activeOrderTitle}>Active Order</Text>
             <View style={styles.coveredBadge}>
-              <Feather name="tag" size={12} color={washColors.coveredText} />
-              <Text style={styles.coveredText}>Covered by plan</Text>
+              <Feather
+                name={isCoveredByPlan ? 'tag' : 'credit-card'}
+                size={12}
+                color={foodColors.primary}
+              />
+              <Text style={styles.coveredText}>
+                {isCoveredByPlan ? 'Covered by plan' : 'Pay per order'}
+              </Text>
             </View>
           </View>
 
@@ -163,7 +197,7 @@ export default function WashScreen() {
 
             <View style={styles.progressStepWrap}>
               <View style={[styles.progressStep, styles.progressStepActive]}>
-                <MaterialCommunityIcons name="hanger" size={15} color={washColors.navySolid} />
+                <MaterialCommunityIcons name="hanger" size={15} color={foodColors.badgeBlue} />
               </View>
               <Text style={styles.progressLabel}>Ready</Text>
             </View>
@@ -172,7 +206,7 @@ export default function WashScreen() {
 
             <View style={styles.progressStepWrap}>
               <View style={[styles.progressStep, styles.progressStepPending]}>
-                <Feather name="home" size={14} color={washColors.textMuted} />
+                <Feather name="home" size={14} color={foodColors.textMuted} />
               </View>
               <Text style={styles.progressLabel}>Delivery</Text>
             </View>
@@ -182,21 +216,25 @@ export default function WashScreen() {
         <View style={styles.recentOrdersSection}>
           <Text style={styles.recentOrdersTitle}>Recent Orders</Text>
 
-          <View style={styles.orderCard}>
+          <TouchableOpacity
+            style={styles.orderCard}
+            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: '/order-details', params: { id: '239604' } } as any)}
+          >
             <View style={styles.orderHeader}>
               <Text style={styles.orderId}>Order #239604</Text>
-              <TouchableOpacity style={styles.orderChevron}>
-                <Feather name="chevron-right" size={16} color={washColors.textPrimary} />
-              </TouchableOpacity>
+              <View style={styles.orderChevron}>
+                <Feather name="chevron-right" size={16} color={foodColors.textPrimary} />
+              </View>
             </View>
             <View style={styles.orderFooter}>
               <View style={styles.orderItems}>
-                <Feather name="package" size={14} color={washColors.textSecondary} />
+                <Feather name="package" size={14} color={foodColors.textSecondary} />
                 <Text style={styles.orderItemsText}>10 items</Text>
               </View>
               <Text style={styles.orderDate}>July 05, 2026</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -210,7 +248,7 @@ export default function WashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: washColors.background,
+    backgroundColor: foodColors.background,
   },
   scroll: {
     flex: 1,
@@ -227,10 +265,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     lineHeight: 28,
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
     flex: 1,
     marginRight: 12,
   },
@@ -238,9 +276,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: washColors.gold,
+    backgroundColor: foodColors.primaryLight,
     borderWidth: 1,
-    borderColor: washColors.goldBorder,
+    borderColor: foodColors.border,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 20,
@@ -249,7 +287,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.3,
-    color: washColors.red,
+    color: foodColors.primary,
   },
   planCard: {
     borderRadius: 20,
@@ -268,20 +306,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
-  expiredBadge: {
+  planBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: washColors.overlay,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
-    borderColor: washColors.overlayBorder,
+    borderColor: 'rgba(255,255,255,0.25)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 10,
   },
-  expiredText: {
+  planBadgeText: {
     fontSize: 11,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
@@ -290,18 +328,18 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontFamily: fonts.poppins.regular,
     lineHeight: 18,
-    color: washColors.whiteText85,
+    color: 'rgba(255,255,255,0.85)',
     marginBottom: 12,
     maxWidth: '78%',
   },
-  renewButton: {
+  planButton: {
     alignSelf: 'flex-end',
-    backgroundColor: washColors.red,
+    backgroundColor: foodColors.primary,
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 18,
   },
-  renewButtonText: {
+  planButtonText: {
     fontSize: 12.5,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
@@ -321,10 +359,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   requestPickupButton: {
-    backgroundColor: washColors.red,
+    backgroundColor: foodColors.primary,
   },
   payPerOrderButton: {
-    backgroundColor: washColors.navySolid,
+    backgroundColor: foodColors.badgeBlue,
   },
   actionButtonText: {
     fontSize: 14,
@@ -349,14 +387,14 @@ const styles = StyleSheet.create({
     marginLeft: -0.5,
     width: 1,
     height: 60,
-    backgroundColor: washColors.grayBorder,
+    backgroundColor: foodColors.border,
   },
   quickNavCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: washColors.grayBorder,
+    borderColor: foodColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -364,10 +402,10 @@ const styles = StyleSheet.create({
   quickNavLabel: {
     fontSize: 13,
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
   },
   activeOrderCard: {
-    backgroundColor: washColors.surface,
+    backgroundColor: foodColors.surface,
     borderRadius: 20,
     padding: 18,
     marginBottom: 20,
@@ -386,13 +424,13 @@ const styles = StyleSheet.create({
   activeOrderTitle: {
     fontSize: 19,
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
   },
   coveredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: washColors.coveredBg,
+    backgroundColor: foodColors.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
@@ -400,7 +438,7 @@ const styles = StyleSheet.create({
   coveredText: {
     fontSize: 12,
     fontFamily: fonts.poppins.semiBold,
-    color: washColors.coveredText,
+    color: foodColors.primary,
   },
   statusRow: {
     flexDirection: 'row',
@@ -411,22 +449,22 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontSize: 13,
     fontFamily: fonts.poppins.regular,
-    color: washColors.textSecondary,
+    color: foodColors.textSecondary,
   },
   statusValue: {
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
   },
   statusDot: {
     width: 18,
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: washColors.grayBorder,
+    borderColor: foodColors.border,
   },
   sectionDivider: {
     height: 1,
-    backgroundColor: washColors.divider,
+    backgroundColor: foodColors.border,
     marginBottom: 18,
   },
   progressRow: {
@@ -442,46 +480,46 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    backgroundColor: washColors.surface,
-    borderColor: washColors.grayBorder,
+    backgroundColor: foodColors.surface,
+    borderColor: foodColors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   progressStepCompleted: {
-    backgroundColor: washColors.red,
-    borderColor: washColors.red,
+    backgroundColor: foodColors.primary,
+    borderColor: foodColors.primary,
   },
   progressStepActive: {
-    backgroundColor: washColors.surface,
-    borderColor: washColors.navySolid,
+    backgroundColor: foodColors.surface,
+    borderColor: foodColors.badgeBlue,
   },
   progressStepPending: {
-    backgroundColor: washColors.surface,
-    borderColor: washColors.grayBorder,
+    backgroundColor: foodColors.surface,
+    borderColor: foodColors.border,
   },
   progressLine: {
     flex: 1,
     height: 2,
     marginTop: 15,
-    backgroundColor: washColors.grayBorder,
+    backgroundColor: foodColors.border,
   },
   progressLineRed: {
-    backgroundColor: washColors.red,
+    backgroundColor: foodColors.primary,
   },
   progressLineNavy: {
-    backgroundColor: washColors.navySolid,
+    backgroundColor: foodColors.badgeBlue,
   },
   progressLineDashed: {
     backgroundColor: 'transparent',
     borderTopWidth: 2,
     borderStyle: 'dashed',
-    borderColor: washColors.grayBorder,
+    borderColor: foodColors.border,
     height: 0,
   },
   progressLabel: {
     fontSize: 10,
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
     textAlign: 'center',
     marginTop: 6,
   },
@@ -491,11 +529,11 @@ const styles = StyleSheet.create({
   recentOrdersTitle: {
     fontSize: 20,
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
     marginBottom: 14,
   },
   orderCard: {
-    backgroundColor: washColors.surface,
+    backgroundColor: foodColors.surface,
     borderRadius: 18,
     padding: 16,
     shadowColor: '#000',
@@ -513,14 +551,14 @@ const styles = StyleSheet.create({
   orderId: {
     fontSize: 16,
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
   },
   orderChevron: {
     width: 34,
     height: 34,
     borderRadius: 17,
     borderWidth: 1.2,
-    borderColor: washColors.grayBorder,
+    borderColor: foodColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -537,12 +575,12 @@ const styles = StyleSheet.create({
   orderItemsText: {
     fontSize: 13,
     fontFamily: fonts.poppins.regular,
-    color: washColors.textSecondary,
+    color: foodColors.textSecondary,
   },
   orderDate: {
     fontSize: 13,
     fontFamily: fonts.poppins.regular,
-    color: washColors.textSecondary,
+    color: foodColors.textSecondary,
   },
   bottomSpacer: {
     height: 20,

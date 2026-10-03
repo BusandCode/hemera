@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +15,8 @@ import { useRouter } from 'expo-router';
 
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
+import { usePlanStatus } from '../src/hooks/usePlanStatus';
+import { PlanRequiredState } from '../src/components/wash/PlanRequiredState';
 
 type Gender = 'men' | 'women';
 
@@ -21,7 +24,9 @@ type LaundryItem = {
   id: string;
   gender: Gender;
   name: string;
-  icon: { lib: 'feather'; name: keyof typeof Feather.glyphMap } | { lib: 'mci'; name: keyof typeof MaterialCommunityIcons.glyphMap };
+  icon:
+    | { lib: 'feather'; name: keyof typeof Feather.glyphMap }
+    | { lib: 'mci'; name: keyof typeof MaterialCommunityIcons.glyphMap };
 };
 
 const coreItems: LaundryItem[] = [
@@ -66,7 +71,7 @@ function ItemRow({
   onChange: (id: string, qty: number) => void;
 }) {
   return (
-    <View style={styles.itemRow}>
+    <View style={[styles.itemRow, qty > 0 && styles.itemRowActive]}>
       <View style={styles.itemIconWrap}>
         <ItemIcon icon={item.icon} />
       </View>
@@ -89,6 +94,7 @@ function ItemRow({
 
 export default function RequestPickupScreen() {
   const router = useRouter();
+  const { status: planStatus, planName, expiredOn, isLoading } = usePlanStatus();
 
   const [gender, setGender] = useState<Gender>('men');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -116,6 +122,26 @@ export default function RequestPickupScreen() {
     if (!canSubmit) return;
     router.back();
   };
+
+  // All hooks above this line — early returns below.
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color={washColors.navySolid} />
+      </View>
+    );
+  }
+
+  if (planStatus !== 'active') {
+    return (
+      <PlanRequiredState
+        status={planStatus}
+        planName={planName ?? undefined}
+        expiredOn={expiredOn ?? undefined}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -208,7 +234,9 @@ export default function RequestPickupScreen() {
             <Feather name="award" size={15} color={washColors.textPrimary} />
             <Text style={styles.termsTitle}>Terms & conditions</Text>
           </View>
-          <Text style={styles.termsBullet}>• We inspect each item before processing. Irreparable stains or damage are reported back.</Text>
+          <Text style={styles.termsBullet}>
+            • We inspect each item before processing. Irreparable stains or damage are reported back.
+          </Text>
           <Text style={styles.termsBullet}>• Missed pickups may be rescheduled once at no extra cost.</Text>
           <Text style={styles.termsBullet}>• Delivery returns to the address on file unless updated.</Text>
 
@@ -263,6 +291,7 @@ export default function RequestPickupScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: washColors.background },
+  centered: { justifyContent: 'center', alignItems: 'center' },
 
   header: {
     flexDirection: 'row',

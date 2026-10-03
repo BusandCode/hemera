@@ -1,17 +1,18 @@
 import { View, Text, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 import { foodColors } from '../../constants/foodColors';
 import { partners } from '../../constants/foodData';
 import { PartnerCard } from './PartnerCard';
 
-const SIDE_PADDING = 26; // matches partnersSection paddingHorizontal in the screen
+const SIDE_PADDING = 26;
 const LEFT_PAD = 2;
 const GAP = 10;
-const PEEK = 0.1; // fraction of the third card visible
+const PEEK = 0.1;
 
 export function NearbyPartners() {
+  const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
 
-  // Two full cards + two gaps + 10% of the third card fill the visible list area
   const cardWidth = (screenWidth - SIDE_PADDING - LEFT_PAD - GAP * 2) / (2 + PEEK);
 
   return (
@@ -23,7 +24,16 @@ export function NearbyPartners() {
         style={styles.scroll}
         contentContainerStyle={styles.row}
       >
-        {partners.map((p) => <PartnerCard key={p.id} partner={p} width={cardWidth} />)}
+        {partners.map((p) => (
+          <PartnerCard
+            key={p.id}
+            partner={p}
+            width={cardWidth}
+            onPress={() =>
+              router.push({ pathname: '/partner/[id]', params: { id: p.id } } as any)
+            }
+          />
+        ))}
       </ScrollView>
     </View>
   );

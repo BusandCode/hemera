@@ -270,7 +270,12 @@ export default function OrderSuccessScreen() {
         <TouchableOpacity
           style={styles.primaryBtn}
           activeOpacity={0.85}
-          onPress={() => router.replace('/my-orders' as any)}
+          onPress={() =>
+            router.push({
+              pathname: '/track-order',
+              params: { orderId },
+            } as any)
+          }
         >
           <Feather name="package" size={16} color="#fff" />
           <Text style={styles.primaryBtnText}>Track Order</Text>
