@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,37 +6,31 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Dimensions,
   Animated,
   Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../../src/constants/foodColors';
 import { fonts } from '../../src/constants/typography';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { useProfile } from '../../src/context/ProfileContext';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 40;
-const PROMO_GAP = 5;
-const PROMO_VISIBLE = 2.95;
-const PROMO_ROW_WIDTH = SCREEN_WIDTH - 20;
-const PROMO_CARD_WIDTH = (PROMO_ROW_WIDTH - PROMO_GAP * (Math.ceil(PROMO_VISIBLE) - 1)) / PROMO_VISIBLE;
-const PROMO_STEP = PROMO_CARD_WIDTH + PROMO_GAP;
-const SERVICE_GRID_GAP = 12;
-const SERVICE_COLUMNS = 4;
-const SERVICE_CARD_WIDTH =
-  (CARD_WIDTH - SERVICE_GRID_GAP * (SERVICE_COLUMNS - 1)) / SERVICE_COLUMNS;
-const SERVICE_CARD_INNER_WIDTH = SERVICE_CARD_WIDTH * 0.92;
+import { useAuth } from '../../src/context/AuthContext';
+import { useOrders } from '../../src/hooks/useOrders';
+import { ms, s, clamp } from '../../src/utils/responsive';
 
 // How long each card rests, and how long the slide to the next card takes.
 const AUTO_SLIDE_MS = 2200;
 const SLIDE_DURATION_MS = 700;
 
 const BADGE_BLUE_DARK = '#1E3F82';
+
+// Stop text from blowing past the layout when the phone's system font size is large.
+const MAX_FONT_SCALE = 1.2;
 
 type QuickService = {
   id: string;
@@ -79,33 +73,78 @@ const promoCards: PromoCard[] = [
 
 // Two sets of cards back-to-back so the slide can loop seamlessly.
 const LOOPED_CARDS = [...promoCards, ...promoCards];
-const PROMO_TRACK_WIDTH = 20 + LOOPED_CARDS.length * PROMO_STEP;
 
-function firstName(fullName: string) {
-  if (!fullName.trim()) return '';
-  return fullName.trim().split(' ')[0];
+function firstName(fullName?: string | null) {
+  const trimmed = (fullName ?? '').trim();
+  if (!trimmed) return '';
+  return trimmed.split(/\s+/)[0];
 }
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { profile } = useProfile();
+  const { displayName } = useAuth();
   const [activeDot, setActiveDot] = useState(0);
+  const { orders } = useOrders();
+  const latestOrder = orders[0] ?? null;
+
+  // All width-dependent sizes are computed from the live window width,
+  // so small phones, big phones and tablets each get a layout that fits.
+  const layout = useMemo(() => {
+    const hPad = width < 360 ? 14 : width >= 600 ? 28 : 18;
+    const contentWidth = width - hPad * 2;
+
+    // Promo carousel: fewer, wider cards on small screens so text stays readable.
+    const promoVisible = width >= 600 ? 4.3 : width < 360 ? 2.2 : 2.5;
+    const promoGap = 8;
+    const promoCardWidth =
+      (width - hPad - promoGap * Math.floor(promoVisible)) / promoVisible;
+    const promoStep = promoCardWidth + promoGap;
+    const promoHeight = clamp(Math.round(promoCardWidth * 0.62), 76, 110);
+
+    // Quick services: always 4 per row, card width derived from the space.
+    const serviceCols = 4;
+    const serviceGap = width < 360 ? 8 : 10;
+    const serviceCardWidth = (contentWidth - serviceGap * (serviceCols - 1)) / serviceCols;
+
+    const heroImage = clamp(Math.round(width * 0.32), 96, 180);
+
+    return {
+      hPad,
+      promoGap,
+      promoCardWidth,
+      promoStep,
+      promoHeight,
+      promoTrackWidth: hPad + LOOPED_CARDS.length * promoStep,
+      serviceGap,
+      serviceCardWidth,
+      heroImage,
+    };
+  }, [width]);
 
   // The promo track is moved with a native-driven translateX, so the slide
   // runs on the UI thread and stays smooth even while the JS thread is busy.
   const translateX = useRef(new Animated.Value(0)).current;
   const currentIndexRef = useRef(0);
+  const { promoStep } = layout;
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
+
+    // Width changed (rotation / first measure) → restart from a clean position.
+    currentIndexRef.current = 0;
+    translateX.setValue(0);
+    setActiveDot(0);
 
     const slideToNext = () => {
       const next = currentIndexRef.current + 1;
       setActiveDot(next % promoCards.length);
 
       Animated.timing(translateX, {
-        toValue: -next * PROMO_STEP,
+        toValue: -next * promoStep,
         duration: SLIDE_DURATION_MS,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true,
@@ -116,7 +155,7 @@ export default function HomeScreen() {
         // so jump back to the start without the user seeing anything change.
         currentIndexRef.current = next % promoCards.length;
         if (next >= promoCards.length) {
-          translateX.setValue(-currentIndexRef.current * PROMO_STEP);
+          translateX.setValue(-currentIndexRef.current * promoStep);
         }
 
         timer = setTimeout(slideToNext, AUTO_SLIDE_MS);
@@ -130,16 +169,13 @@ export default function HomeScreen() {
       clearTimeout(timer);
       translateX.stopAnimation();
     };
-  }, [translateX]);
+  }, [translateX, promoStep]);
 
-  const greetingName = firstName(profile.fullName) || 'there';
+  // Profile name first; fall back to the name saved at sign-up.
+  const greetingName = firstName(profile?.fullName) || firstName(displayName) || 'there';
 
   const handleServicePress = (service: QuickService) => {
-    if (service.route) {
-      router.push(service.route as any);
-    } else {
-      router.push('/support' as any);
-    }
+    router.push((service.route ?? '/support') as any);
   };
 
   return (
@@ -148,29 +184,46 @@ export default function HomeScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingHorizontal: layout.hPad, paddingTop: insets.top + ms(12) },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.greetingBlock}>
-            <Text style={styles.greeting}>Welcome, {greetingName} 👋</Text>
-            <Text style={styles.subGreeting}>What would you like to do today?</Text>
+            <Text
+              style={styles.greeting}
+              numberOfLines={1}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              Welcome, {greetingName} 👋
+            </Text>
+            <Text
+              style={styles.subGreeting}
+              numberOfLines={1}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              What would you like to do today?
+            </Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={styles.bellButton}
-              onPress={() => router.push('/notification')}
+              onPress={() => router.push('/notification' as any)}
             >
-              <Feather name="bell" size={18} color={foodColors.textPrimary} />
+              <Feather name="bell" size={ms(18)} color={foodColors.textPrimary} />
               <View style={styles.bellDot} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.referButton}
               onPress={() => router.push('/refer-earn' as any)}
             >
-              <Feather name="gift" size={15} color="#fff" />
-              <Text style={styles.referText}>Refer</Text>
+              <Feather name="gift" size={ms(14)} color="#fff" />
+              <Text style={styles.referText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                Refer
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -183,40 +236,87 @@ export default function HomeScreen() {
           style={styles.heroCard}
         >
           <View style={styles.heroTag}>
-            <Text style={styles.heroTagText}>Delicious. Reliable. Fast.</Text>
+            <Text style={styles.heroTagText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              Delicious. Reliable. Fast.
+            </Text>
           </View>
-          <Text style={styles.heroTitle}>Great Meals,{'\n'}Delivered Fast</Text>
-          <Text style={styles.heroSubtitle}>Your favorite meals, delivered to your door.</Text>
+          <Text style={styles.heroTitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            Great Meals,{'\n'}Delivered Fast
+          </Text>
+          <Text
+            style={styles.heroSubtitle}
+            numberOfLines={2}
+            maxFontSizeMultiplier={MAX_FONT_SCALE}
+          >
+            Your favorite meals, delivered to your door.
+          </Text>
           <TouchableOpacity
             style={styles.heroButton}
-            onPress={() => router.push('/echop')}
+            onPress={() => router.push('/echop' as any)}
           >
-            <Text style={styles.heroButtonText}>Order E-Chop</Text>
-            <Feather name="arrow-right" size={13} color={foodColors.textPrimary} />
+            <Text style={styles.heroButtonText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              Order E-Chop
+            </Text>
+            <Feather name="arrow-right" size={ms(13)} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Image
             source={{ uri: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400' }}
-            style={styles.heroImage}
+            style={[
+              styles.heroImage,
+              {
+                width: layout.heroImage,
+                height: layout.heroImage,
+                borderRadius: layout.heroImage / 2,
+              },
+            ]}
           />
         </LinearGradient>
 
         {/* Promo carousel (auto-sliding, seamless loop) */}
-        <View style={styles.promoViewport}>
+        <View
+          style={[
+            styles.promoViewport,
+            { marginHorizontal: -layout.hPad, height: layout.promoHeight },
+          ]}
+        >
           <Animated.View
-            style={[styles.promoTrack, { transform: [{ translateX }] }]}
+            style={[
+              styles.promoTrack,
+              {
+                gap: layout.promoGap,
+                paddingLeft: layout.hPad,
+                width: layout.promoTrackWidth,
+                transform: [{ translateX }],
+              },
+            ]}
           >
             {LOOPED_CARDS.map((card, i) => (
               <View
                 key={`${card.id}-${i}`}
-                style={[styles.promoCard, { backgroundColor: card.bg }]}
+                style={[
+                  styles.promoCard,
+                  {
+                    backgroundColor: card.bg,
+                    width: layout.promoCardWidth,
+                    height: layout.promoHeight,
+                  },
+                ]}
               >
-                <Text style={[styles.promoLabel, { color: card.iconBg }]} numberOfLines={1}>
+                <Text
+                  style={[styles.promoLabel, { color: card.iconBg }]}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={MAX_FONT_SCALE}
+                >
                   {card.label}
                 </Text>
-                <Text style={styles.promoTitle} numberOfLines={1}>{card.title}</Text>
-                <Text style={styles.promoSubtitle} numberOfLines={1}>{card.subtitle}</Text>
+                <Text style={styles.promoTitle} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                  {card.title}
+                </Text>
+                <Text style={styles.promoSubtitle} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                  {card.subtitle}
+                </Text>
                 <View style={[styles.promoIconCircle, { backgroundColor: card.iconBg }]}>
-                  <Feather name="arrow-right" size={12} color="#fff" />
+                  <Feather name="arrow-right" size={ms(12)} color="#fff" />
                 </View>
                 <Image source={{ uri: card.image }} style={styles.promoImage} />
               </View>
@@ -232,56 +332,90 @@ export default function HomeScreen() {
 
         {/* Quick Services */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Quick Services</Text>
+          <Text style={styles.sectionTitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            Quick Services
+          </Text>
           <TouchableOpacity>
-            <Text style={styles.seeAll}>See all</Text>
+            <Text style={styles.seeAll} maxFontSizeMultiplier={MAX_FONT_SCALE}>See all</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.servicesGrid}>
+        <View style={[styles.servicesGrid, { gap: layout.serviceGap }]}>
           {quickServices.map((service) => (
-            <View key={service.id} style={styles.serviceSlot}>
-              <TouchableOpacity
-                style={styles.serviceCard}
-                activeOpacity={0.8}
-                onPress={() => handleServicePress(service)}
+            <TouchableOpacity
+              key={service.id}
+              style={[styles.serviceCard, { width: layout.serviceCardWidth }]}
+              activeOpacity={0.8}
+              onPress={() => handleServicePress(service)}
+            >
+              <View style={[styles.serviceIconWrap, { backgroundColor: service.bgColor }]}>
+                <Feather name={service.icon} size={ms(16)} color="#fff" />
+              </View>
+              <Text
+                style={styles.serviceTitle}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
               >
-                <View style={[styles.serviceIconWrap, { backgroundColor: service.bgColor }]}>
-                  <Feather name={service.icon} size={16} color="#fff" />
-                </View>
-                <Text style={styles.serviceTitle} numberOfLines={1}>{service.title}</Text>
-                <Text style={styles.serviceSubtitle} numberOfLines={2}>{service.subtitle}</Text>
-              </TouchableOpacity>
-            </View>
+                {service.title}
+              </Text>
+              <Text
+                style={styles.serviceSubtitle}
+                numberOfLines={2}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
+                {service.subtitle}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
 
-        {/* Recent Activity */}
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        {latestOrder && (
+          <>
+            <Text style={[styles.sectionTitle, styles.activityHeading]} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              Recent Activity
+            </Text>
 
-        <TouchableOpacity
-          style={styles.activityCard}
-          activeOpacity={0.8}
-          onPress={() => router.push('/recent-activity')}
-        >
-          <View style={styles.activityIconWrap}>
-            <MaterialCommunityIcons name="washing-machine" size={20} color={foodColors.badgeBlue} />
-          </View>
-          <View style={styles.activityInfo}>
-            <Text style={styles.activityTitle}>E-Wash Order</Text>
-            <Text style={styles.activitySubtitle}>Pickup scheduled</Text>
-            <View style={styles.activityDateRow}>
-              <Feather name="calendar" size={12} color={foodColors.textMuted} />
-              <Text style={styles.activityDate}>Today, 10:30 AM</Text>
-            </View>
-          </View>
-          <View style={styles.activityRight}>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>In progress</Text>
-            </View>
-            <Feather name="chevron-right" size={16} color={foodColors.textMuted} />
-          </View>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.activityCard}
+              activeOpacity={0.8}
+              onPress={() => router.push('/recent-activity' as any)}
+            >
+              <View style={styles.activityIconWrap}>
+                {latestOrder.type === 'echop' ? (
+                  <Feather name="coffee" size={ms(20)} color={foodColors.primary} />
+                ) : (
+                  <MaterialCommunityIcons name="washing-machine" size={ms(20)} color={foodColors.badgeBlue} />
+                )}
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                  {latestOrder.title}
+                </Text>
+                {!!latestOrder.meta && (
+                  <Text style={styles.activitySubtitle} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                    {latestOrder.meta}
+                  </Text>
+                )}
+                <View style={styles.activityDateRow}>
+                  <Feather name="calendar" size={ms(12)} color={foodColors.textMuted} />
+                  <Text style={styles.activityDate} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                    {latestOrder.date}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.activityRight}>
+                <View style={styles.statusPill}>
+                  <Text style={styles.statusPillText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                    {latestOrder.status === 'Delivered' ? 'Completed' : latestOrder.status}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={ms(16)} color={foodColors.textMuted} />
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -292,28 +426,29 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: foodColors.background, marginTop: 16 },
+  container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 46, paddingBottom: 20 },
+  content: { paddingBottom: ms(20) },
 
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: ms(16),
+    gap: ms(10),
   },
-  greetingBlock: { flex: 1 },
-  greeting: { fontSize: 16, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  subGreeting: { fontSize: 11, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: 2 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  greetingBlock: { flex: 1, minWidth: 0 },
+  greeting: { fontSize: ms(17), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  subGreeting: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: 2 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: ms(8) },
   bellButton: {
-    width: 40, height: 40, borderRadius: 12,
+    width: ms(40), height: ms(40), borderRadius: ms(12),
     backgroundColor: foodColors.surface,
     justifyContent: 'center', alignItems: 'center',
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
   bellDot: {
-    position: 'absolute', top: 8, right: 9,
+    position: 'absolute', top: ms(8), right: ms(9),
     width: 7, height: 7, borderRadius: 4,
     backgroundColor: foodColors.primary,
     borderWidth: 1.5, borderColor: foodColors.surface,
@@ -321,159 +456,157 @@ const styles = StyleSheet.create({
   referButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: foodColors.badgeBlue,
-    paddingHorizontal: 14, paddingVertical: 11,
-    borderRadius: 12,
+    paddingHorizontal: ms(12), height: ms(40),
+    borderRadius: ms(12),
   },
-  referText: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
+  referText: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: '#fff' },
 
   heroCard: {
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 16,
+    borderRadius: ms(20),
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(16),
+    marginBottom: ms(16),
     overflow: 'hidden',
-    minHeight: 128,
+    minHeight: s(140),
   },
   heroTag: {
     alignSelf: 'flex-start',
     backgroundColor: foodColors.primary,
-    paddingHorizontal: 8, paddingVertical: 3,
+    paddingHorizontal: ms(8), paddingVertical: 3,
     borderRadius: 6,
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
-  heroTagText: { fontSize: 9, fontFamily: fonts.poppins.bold, color: '#fff' },
+  heroTagText: { fontSize: ms(10), fontFamily: fonts.poppins.bold, color: '#fff' },
   heroTitle: {
-    fontSize: 19,
+    fontSize: ms(20),
+    lineHeight: ms(25),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
-    lineHeight: 23,
-    marginBottom: 4,
-    maxWidth: '68%',
+    marginBottom: ms(4),
+    maxWidth: '65%',
   },
   heroSubtitle: {
-    fontSize: 11,
+    fontSize: ms(12),
+    lineHeight: ms(16),
     fontFamily: fonts.poppins.regular,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.85)',
     maxWidth: '60%',
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
   heroButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start',
     backgroundColor: '#fff',
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: ms(12), paddingVertical: ms(8),
+    borderRadius: ms(10),
   },
-  heroButtonText: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  heroButtonText: { fontSize: ms(12), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   heroImage: {
     position: 'absolute',
     right: -8, bottom: -8,
-    width: 130, height: 130,
-    borderRadius: 65,
   },
 
   promoViewport: {
-    marginBottom: 8,
-    marginHorizontal: -20,
-    height: 80,
+    marginBottom: ms(10),
     overflow: 'hidden',
   },
   promoTrack: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: PROMO_GAP,
-    paddingLeft: 20,
-    width: PROMO_TRACK_WIDTH,
   },
   promoCard: {
-    width: PROMO_CARD_WIDTH,
-    height: 80,
-    borderRadius: 14,
-    padding: 8,
-    justifyContent: 'flex-start',
+    borderRadius: ms(14),
+    padding: ms(10),
     overflow: 'hidden',
   },
-  promoLabel: { fontSize: 9, fontFamily: fonts.poppins.bold, marginBottom: 2 },
-  promoTitle: { fontSize: 7, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  promoSubtitle: { fontSize: 8, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: 1 },
+  promoLabel: { fontSize: ms(10.5), fontFamily: fonts.poppins.bold, marginBottom: 1 },
+  promoTitle: { fontSize: ms(11.5), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  promoSubtitle: { fontSize: ms(10), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
   promoIconCircle: {
-    position: 'absolute', bottom: 8, left: 8,
-    width: 20, height: 20, borderRadius: 10,
+    position: 'absolute', bottom: ms(8), left: ms(10),
+    width: ms(22), height: ms(22), borderRadius: ms(11),
     justifyContent: 'center', alignItems: 'center',
     zIndex: 2,
   },
   promoImage: {
     position: 'absolute',
     bottom: -6, right: -6,
-    width: 56, height: 56,
-    borderRadius: 28,
+    width: ms(56), height: ms(56),
+    borderRadius: ms(28),
   },
 
-  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 20 },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: foodColors.border },
-  dotActive: { backgroundColor: foodColors.badgeBlue },
+  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: ms(18) },
+  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: foodColors.border },
+  dotActive: { backgroundColor: foodColors.badgeBlue, width: 12 },
 
   sectionHeaderRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 14,
-    marginTop: -10,
+    marginBottom: ms(10),
   },
-  sectionTitle: { fontSize: 16, fontFamily: fonts.poppins.bold, marginBottom: 5, color: foodColors.textPrimary },
-  seeAll: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
+  sectionTitle: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  seeAll: { fontSize: ms(13), fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
 
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SERVICE_GRID_GAP,
-    marginBottom: 8,
-  },
-  serviceSlot: {
-    width: SERVICE_CARD_WIDTH,
-    alignItems: 'center',
+    marginBottom: ms(20),
   },
   serviceCard: {
-    width: SERVICE_CARD_INNER_WIDTH,
-    height: 104,
+    minHeight: ms(100),
     backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 2,
+    borderRadius: ms(14),
+    paddingVertical: ms(12),
+    paddingHorizontal: ms(4),
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
   serviceIconWrap: {
-    width: 26, height: 26, borderRadius: 8,
+    width: ms(32), height: ms(32), borderRadius: ms(10),
     justifyContent: 'center', alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: ms(8),
   },
-  serviceTitle: { fontSize: 8, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary, marginBottom: 2, textAlign: 'center' },
-  serviceSubtitle: { fontSize: 9, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 11, textAlign: 'center', paddingRight: 5, paddingLeft: 5 },
+  serviceTitle: {
+    fontSize: ms(11),
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.textPrimary,
+    marginBottom: 2,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+  },
+  serviceSubtitle: {
+    fontSize: ms(9.5),
+    lineHeight: ms(13),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+  },
 
+  activityHeading: { marginBottom: ms(10) },
   activityCard: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14, gap: 12,
+    borderRadius: ms(16),
+    padding: ms(14), gap: ms(12),
     shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
   activityIconWrap: {
-    width: 44, height: 44, borderRadius: 22,
+    width: ms(44), height: ms(44), borderRadius: ms(22),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center', alignItems: 'center',
   },
-  activityInfo: { flex: 1 },
-  activityTitle: { fontSize: 14, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  activitySubtitle: { fontSize: 12, fontFamily: fonts.poppins.medium, color: foodColors.badgeBlue, marginTop: 1 },
+  activityInfo: { flex: 1, minWidth: 0 },
+  activityTitle: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  activitySubtitle: { fontSize: ms(12), fontFamily: fonts.poppins.medium, color: foodColors.badgeBlue, marginTop: 1 },
   activityDateRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
-  activityDate: { fontSize: 11, fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
+  activityDate: { fontSize: ms(11), fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
   activityRight: { alignItems: 'flex-end', gap: 8 },
   statusPill: {
     backgroundColor: 'rgba(46,90,172,0.1)',
-    paddingHorizontal: 10, paddingVertical: 4,
+    paddingHorizontal: ms(10), paddingVertical: 4,
     borderRadius: 10,
   },
-  statusPillText: { fontSize: 11, fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
+  statusPillText: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 });

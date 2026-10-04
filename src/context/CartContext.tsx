@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MenuItem } from '../constants/foodData';
 
 export type CartLine = {
@@ -17,10 +18,41 @@ type CartContextValue = {
   quantityOf: (id: string) => number;
 };
 
+const STORAGE_KEY = 'echop:cart';
+
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
+  const hydrated = useRef(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setLines((prev) => {
+              const merged = [...parsed];
+              prev.forEach((p) => {
+                const i = merged.findIndex((l: CartLine) => l.item.id === p.item.id);
+                if (i === -1) merged.push(p);
+                else merged[i] = { ...merged[i], qty: merged[i].qty + p.qty };
+              });
+              return merged;
+            });
+          }
+        }
+      } catch {}
+      hydrated.current = true;
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(lines)).catch(() => {});
+  }, [lines]);
 
   const addItem = (item: MenuItem, qty = 1) => {
     setLines((prev) => {

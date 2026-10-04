@@ -8,9 +8,10 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { useProfile } from '../src/context/ProfileContext';
+import { ms } from '../src/utils/responsive';
 
 type Field = {
-  key: 'fullName' | 'email' | 'phone' | 'gender' | 'dob';
+  key: 'fullName' | 'email' | 'phone' | 'gender';
   label: string;
   icon: keyof typeof Feather.glyphMap;
 };
@@ -20,7 +21,6 @@ const fields: Field[] = [
   { key: 'email', label: 'Email Address', icon: 'mail' },
   { key: 'phone', label: 'Phone Number', icon: 'phone' },
   { key: 'gender', label: 'Gender', icon: 'users' },
-  { key: 'dob', label: 'Date of Birth', icon: 'calendar' },
 ];
 
 export default function PersonalInformationScreen() {
@@ -55,7 +55,7 @@ export default function PersonalInformationScreen() {
             <View key={field.key} style={styles.fieldBlock}>
               <Text style={styles.fieldLabel}>{field.label}</Text>
               <View style={styles.fieldValueWrap}>
-                <Feather name={field.icon} size={16} color={foodColors.textMuted} />
+                <Feather name={field.icon} size={ms(16)} color={foodColors.textMuted} />
                 <Text style={styles.fieldValue}>{profile[field.key]}</Text>
               </View>
             </View>
@@ -67,7 +67,7 @@ export default function PersonalInformationScreen() {
           activeOpacity={0.85}
           onPress={() => router.push('/edit-profile' as any)}
         >
-          <Feather name="edit-2" size={15} color={foodColors.primary} />
+          <Feather name="edit-2" size={ms(15)} color={foodColors.primary} />
           <Text style={styles.editCtaText}>Edit in profile settings</Text>
         </TouchableOpacity>
 
@@ -80,37 +80,37 @@ export default function PersonalInformationScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
-  avatarSection: { alignItems: 'center', marginBottom: 26 },
-  avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: foodColors.border },
+  avatarSection: { alignItems: 'center', marginBottom: ms(26) },
+  avatar: { width: ms(92), height: ms(92), borderRadius: ms(46), backgroundColor: foodColors.border },
   avatarHint: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 10,
+    marginTop: ms(10),
   },
 
-  form: { gap: 16 },
+  form: { gap: ms(16) },
   fieldBlock: {},
   fieldLabel: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   fieldValueWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    borderRadius: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(14),
   },
   fieldValue: {
     flex: 1,
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
   },
@@ -119,17 +119,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 24,
-    paddingVertical: 12,
-    borderRadius: 22,
+    gap: ms(8),
+    marginTop: ms(24),
+    paddingVertical: ms(12),
+    borderRadius: ms(22),
     backgroundColor: 'rgba(255,107,53,0.08)',
   },
   editCtaText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 });

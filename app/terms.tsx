@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
+import { ms } from '../src/utils/responsive';
 
 type Section = {
   title: string;
@@ -84,7 +85,7 @@ export default function TermsScreen() {
 
       <View style={styles.titleRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Feather name="arrow-left" size={18} color={washColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Terms & Conditions</Text>
       </View>
@@ -96,7 +97,7 @@ export default function TermsScreen() {
       >
         <View style={styles.introCard}>
           <View style={styles.updatedPill}>
-            <Feather name="clock" size={11} color={washColors.navySolid} />
+            <Feather name="clock" size={ms(11)} color={washColors.navySolid} />
             <Text style={styles.updatedText}>Last updated {LAST_UPDATED}</Text>
           </View>
           <Text style={styles.introText}>
@@ -109,7 +110,7 @@ export default function TermsScreen() {
           <View key={section.title} style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconWrap}>
-                <Feather name={section.icon} size={16} color={washColors.navySolid} />
+                <Feather name={section.icon} size={ms(16)} color={washColors.navySolid} />
               </View>
               <Text style={styles.sectionTitle}>
                 {index + 1}. {section.title}
@@ -126,7 +127,7 @@ export default function TermsScreen() {
         ))}
 
         <View style={styles.contactCard}>
-          <Feather name="help-circle" size={18} color={washColors.textPrimary} />
+          <Feather name="help-circle" size={ms(18)} color={washColors.textPrimary} />
           <Text style={styles.contactText}>
             Questions about these terms? Reach our support team from the Help section in the app.
           </Text>
@@ -147,55 +148,55 @@ export default function TermsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: washColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 20 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(20) },
 
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    gap: ms(12),
+    paddingHorizontal: ms(20),
+    marginBottom: ms(16),
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: washColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: { fontSize: 20, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  title: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
 
   introCard: {
     backgroundColor: '#FBF3D9',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: ms(18),
+    padding: ms(16),
+    marginBottom: ms(16),
   },
   updatedPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     alignSelf: 'flex-start',
     backgroundColor: washColors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 10,
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(4),
+    borderRadius: ms(12),
+    marginBottom: ms(10),
   },
-  updatedText: { fontSize: 11, fontFamily: fonts.poppins.bold, color: washColors.navySolid },
+  updatedText: { fontSize: ms(11), fontFamily: fonts.poppins.bold, color: washColors.navySolid },
   introText: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: ms(13),
+    lineHeight: ms(20),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
 
   sectionCard: {
     backgroundColor: washColors.surface,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: ms(18),
+    padding: ms(16),
+    marginBottom: ms(12),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -205,36 +206,36 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
+    gap: ms(10),
+    marginBottom: ms(12),
   },
   sectionIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: ms(32),
+    height: ms(32),
+    borderRadius: ms(16),
     backgroundColor: washColors.coveredBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sectionTitle: { fontSize: 15, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  sectionTitle: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
 
   pointRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 8,
+    gap: ms(10),
+    marginBottom: ms(8),
   },
   pointDot: {
     width: 5,
     height: 5,
-    borderRadius: 3,
+    borderRadius: ms(3),
     backgroundColor: washColors.red,
-    marginTop: 8,
+    marginTop: ms(8),
   },
   pointText: {
     flex: 1,
-    fontSize: 12.5,
-    lineHeight: 19,
+    fontSize: ms(12.5),
+    lineHeight: ms(19),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
@@ -242,34 +243,34 @@ const styles = StyleSheet.create({
   contactCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: washColors.coveredBg,
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 4,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginTop: ms(4),
   },
   contactText: {
     flex: 1,
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: ms(12.5),
+    lineHeight: ms(18),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 
   footer: {
     backgroundColor: washColors.background,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: ms(20),
+    paddingTop: ms(12),
     borderTopWidth: 1,
     borderTopColor: washColors.divider,
   },
   doneButton: {
     backgroundColor: washColors.navySolid,
-    paddingVertical: 16,
-    borderRadius: 28,
+    paddingVertical: ms(16),
+    borderRadius: ms(28),
     alignItems: 'center',
   },
-  doneButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  doneButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

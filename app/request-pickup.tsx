@@ -17,6 +17,8 @@ import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
 import { usePlanStatus } from '../src/hooks/usePlanStatus';
 import { PlanRequiredState } from '../src/components/wash/PlanRequiredState';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 type Gender = 'men' | 'women';
 
@@ -81,11 +83,11 @@ function ItemRow({
       </View>
       <View style={styles.stepper}>
         <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(item.id, Math.max(0, qty - 1))}>
-          <Feather name="minus" size={14} color={washColors.textPrimary} />
+          <Feather name="minus" size={ms(14)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.stepValue}>{qty}</Text>
         <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(item.id, qty + 1)}>
-          <Feather name="plus" size={14} color={washColors.textPrimary} />
+          <Feather name="plus" size={ms(14)} color={washColors.textPrimary} />
         </TouchableOpacity>
       </View>
     </View>
@@ -93,6 +95,7 @@ function ItemRow({
 }
 
 export default function RequestPickupScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { status: planStatus, planName, expiredOn, isLoading } = usePlanStatus();
 
@@ -147,9 +150,9 @@ export default function RequestPickupScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + ms(10) }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={22} color={washColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(22)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Request Pickup</Text>
       </View>
@@ -161,7 +164,7 @@ export default function RequestPickupScreen() {
       >
         <View style={styles.planBanner}>
           <View style={styles.planIconWrap}>
-            <Feather name="tag" size={16} color={washColors.coveredText} />
+            <Feather name="tag" size={ms(16)} color={washColors.coveredText} />
           </View>
           <Text style={styles.planBannerText}>
             <Text style={styles.planBannerTextBold}>Covered by your plan — </Text>
@@ -178,7 +181,7 @@ export default function RequestPickupScreen() {
             onPress={() => setGender('men')}
             activeOpacity={0.85}
           >
-            <Feather name="user" size={14} color={gender === 'men' ? '#fff' : washColors.navySolid} />
+            <Feather name="user" size={ms(14)} color={gender === 'men' ? '#fff' : washColors.navySolid} />
             <Text style={[styles.genderText, gender === 'men' && styles.genderTextActive]}>Men's</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -186,7 +189,7 @@ export default function RequestPickupScreen() {
             onPress={() => setGender('women')}
             activeOpacity={0.85}
           >
-            <Feather name="user" size={14} color={gender === 'women' ? '#fff' : washColors.navySolid} />
+            <Feather name="user" size={ms(14)} color={gender === 'women' ? '#fff' : washColors.navySolid} />
             <Text style={[styles.genderText, gender === 'women' && styles.genderTextActive]}>Women's</Text>
           </TouchableOpacity>
         </View>
@@ -201,9 +204,9 @@ export default function RequestPickupScreen() {
         </View>
 
         <TouchableOpacity style={styles.expandRow} onPress={() => setShowExtras((v) => !v)} activeOpacity={0.8}>
-          <Feather name="plus-circle" size={16} color={washColors.navySolid} />
+          <Feather name="plus-circle" size={ms(16)} color={washColors.navySolid} />
           <Text style={styles.expandText}>{showExtras ? 'Hide blankets, duvets & more' : 'Add more items'}</Text>
-          <Feather name={showExtras ? 'chevron-up' : 'chevron-down'} size={16} color={washColors.navySolid} />
+          <Feather name={showExtras ? 'chevron-up' : 'chevron-down'} size={ms(16)} color={washColors.navySolid} />
         </TouchableOpacity>
 
         {showExtras && (
@@ -216,7 +219,7 @@ export default function RequestPickupScreen() {
 
         <TouchableOpacity style={styles.expressCard} onPress={() => setExpress((v) => !v)} activeOpacity={0.85}>
           <View style={styles.expressIconWrap}>
-            <Feather name="zap" size={18} color="#fff" />
+            <Feather name="zap" size={ms(18)} color="#fff" />
           </View>
           <View style={styles.expressTextBlock}>
             <Text style={styles.expressTitle}>Faster delivery (Express)</Text>
@@ -231,7 +234,7 @@ export default function RequestPickupScreen() {
 
         <View style={styles.termsBox}>
           <View style={styles.termsHeader}>
-            <Feather name="award" size={15} color={washColors.textPrimary} />
+            <Feather name="award" size={ms(15)} color={washColors.textPrimary} />
             <Text style={styles.termsTitle}>Terms & conditions</Text>
           </View>
           <Text style={styles.termsBullet}>
@@ -242,7 +245,7 @@ export default function RequestPickupScreen() {
 
           <TouchableOpacity style={styles.agreeRow} onPress={() => setAgreed((v) => !v)} activeOpacity={0.8}>
             <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
-              {agreed && <Feather name="check" size={13} color="#fff" />}
+              {agreed && <Feather name="check" size={ms(13)} color="#fff" />}
             </View>
             <Text style={styles.agreeText}>I agree to the pickup terms</Text>
           </TouchableOpacity>
@@ -263,7 +266,7 @@ export default function RequestPickupScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         {totalItems > 0 && (
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>
@@ -296,36 +299,35 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 20,
-    paddingTop: 55,
-    paddingBottom: 16,
+    gap: ms(16),
+    paddingHorizontal: ms(20),
+    paddingBottom: ms(16),
   },
-  backBtn: { width: 28, height: 28, justifyContent: 'center', alignItems: 'center' },
+  backBtn: { width: ms(28), height: ms(28), justifyContent: 'center', alignItems: 'center' },
   headerTitle: {
-    fontSize: 22,
+    fontSize: ms(22),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
 
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 16 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(16) },
 
   planBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: washColors.coveredBg,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 22,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(22),
   },
-  planIconWrap: { marginTop: 2 },
+  planIconWrap: { marginTop: ms(2) },
   planBannerText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 18,
+    lineHeight: ms(18),
     color: washColors.textSecondary,
   },
   planBannerTextBold: {
@@ -334,27 +336,27 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 19,
+    fontSize: ms(19),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
   sectionSubtitle: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
-    marginTop: 3,
-    marginBottom: 16,
+    marginTop: ms(3),
+    marginBottom: ms(16),
   },
-  sectionSpacing: { marginTop: 26 },
+  sectionSpacing: { marginTop: ms(26) },
 
-  itemsList: { gap: 10, marginBottom: 10 },
+  itemsList: { gap: ms(10), marginBottom: ms(10) },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: washColors.surface,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: ms(16),
+    padding: ms(12),
     borderWidth: 1.5,
     borderColor: 'transparent',
     shadowColor: '#000',
@@ -365,24 +367,24 @@ const styles = StyleSheet.create({
   },
   itemRowActive: { borderColor: washColors.navySolid },
   itemIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(12),
     backgroundColor: washColors.coveredBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   itemTextBlock: { flex: 1, minWidth: 0 },
   itemName: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: washColors.textPrimary,
   },
   itemHint: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
   stepper: {
@@ -390,14 +392,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: washColors.background,
-    borderRadius: 20,
-    paddingHorizontal: 6,
-    height: 34,
-    width: 94,
+    borderRadius: ms(20),
+    paddingHorizontal: ms(6),
+    height: ms(34),
+    width: ms(94),
   },
-  stepBtn: { width: 22, height: 22, justifyContent: 'center', alignItems: 'center' },
+  stepBtn: { width: ms(22), height: ms(22), justifyContent: 'center', alignItems: 'center' },
   stepValue: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
@@ -405,22 +407,22 @@ const styles = StyleSheet.create({
   genderToggle: {
     flexDirection: 'row',
     backgroundColor: washColors.coveredBg,
-    borderRadius: 24,
-    padding: 4,
-    marginBottom: 16,
+    borderRadius: ms(24),
+    padding: ms(4),
+    marginBottom: ms(16),
   },
   genderPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 20,
+    gap: ms(6),
+    paddingVertical: ms(10),
+    borderRadius: ms(20),
   },
   genderPillActive: { backgroundColor: washColors.navySolid },
   genderText: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: washColors.navySolid,
   },
@@ -429,16 +431,16 @@ const styles = StyleSheet.create({
   expandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: washColors.coveredBg,
-    borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-    marginBottom: 10,
+    borderRadius: ms(16),
+    paddingVertical: ms(13),
+    paddingHorizontal: ms(14),
+    marginBottom: ms(10),
   },
   expandText: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: washColors.navySolid,
   },
@@ -446,12 +448,12 @@ const styles = StyleSheet.create({
   expressCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: washColors.surface,
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 10,
-    marginBottom: 18,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginTop: ms(10),
+    marginBottom: ms(18),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -459,78 +461,78 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   expressIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(12),
     backgroundColor: washColors.gold,
     justifyContent: 'center',
     alignItems: 'center',
   },
   expressTextBlock: { flex: 1, minWidth: 0 },
   expressTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
   expressSubtitle: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
-    marginTop: 3,
-    lineHeight: 15,
+    marginTop: ms(3),
+    lineHeight: ms(15),
   },
 
   toggleTrack: {
-    width: 44,
-    height: 26,
-    borderRadius: 13,
+    width: ms(44),
+    height: ms(26),
+    borderRadius: ms(13),
     backgroundColor: washColors.grayBorder,
-    padding: 2,
+    padding: ms(2),
     justifyContent: 'center',
   },
   toggleTrackActive: { backgroundColor: washColors.navySolid },
   toggleThumb: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: ms(22),
+    height: ms(22),
+    borderRadius: ms(11),
     backgroundColor: '#fff',
   },
   toggleThumbActive: { alignSelf: 'flex-end' },
 
   termsBox: {
     backgroundColor: '#FBF3D9',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: ms(18),
+    padding: ms(16),
   },
   termsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
+    gap: ms(8),
+    marginBottom: ms(10),
   },
   termsTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
   termsBullet: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 18,
+    lineHeight: ms(18),
     color: washColors.textSecondary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
 
   agreeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
+    gap: ms(10),
+    marginTop: ms(8),
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(5),
     borderWidth: 1.5,
     borderColor: washColors.textSecondary,
     justifyContent: 'center',
@@ -541,20 +543,20 @@ const styles = StyleSheet.create({
     borderColor: washColors.navySolid,
   },
   agreeText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: washColors.textPrimary,
   },
 
   notesInput: {
     backgroundColor: washColors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 13,
+    borderRadius: ms(16),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(12),
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: washColors.textPrimary,
-    minHeight: 80,
+    minHeight: ms(80),
     textAlignVertical: 'top',
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -563,41 +565,40 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
 
-  bottomSpacer: { height: 100 },
+  bottomSpacer: { height: ms(100) },
 
   footer: {
     backgroundColor: washColors.surface,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    paddingHorizontal: ms(20),
+    paddingTop: ms(12),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   totalLabel: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
   totalValue: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
 
   continueButton: {
     backgroundColor: washColors.navySolid,
-    paddingVertical: 16,
-    borderRadius: 28,
+    paddingVertical: ms(16),
+    borderRadius: ms(28),
     alignItems: 'center',
   },
   continueButtonDisabled: { backgroundColor: washColors.grayBorder },
   continueButtonText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

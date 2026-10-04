@@ -7,7 +7,6 @@ export type Profile = {
   email: string;
   phone: string;
   gender: string;
-  dob: string;
   photoUri: string | null;
   referralCode: string;
 };
@@ -23,7 +22,6 @@ const EMPTY_PROFILE: Profile = {
   email: '',
   phone: '',
   gender: '',
-  dob: '',
   photoUri: null,
   referralCode: '',
 };
@@ -47,7 +45,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, phone, gender, dob, photo_url, referral_code')
+        .select('full_name, phone, gender, photo_url, referral_code')
         .eq('id', userId)
         .single();
 
@@ -57,7 +55,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           email: session?.user.email ?? '',
           phone: data.phone ?? '',
           gender: data.gender ?? '',
-          dob: data.dob ?? '',
           photoUri: data.photo_url,
           referralCode: data.referral_code ?? '',
         });
@@ -76,7 +73,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         ...(next.fullName !== undefined && { full_name: next.fullName }),
         ...(next.phone !== undefined && { phone: next.phone }),
         ...(next.gender !== undefined && { gender: next.gender }),
-        ...(next.dob !== undefined && { dob: next.dob }),
         ...(next.photoUri !== undefined && { photo_url: next.photoUri }),
       })
       .eq('id', userId);

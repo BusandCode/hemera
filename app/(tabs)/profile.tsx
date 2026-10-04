@@ -13,6 +13,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { foodColors } from '../../src/constants/foodColors';
 import { fonts } from '../../src/constants/typography';
+import { ms } from '../../src/utils/responsive';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -133,8 +135,9 @@ function MenuSection({
 
 export default function FoodProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile } = useProfile();
-  const { signOut } = useAuth();
+  const { signOut, displayName } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const { favoriteIds } = useFavorites();
 
@@ -185,11 +188,13 @@ export default function FoodProfileScreen() {
     );
   };
 
+  const fullName = profile?.fullName?.trim() || displayName || 'Your name';
+
   const avatarSource = profile.photoUri
     ? { uri: profile.photoUri }
     : {
         uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          profile.fullName
+          fullName
         )}&background=FF6B35&color=fff&size=120`,
       };
 
@@ -199,7 +204,7 @@ export default function FoodProfileScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + ms(12) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
@@ -223,7 +228,7 @@ export default function FoodProfileScreen() {
               </View>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profile.fullName}</Text>
+              <Text style={styles.profileName} numberOfLines={1}>{fullName}</Text>
               <View style={styles.verifiedRow}>
                 <Feather name="check-circle" size={13} color={foodColors.primary} />
                 <Text style={styles.verifiedText}>Verified · Tap to edit profile</Text>
@@ -274,13 +279,13 @@ export default function FoodProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 46, paddingBottom: 20 },
+  content: { paddingHorizontal: ms(20), paddingTop: 0, paddingBottom: 20 },
 
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: ms(16),
   },
   backButton: {
     width: 40,
@@ -290,7 +295,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
@@ -299,9 +304,9 @@ const styles = StyleSheet.create({
 
   profileCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: ms(16),
+    padding: ms(16),
+    marginBottom: ms(20),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -311,13 +316,13 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: ms(14),
   },
   avatarWrapper: { position: 'relative' },
   avatar: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: ms(30),
     backgroundColor: foodColors.border,
   },
   verifiedBadge: {
@@ -327,7 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: foodColors.primary,
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: ms(10),
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -335,18 +340,18 @@ const styles = StyleSheet.create({
   },
   profileInfo: { flex: 1, minWidth: 0 },
   profileName: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   verifiedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
+    gap: ms(4),
+    marginTop: ms(2),
   },
   verifiedText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textSecondary,
     flexShrink: 1,
@@ -354,15 +359,15 @@ const styles = StyleSheet.create({
 
   section: { marginBottom: 20 },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
   sectionContent: {
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
+    borderRadius: ms(14),
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -374,8 +379,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
@@ -384,7 +389,7 @@ const styles = StyleSheet.create({
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     flex: 1,
     minWidth: 0,
   },
@@ -392,14 +397,14 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 30,
     height: 30,
-    borderRadius: 8,
+    borderRadius: ms(8),
     backgroundColor: 'rgba(255,107,53,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   iconContainerHighlight: { backgroundColor: 'rgba(255,255,255,0.2)' },
   menuItemText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textPrimary,
   },
@@ -408,22 +413,22 @@ const styles = StyleSheet.create({
     fontFamily: fonts.poppins.bold,
   },
   menuItemBadge: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textMuted,
-    marginTop: 1,
+    marginTop: ms(1),
   },
 
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    marginTop: 8,
+    gap: ms(8),
+    paddingVertical: ms(14),
+    marginTop: ms(8),
   },
   logoutText: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.semiBold,
     color: '#FF3B30',
   },
@@ -432,16 +437,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
-    paddingVertical: 13,
-    borderRadius: 26,
+    gap: ms(8),
+    marginTop: ms(8),
+    paddingVertical: ms(13),
+    borderRadius: ms(26),
     borderWidth: 1.5,
     borderColor: foodColors.primary,
     backgroundColor: foodColors.surface,
   },
   resetButtonText: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },

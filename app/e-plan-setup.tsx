@@ -12,6 +12,7 @@ import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { useEPlanDraft } from '../src/context/EPlanDraftContext';
+import { ms } from '../src/utils/responsive';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
@@ -78,7 +79,7 @@ export default function EPlanSetupScreen() {
       >
         <View style={styles.titleRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.title}>Setup E-Plan</Text>
         </View>
@@ -119,7 +120,7 @@ export default function EPlanSetupScreen() {
                 onPress={() => setDuration(d.key)}
               >
                 <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
-                  {selected && <Feather name="check" size={11} color="#fff" />}
+                  {selected && <Feather name="check" size={ms(11)} color="#fff" />}
                 </View>
                 <Text style={[styles.durationLabel, selected && styles.durationLabelSelected]}>{d.label}</Text>
                 <Text style={[styles.durationMeals, selected && styles.durationMealsSelected]}>~{d.meals}</Text>
@@ -164,7 +165,7 @@ export default function EPlanSetupScreen() {
           onPress={handleContinue}
         >
           <Text style={styles.continueBtnText}>Continue</Text>
-          <Feather name="arrow-right" size={16} color="#fff" />
+          <Feather name="arrow-right" size={ms(16)} color="#fff" />
         </TouchableOpacity>
       </ScrollView>
 
@@ -175,66 +176,66 @@ export default function EPlanSetupScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  header: { paddingHorizontal: 26, paddingBottom: 8 },
+  header: { paddingHorizontal: ms(26), paddingBottom: ms(8) },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 26 },
+  content: { paddingHorizontal: ms(26) },
 
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginBottom: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: ms(12), marginTop: ms(8), marginBottom: ms(4) },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: ms(38), height: ms(38), borderRadius: ms(19),
     backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
   },
 
-  title: { fontSize: 27, fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
-  subtitle: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginBottom: 18 },
+  title: { fontSize: ms(27), fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
+  subtitle: { fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginBottom: ms(18) },
 
-  progressTrack: { height: 4, borderRadius: 2, backgroundColor: foodColors.border, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: foodColors.primary, borderRadius: 2 },
+  progressTrack: { height: 4, borderRadius: ms(2), backgroundColor: foodColors.border, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: foodColors.primary, borderRadius: ms(2) },
   progressLabel: {
-    alignSelf: 'center', fontSize: 11, fontFamily: fonts.poppins.regular,
-    color: foodColors.textMuted, marginTop: 6, marginBottom: 24,
+    alignSelf: 'center', fontSize: ms(11), fontFamily: fonts.poppins.regular,
+    color: foodColors.textMuted, marginTop: ms(6), marginBottom: ms(24),
   },
 
-  sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
-  sectionSpacing: { marginTop: 26 },
+  sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: ms(10) },
+  sectionSpacing: { marginTop: ms(26) },
 
   amountBox: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: foodColors.surface,
-    borderRadius: 16, borderWidth: 1, borderColor: foodColors.border, paddingHorizontal: 18, paddingVertical: 16, gap: 8,
+    borderRadius: ms(16), borderWidth: 1, borderColor: foodColors.border, paddingHorizontal: ms(18), paddingVertical: ms(16), gap: ms(8),
   },
-  nairaSign: { fontSize: 26, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  amountInput: { flex: 1, fontSize: 30, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, padding: 0 },
-  amountHelper: { fontSize: 12, fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: 8 },
+  nairaSign: { fontSize: ms(26), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  amountInput: { flex: 1, fontSize: ms(30), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, padding: 0 },
+  amountHelper: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: ms(8) },
 
-  durationRow: { flexDirection: 'row', gap: 12 },
+  durationRow: { flexDirection: 'row', gap: ms(12) },
   durationCard: {
-    flex: 1, backgroundColor: foodColors.surface, borderRadius: 16,
-    borderWidth: 1.5, borderColor: foodColors.border, padding: 16,
+    flex: 1, backgroundColor: foodColors.surface, borderRadius: ms(16),
+    borderWidth: 1.5, borderColor: foodColors.border, padding: ms(16),
   },
   durationCardSelected: { backgroundColor: 'rgba(30,63,234,0.08)', borderColor: ACCENT_BLUE },
   radioCircle: {
-    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: foodColors.border,
-    alignSelf: 'flex-end', marginBottom: 8, justifyContent: 'center', alignItems: 'center',
+    width: ms(18), height: ms(18), borderRadius: ms(9), borderWidth: 1.5, borderColor: foodColors.border,
+    alignSelf: 'flex-end', marginBottom: ms(8), justifyContent: 'center', alignItems: 'center',
   },
   radioCircleSelected: { backgroundColor: ACCENT_BLUE, borderColor: ACCENT_BLUE },
-  durationLabel: { fontSize: 16, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 4 },
+  durationLabel: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(4) },
   durationLabelSelected: { color: foodColors.textPrimary },
-  durationMeals: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  durationMeals: { fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
   durationMealsSelected: { color: ACCENT_BLUE, fontFamily: fonts.poppins.semiBold },
 
   windowsCard: {
-    backgroundColor: foodColors.surface, borderRadius: 16, borderWidth: 1,
-    borderColor: foodColors.border, paddingHorizontal: 16, paddingVertical: 6,
+    backgroundColor: foodColors.surface, borderRadius: ms(16), borderWidth: 1,
+    borderColor: foodColors.border, paddingHorizontal: ms(16), paddingVertical: ms(6),
   },
-  windowRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
-  windowLabel: { fontSize: 14, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary, marginBottom: 3 },
-  windowTime: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  windowRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: ms(14) },
+  windowLabel: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary, marginBottom: ms(3) },
+  windowTime: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
   windowDivider: { height: 1, backgroundColor: foodColors.border },
 
   continueBtn: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
-    backgroundColor: '#161311', borderRadius: 26, paddingVertical: 16, marginTop: 30,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: ms(8),
+    backgroundColor: '#161311', borderRadius: ms(26), paddingVertical: ms(16), marginTop: ms(30),
   },
   continueBtnDisabled: { opacity: 0.5 },
-  continueBtnText: { fontSize: 15, fontFamily: fonts.poppins.bold, color: '#fff' },
+  continueBtnText: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

@@ -18,6 +18,7 @@ import { fonts } from '../src/constants/typography';
 import { FilterTabs } from '../src/components/profile/FilterTabs';
 import type { Order } from '../src/components/profile/OrderCard';
 import { useOrders } from '../src/hooks/useOrders';
+import { ms } from '../src/utils/responsive';
 
 type ActivityLabel = 'Completed' | 'In Progress' | 'Scheduled' | 'Cancelled';
 
@@ -47,9 +48,9 @@ function ActivityRow({ item }: { item: Order }) {
     <View style={styles.row}>
       <View style={[styles.iconWrap, isEchop ? styles.iconWrapEchop : styles.iconWrapEwash]}>
         {isEchop ? (
-          <Feather name="coffee" size={18} color={foodColors.primary} />
+          <Feather name="coffee" size={ms(18)} color={foodColors.primary} />
         ) : (
-          <MaterialCommunityIcons name="washing-machine" size={19} color={foodColors.badgeBlue} />
+          <MaterialCommunityIcons name="washing-machine" size={ms(19)} color={foodColors.badgeBlue} />
         )}
       </View>
 
@@ -61,7 +62,7 @@ function ActivityRow({ item }: { item: Order }) {
         <Text style={styles.rowSubtitle} numberOfLines={1}>{item.meta}</Text>
         <View style={styles.rowBottom}>
           <View style={styles.dateRow}>
-            <Feather name="clock" size={11} color={foodColors.textMuted} />
+            <Feather name="clock" size={ms(11)} color={foodColors.textMuted} />
             <Text style={styles.rowDate}>{item.date}</Text>
           </View>
           <View style={[styles.statusPill, { backgroundColor: statusStyle.bg }]}>
@@ -95,7 +96,7 @@ export default function RecentActivityScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-left" size={22} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(22)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Recent Activity</Text>
         <TouchableOpacity style={styles.clearButton}>
@@ -120,7 +121,7 @@ export default function RecentActivityScreen() {
           <ActivityIndicator style={styles.loader} color={foodColors.primary} />
         ) : error ? (
           <View style={styles.emptyState}>
-            <Feather name="alert-circle" size={38} color={foodColors.textMuted} />
+            <Feather name="alert-circle" size={ms(38)} color={foodColors.textMuted} />
             <Text style={styles.emptyTitle}>Couldn't load activity</Text>
             <Text style={styles.emptySubtitle}>{error}</Text>
           </View>
@@ -131,7 +132,7 @@ export default function RecentActivityScreen() {
             ))}
             {filtered.length === 0 && (
               <View style={styles.emptyState}>
-                <Feather name="inbox" size={38} color={foodColors.textMuted} />
+                <Feather name="inbox" size={ms(38)} color={foodColors.textMuted} />
                 <Text style={styles.emptyTitle}>No activity yet</Text>
                 <Text style={styles.emptySubtitle}>
                   Your E-Chop orders and E-Wash pickups will appear here.
@@ -154,46 +155,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: '5.5%',
-    paddingTop: Platform.OS === 'ios' ? 6 : 16,
-    paddingBottom: 14,
+    paddingTop: Platform.OS === 'ios' ? ms(6) : ms(16),
+    paddingBottom: ms(14),
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: ms(40),
+    height: ms(40),
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
   headerTitle: {
     flex: 1,
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: ms(8),
   },
   clearButton: {
-    minWidth: 40,
+    minWidth: ms(40),
     alignItems: 'flex-end',
   },
   clearText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },
 
-  tabsWrap: { paddingHorizontal: '5.5%', marginBottom: 14 },
+  tabsWrap: { paddingHorizontal: '5.5%', marginBottom: ms(14) },
 
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
-  list: { gap: 12 },
-  loader: { marginTop: 48 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
+  list: { gap: ms(12) },
+  loader: { marginTop: ms(48) },
 
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: ms(16),
+    padding: ms(14),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -201,9 +202,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: ms(42),
+    height: ms(42),
+    borderRadius: ms(12),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -215,60 +216,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
   },
   rowTitle: {
     flex: 1,
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   rowAmount: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   rowSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
   rowBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: ms(10),
   },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: ms(5) },
   rowDate: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
   },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  statusText: { fontSize: 10.5, fontFamily: fonts.poppins.bold },
+  statusPill: { paddingHorizontal: ms(10), paddingVertical: ms(3), borderRadius: ms(10) },
+  statusText: { fontSize: ms(10.5), fontFamily: fonts.poppins.bold },
 
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
-    gap: 8,
+    paddingTop: ms(60),
+    gap: ms(8),
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
-    marginTop: 6,
+    marginTop: ms(6),
   },
   emptySubtitle: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 24,
-    lineHeight: 17,
+    paddingHorizontal: ms(24),
+    lineHeight: ms(17),
   },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 });

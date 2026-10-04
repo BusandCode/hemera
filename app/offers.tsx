@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { FilterTabs } from '../src/components/profile/FilterTabs';
+import { ms } from '../src/utils/responsive';
 
 type Offer = {
   id: string;
@@ -101,7 +102,7 @@ export default function OffersScreen() {
           onPress={() => router.back()}
           activeOpacity={0.8}
         >
-          <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Offers</Text>
       </View>
@@ -127,7 +128,7 @@ export default function OffersScreen() {
           {filtered.map((offer) => (
             <View key={offer.id} style={styles.offerCard}>
               <View style={[styles.offerIconWrap, { backgroundColor: offer.accent }]}>
-                <Feather name={offer.icon} size={20} color="#fff" />
+                <Feather name={offer.icon} size={ms(20)} color="#fff" />
               </View>
 
               <View style={styles.offerInfo}>
@@ -146,7 +147,7 @@ export default function OffersScreen() {
 
                 <View style={styles.codeRow}>
                   <View style={styles.codeBox}>
-                    <Feather name="tag" size={12} color={offer.accent} />
+                    <Feather name="tag" size={ms(12)} color={offer.accent} />
                     <Text style={[styles.codeText, { color: offer.accent }]}>
                       {offer.code}
                     </Text>
@@ -164,7 +165,7 @@ export default function OffersScreen() {
 
           {filtered.length === 0 && (
             <View style={styles.emptyState}>
-              <Feather name="tag" size={32} color={foodColors.textMuted} />
+              <Feather name="tag" size={ms(32)} color={foodColors.textMuted} />
               <Text style={styles.emptyTitle}>No offers here yet</Text>
               <Text style={styles.emptySubtitle}>
                 Check back soon — new deals drop every week.
@@ -180,46 +181,46 @@ export default function OffersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20 },
+  content: { paddingHorizontal: ms(20) },
 
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    gap: ms(12),
+    paddingHorizontal: ms(20),
+    marginBottom: ms(12),
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
+    fontSize: ms(22),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
 
-  tabsWrap: { paddingHorizontal: 20, marginBottom: 14 },
+  tabsWrap: { paddingHorizontal: ms(20), marginBottom: ms(14) },
 
   subtitle: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 18,
+    lineHeight: ms(18),
+    marginBottom: ms(18),
   },
 
-  list: { gap: 14 },
+  list: { gap: ms(14) },
   offerCard: {
     flexDirection: 'row',
-    gap: 14,
+    gap: ms(14),
     backgroundColor: foodColors.surface,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: ms(18),
+    padding: ms(16),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -227,9 +228,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   offerIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: ms(48),
+    height: ms(48),
+    borderRadius: ms(14),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -238,62 +239,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: ms(8),
   },
   offerTitle: {
     flex: 1,
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    lineHeight: 19,
+    lineHeight: ms(19),
   },
   expiryPill: {
     backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(3),
+    borderRadius: ms(8),
   },
   expiryText: {
-    fontSize: 9.5,
+    fontSize: ms(9.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textMuted,
   },
   offerSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 16,
-    marginTop: 4,
+    lineHeight: ms(16),
+    marginTop: ms(4),
   },
   codeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
+    gap: ms(8),
+    marginTop: ms(12),
   },
   codeBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     borderWidth: 1.2,
     borderStyle: 'dashed',
     borderColor: foodColors.border,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: ms(10),
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(6),
   },
   codeText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.8,
   },
   copyBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(8),
+    borderRadius: ms(10),
   },
   copyBtnText: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
@@ -301,21 +302,21 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
-    gap: 8,
+    paddingTop: ms(60),
+    gap: ms(8),
   },
   emptyTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
-    marginTop: 6,
+    marginTop: ms(6),
   },
   emptySubtitle: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 24,
-    lineHeight: 17,
+    paddingHorizontal: ms(24),
+    lineHeight: ms(17),
   },
 });

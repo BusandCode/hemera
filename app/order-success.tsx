@@ -6,6 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { ms } from '../src/utils/responsive';
 
 function formatNaira(value: string | number) {
   const n = typeof value === 'string' ? Number(value) : value;
@@ -232,7 +233,7 @@ export default function OrderSuccessScreen() {
               { transform: [{ scale: checkScale }, { rotate: checkRotateDeg }] },
             ]}
           >
-            <Feather name="check" size={44} color="#fff" />
+            <Feather name="check" size={ms(44)} color="#fff" />
           </Animated.View>
         </View>
 
@@ -277,7 +278,7 @@ export default function OrderSuccessScreen() {
             } as any)
           }
         >
-          <Feather name="package" size={16} color="#fff" />
+          <Feather name="package" size={ms(16)} color="#fff" />
           <Text style={styles.primaryBtnText}>Track Order</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -293,37 +294,37 @@ export default function OrderSuccessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: foodColors.background, paddingHorizontal: 24 },
+  container: { flex: 1, backgroundColor: foodColors.background, paddingHorizontal: ms(24) },
 
   body: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   circleStage: {
-    width: 200,
-    height: 200,
+    width: ms(200),
+    height: ms(200),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
 
   glowOuter: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: ms(200),
+    height: ms(200),
+    borderRadius: ms(100),
     backgroundColor: 'rgba(226,58,46,0.08)',
   },
   glowInner: {
     position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: ms(140),
+    height: ms(140),
+    borderRadius: ms(70),
     backgroundColor: 'rgba(226,58,46,0.15)',
   },
 
   sparkleRing: {
     position: 'absolute',
-    width: 200,
-    height: 200,
+    width: ms(200),
+    height: ms(200),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -333,17 +334,17 @@ const styles = StyleSheet.create({
 
   rippleRing: {
     position: 'absolute',
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+    width: ms(92),
+    height: ms(92),
+    borderRadius: ms(46),
     borderWidth: 2,
     borderColor: foodColors.primary,
   },
 
   checkCircle: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+    width: ms(92),
+    height: ms(92),
+    borderRadius: ms(46),
     backgroundColor: foodColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -355,28 +356,28 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 24,
+    fontSize: ms(24),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 8,
-    marginTop: 18,
+    marginBottom: ms(8),
+    marginTop: ms(18),
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 28,
+    lineHeight: ms(20),
+    marginBottom: ms(28),
     maxWidth: 320,
   },
 
   card: {
     width: '100%',
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: ms(16),
+    padding: ms(16),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -387,55 +388,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: ms(8),
   },
   cardLabel: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
   cardValue: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   cardDivider: {
     height: 1,
     backgroundColor: foodColors.border,
-    marginVertical: 6,
+    marginVertical: ms(6),
   },
   totalLabel: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   totalValue: {
-    fontSize: 16,
+    fontSize: ms(16),
     fontFamily: fonts.poppins.bold,
     color: foodColors.primary,
   },
 
-  actions: { gap: 10 },
+  actions: { gap: ms(10) },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
   },
-  primaryBtnText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  primaryBtnText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
   secondaryBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 26,
+    paddingVertical: ms(14),
+    borderRadius: ms(26),
     borderWidth: 1.5,
     borderColor: foodColors.border,
   },
   secondaryBtnText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },

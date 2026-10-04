@@ -16,6 +16,8 @@ import { useRouter } from 'expo-router';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 const channels = [
   { id: 'call', icon: 'phone', label: 'Call Us', value: '+234 700 123 4567', action: () => Linking.openURL('tel:+2347001234567') },
@@ -24,6 +26,7 @@ const channels = [
 ] as const;
 
 export default function ContactSupportScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -52,13 +55,13 @@ export default function ContactSupportScreen() {
           activeOpacity={0.85}
         >
           <View style={styles.liveChatIconWrap}>
-            <Feather name="message-square" size={18} color="#fff" />
+            <Feather name="message-square" size={ms(18)} color="#fff" />
           </View>
           <View style={styles.liveChatTextBlock}>
             <Text style={styles.liveChatTitle}>Chat with us live</Text>
             <Text style={styles.liveChatSubtitle}>Typical reply time: under 2 minutes</Text>
           </View>
-          <Feather name="arrow-right" size={16} color="#fff" />
+          <Feather name="arrow-right" size={ms(16)} color="#fff" />
         </TouchableOpacity>
 
         <Text style={styles.sectionLabel}>Other Ways to Reach Us</Text>
@@ -73,7 +76,7 @@ export default function ContactSupportScreen() {
               <View style={styles.iconWrap}>
                 <Feather
                   name={channel.icon as keyof typeof Feather.glyphMap}
-                  size={16}
+                  size={ms(16)}
                   color={foodColors.primary}
                 />
               </View>
@@ -81,7 +84,7 @@ export default function ContactSupportScreen() {
                 <Text style={styles.title}>{channel.label}</Text>
                 <Text style={styles.subtitle}>{channel.value}</Text>
               </View>
-              <Feather name="chevron-right" size={16} color={foodColors.textMuted} />
+              <Feather name="chevron-right" size={ms(16)} color={foodColors.textMuted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -113,7 +116,7 @@ export default function ContactSupportScreen() {
 
         {sent && (
           <View style={styles.sentBanner}>
-            <Feather name="check-circle" size={14} color={foodColors.success} />
+            <Feather name="check-circle" size={ms(14)} color={foodColors.success} />
             <Text style={styles.sentBannerText}>
               Message sent — we'll get back to you shortly
             </Text>
@@ -123,7 +126,7 @@ export default function ContactSupportScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.85}>
           <Text style={styles.sendButtonText}>Send Message</Text>
         </TouchableOpacity>
@@ -135,49 +138,49 @@ export default function ContactSupportScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
   liveChatCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.primary,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(20),
   },
   liveChatIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(12),
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   liveChatTextBlock: { flex: 1, minWidth: 0 },
   liveChatTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   liveChatSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: 'rgba(255,255,255,0.85)',
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
   sectionLabel: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   group: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: ms(20),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -187,81 +190,80 @@ const styles = StyleSheet.create({
   channelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   rowLast: { borderBottomWidth: 0 },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(10),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   textBlock: { flex: 1, minWidth: 0 },
   title: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   subtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
-  formGroup: { gap: 12, marginBottom: 4 },
+  formGroup: { gap: ms(12), marginBottom: ms(4) },
   input: {
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 10,
-    fontSize: 13.5,
+    borderRadius: ms(14),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(13) : ms(10),
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
   },
-  messageInput: { minHeight: 100, textAlignVertical: 'top' },
+  messageInput: { minHeight: ms(100), textAlignVertical: 'top' },
 
   sentBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 14,
+    gap: ms(6),
+    marginTop: ms(14),
     backgroundColor: 'rgba(52,199,89,0.1)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: ms(10),
+    paddingVertical: ms(10),
+    paddingHorizontal: ms(12),
   },
   sentBannerText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.success,
     flexShrink: 1,
   },
 
-  bottomSpacer: { height: 90 },
+  bottomSpacer: { height: ms(90) },
 
   footer: {
     backgroundColor: foodColors.surface,
     paddingHorizontal: '5.5%',
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   sendButton: {
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     alignItems: 'center',
   },
   sendButtonText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

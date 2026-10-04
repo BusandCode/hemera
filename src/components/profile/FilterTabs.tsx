@@ -2,6 +2,7 @@
 import { ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
+import { ms } from '../../utils/responsive';
 
 type Props = {
   tabs: string[];
@@ -34,18 +35,18 @@ export function FilterTabs({ tabs, active, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { gap: 8 },
+  row: { gap: ms(8) },
   pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(9),
+    borderRadius: ms(20),
     backgroundColor: foodColors.surface,
   },
   pillActive: {
     backgroundColor: foodColors.primary,
   },
   pillText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textSecondary,
   },

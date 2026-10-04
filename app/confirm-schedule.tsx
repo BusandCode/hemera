@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
+import { ms } from '../src/utils/responsive';
 
 type PaymentMethod = {
   id: string;
@@ -111,7 +112,7 @@ export default function ConfirmScheduleScreen() {
           onPress={() => router.back()}
           activeOpacity={0.8}
         >
-          <Feather name="arrow-left" size={18} color={washColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Confirm & Pay</Text>
       </View>
@@ -126,7 +127,7 @@ export default function ConfirmScheduleScreen() {
         <View style={styles.card}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryIconWrap}>
-              <Feather name="calendar" size={16} color={washColors.navySolid} />
+              <Feather name="calendar" size={ms(16)} color={washColors.navySolid} />
             </View>
             <View style={styles.summaryTextBlock}>
               <Text style={styles.summaryLabel}>Date</Text>
@@ -138,7 +139,7 @@ export default function ConfirmScheduleScreen() {
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryIconWrap}>
-              <Feather name="clock" size={16} color={washColors.navySolid} />
+              <Feather name="clock" size={ms(16)} color={washColors.navySolid} />
             </View>
             <View style={styles.summaryTextBlock}>
               <Text style={styles.summaryLabel}>Time slot</Text>
@@ -150,7 +151,7 @@ export default function ConfirmScheduleScreen() {
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryIconWrap}>
-              <Feather name="map-pin" size={16} color={washColors.navySolid} />
+              <Feather name="map-pin" size={ms(16)} color={washColors.navySolid} />
             </View>
             <View style={styles.summaryTextBlock}>
               <Text style={styles.summaryLabel}>Pickup address</Text>
@@ -165,7 +166,7 @@ export default function ConfirmScheduleScreen() {
                 <View style={styles.summaryIconWrap}>
                   <MaterialCommunityIcons
                     name="washing-machine"
-                    size={16}
+                    size={ms(16)}
                     color={washColors.navySolid}
                   />
                 </View>
@@ -195,7 +196,7 @@ export default function ConfirmScheduleScreen() {
                 onPress={() => setSelectedMethod(method.id)}
               >
                 <View style={styles.methodIconWrap}>
-                  <Feather name={method.icon} size={18} color={washColors.navySolid} />
+                  <Feather name={method.icon} size={ms(18)} color={washColors.navySolid} />
                 </View>
                 <View style={styles.methodInfo}>
                   <Text style={styles.methodLabel}>{method.label}</Text>
@@ -237,7 +238,7 @@ export default function ConfirmScheduleScreen() {
         {/* Terms */}
         <View style={styles.termsBox}>
           <View style={styles.termsHeader}>
-            <Feather name="shield" size={15} color={washColors.textPrimary} />
+            <Feather name="shield" size={ms(15)} color={washColors.textPrimary} />
             <Text style={styles.termsTitle}>Before you pay</Text>
           </View>
           <Text style={styles.termsBullet}>
@@ -256,7 +257,7 @@ export default function ConfirmScheduleScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
-              {agreed && <Feather name="check" size={13} color="#fff" />}
+              {agreed && <Feather name="check" size={ms(13)} color="#fff" />}
             </View>
             <Text style={styles.agreeText}>
               I agree to the pickup terms & conditions
@@ -285,7 +286,7 @@ export default function ConfirmScheduleScreen() {
           ) : (
             <>
               <Text style={styles.payButtonText}>Pay & Confirm</Text>
-              <Feather name="arrow-right" size={16} color="#fff" />
+              <Feather name="arrow-right" size={ms(16)} color="#fff" />
             </>
           )}
         </TouchableOpacity>
@@ -297,42 +298,42 @@ export default function ConfirmScheduleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: washColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 20 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(20) },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    gap: ms(12),
+    paddingHorizontal: ms(20),
+    marginBottom: ms(16),
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: washColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
 
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: washColors.textMuted,
     letterSpacing: 0.6,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
-  sectionSpacing: { marginTop: 24 },
+  sectionSpacing: { marginTop: ms(24) },
 
   card: {
     backgroundColor: washColors.surface,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: ms(18),
+    padding: ms(16),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -343,74 +344,74 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: ms(12),
   },
   summaryIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(10),
     backgroundColor: washColors.coveredBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   summaryTextBlock: { flex: 1, minWidth: 0 },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
   summaryValue: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: washColors.textPrimary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
   divider: {
     height: 1,
     backgroundColor: washColors.divider,
-    marginVertical: 12,
+    marginVertical: ms(12),
   },
 
-  methodsList: { gap: 10 },
+  methodsList: { gap: ms(10) },
   methodCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: washColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     borderWidth: 1.5,
     borderColor: 'transparent',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: ms(14),
+    paddingHorizontal: ms(14),
   },
   methodCardSelected: {
     borderColor: washColors.navySolid,
     backgroundColor: washColors.coveredBg,
   },
   methodIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(11),
     backgroundColor: washColors.coveredBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   methodInfo: { flex: 1, minWidth: 0 },
   methodLabel: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
   methodSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(10),
     borderWidth: 2,
     borderColor: washColors.grayBorder,
     alignItems: 'center',
@@ -418,9 +419,9 @@ const styles = StyleSheet.create({
   },
   radioOuterActive: { borderColor: washColors.navySolid },
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: ms(10),
+    height: ms(10),
+    borderRadius: ms(5),
     backgroundColor: washColors.navySolid,
   },
 
@@ -428,63 +429,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: ms(5),
   },
   priceLabel: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
   priceValue: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: washColors.textPrimary,
   },
   priceTotalLabel: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
   priceTotalValue: {
-    fontSize: 16,
+    fontSize: ms(16),
     fontFamily: fonts.poppins.bold,
     color: washColors.navySolid,
   },
 
   termsBox: {
     backgroundColor: '#FBF3D9',
-    borderRadius: 18,
-    padding: 16,
-    marginTop: 24,
+    borderRadius: ms(18),
+    padding: ms(16),
+    marginTop: ms(24),
   },
   termsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
+    gap: ms(8),
+    marginBottom: ms(10),
   },
   termsTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
   },
   termsBullet: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 18,
+    lineHeight: ms(18),
     color: washColors.textSecondary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   agreeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
+    gap: ms(10),
+    marginTop: ms(8),
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(5),
     borderWidth: 1.5,
     borderColor: washColors.textSecondary,
     justifyContent: 'center',
@@ -495,13 +496,13 @@ const styles = StyleSheet.create({
     borderColor: washColors.navySolid,
   },
   agreeText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: washColors.textPrimary,
     flex: 1,
   },
 
-  bottomSpacer: { height: 100 },
+  bottomSpacer: { height: ms(100) },
 
   footer: {
     position: 'absolute',
@@ -510,41 +511,41 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: ms(14),
     backgroundColor: washColors.background,
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: ms(20),
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: washColors.divider,
   },
   footerSummary: { flex: 1 },
   footerSummaryLabel: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
   footerSummaryPrice: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
   payButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: washColors.red,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 26,
-    minWidth: 160,
+    paddingHorizontal: ms(24),
+    paddingVertical: ms(16),
+    borderRadius: ms(26),
+    minWidth: ms(160),
     justifyContent: 'center',
   },
   payButtonDisabled: {
     backgroundColor: washColors.grayBorder,
   },
   payButtonText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

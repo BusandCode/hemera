@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'r
 import { Feather } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
+import { ms } from '../../utils/responsive';
 
 type Props = {
   currentLabel: string;
@@ -96,7 +97,7 @@ export function ChangeSecretForm({
 
       {done && (
         <View style={styles.doneBanner}>
-          <Feather name="check-circle" size={14} color={foodColors.success} />
+          <Feather name="check-circle" size={ms(14)} color={foodColors.success} />
           <Text style={styles.doneBannerText}>Updated successfully</Text>
         </View>
       )}
@@ -114,36 +115,36 @@ export function ChangeSecretForm({
 }
 
 const styles = StyleSheet.create({
-  fieldLabel: { fontSize: 12, fontFamily: fonts.poppins.semiBold, color: foodColors.textSecondary, marginBottom: 8, marginTop: 16 },
+  fieldLabel: { fontSize: ms(12), fontFamily: fonts.poppins.semiBold, color: foodColors.textSecondary, marginBottom: ms(8), marginTop: ms(16) },
   input: {
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: ms(14),
+    paddingHorizontal: ms(14),
     paddingVertical: Platform.OS === 'ios' ? 13 : 10,
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
   },
-  warningText: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: '#FF3B30', marginTop: 6 },
-  hint: { fontSize: 12, fontFamily: fonts.poppins.regular, lineHeight: 17, color: foodColors.textMuted, marginTop: 18 },
+  warningText: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: '#FF3B30', marginTop: ms(6) },
+  hint: { fontSize: ms(12), fontFamily: fonts.poppins.regular, lineHeight: ms(17), color: foodColors.textMuted, marginTop: ms(18) },
   doneBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 14,
+    gap: ms(6),
+    marginTop: ms(14),
     backgroundColor: 'rgba(52,199,89,0.1)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: ms(10),
+    paddingVertical: ms(10),
+    paddingHorizontal: ms(12),
   },
-  doneBannerText: { fontSize: 12, fontFamily: fonts.poppins.semiBold, color: foodColors.success },
+  doneBannerText: { fontSize: ms(12), fontFamily: fonts.poppins.semiBold, color: foodColors.success },
   submitButton: {
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: ms(24),
   },
   submitButtonDisabled: { opacity: 0.45 },
-  submitButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  submitButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

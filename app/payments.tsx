@@ -18,6 +18,7 @@ import { fonts } from '../src/constants/typography';
 import { useAuth } from '../src/context/AuthContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const WALLET_BLUE = '#0032C1';
 const ACCENT_BLUE = '#1E3FEA';
@@ -150,7 +151,7 @@ export default function PaymentsScreen() {
               activeOpacity={0.85}
               onPress={() => router.push('/fund-wallet-amount' as any)}
             >
-              <Feather name="plus" size={14} color={WALLET_BLUE} />
+              <Feather name="plus" size={ms(14)} color={WALLET_BLUE} />
               <Text style={styles.balanceBtnText}>Fund Wallet</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -158,7 +159,7 @@ export default function PaymentsScreen() {
               activeOpacity={0.85}
               onPress={() => router.push('/request-withdrawal' as any)}
             >
-              <Feather name="arrow-up" size={14} color={WALLET_BLUE} />
+              <Feather name="arrow-up" size={ms(14)} color={WALLET_BLUE} />
               <Text style={styles.balanceBtnText}>Withdraw</Text>
             </TouchableOpacity>
           </View>
@@ -168,14 +169,14 @@ export default function PaymentsScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={[styles.statIconWrap, { backgroundColor: 'rgba(30,63,234,0.08)' }]}>
-              <Feather name="gift" size={16} color={ACCENT_BLUE} />
+              <Feather name="gift" size={ms(16)} color={ACCENT_BLUE} />
             </View>
             <Text style={styles.statValue}>{formatNaira(totalSubscribed)}</Text>
             <Text style={styles.statLabel}>Total subscribed</Text>
           </View>
           <View style={styles.statCard}>
             <View style={[styles.statIconWrap, { backgroundColor: 'rgba(30,158,85,0.10)' }]}>
-              <Feather name="rotate-ccw" size={16} color="#1E9E55" />
+              <Feather name="rotate-ccw" size={ms(16)} color="#1E9E55" />
             </View>
             <Text style={styles.statValue}>{formatNaira(totalRefunded)}</Text>
             <Text style={styles.statLabel}>Total refunded</Text>
@@ -198,7 +199,7 @@ export default function PaymentsScreen() {
               onPress={() => router.push('/my-plan' as any)}
             >
               <View style={styles.planIconWrap}>
-                <Feather name="gift" size={20} color="#fff" />
+                <Feather name="gift" size={ms(20)} color="#fff" />
               </View>
               <View style={styles.planInfo}>
                 <Text style={styles.planName}>{activePlan.plan_name}</Text>
@@ -207,7 +208,7 @@ export default function PaymentsScreen() {
                   ends {formatDate(activePlan.ends_at)}
                 </Text>
               </View>
-              <Feather name="chevron-right" size={18} color={foodColors.textMuted} />
+              <Feather name="chevron-right" size={ms(18)} color={foodColors.textMuted} />
             </TouchableOpacity>
           </>
         )}
@@ -225,7 +226,7 @@ export default function PaymentsScreen() {
         ) : txns.length === 0 ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconWrap}>
-              <Feather name="inbox" size={22} color={ACCENT_BLUE} />
+              <Feather name="inbox" size={ms(22)} color={ACCENT_BLUE} />
             </View>
             <Text style={styles.emptyTitle}>No E-Plan payments yet</Text>
             <Text style={styles.emptySub}>
@@ -237,7 +238,7 @@ export default function PaymentsScreen() {
               onPress={() => router.push('/e-plan' as any)}
             >
               <Text style={styles.emptyBtnText}>Explore E-Plan</Text>
-              <Feather name="arrow-right" size={14} color="#fff" />
+              <Feather name="arrow-right" size={ms(14)} color="#fff" />
             </TouchableOpacity>
           </View>
         ) : (
@@ -268,7 +269,7 @@ export default function PaymentsScreen() {
                   >
                     <Feather
                       name={refund ? 'rotate-ccw' : 'gift'}
-                      size={16}
+                      size={ms(16)}
                       color={refund ? '#1E9E55' : ACCENT_BLUE}
                     />
                   </View>
@@ -325,7 +326,7 @@ export default function PaymentsScreen() {
 
                   <Feather
                     name="chevron-right"
-                    size={16}
+                    size={ms(16)}
                     color={foodColors.textMuted}
                     style={styles.txnChevron}
                   />
@@ -344,28 +345,28 @@ export default function PaymentsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 22 },
+  content: { paddingHorizontal: ms(22) },
 
   title: {
-    fontSize: 28,
+    fontSize: ms(28),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 6,
-    marginBottom: 6,
+    marginTop: ms(6),
+    marginBottom: ms(6),
   },
   subtitle: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 20,
+    lineHeight: ms(18),
+    marginBottom: ms(20),
   },
 
   balanceCard: {
     backgroundColor: WALLET_BLUE,
-    borderRadius: 22,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: ms(22),
+    padding: ms(20),
+    marginBottom: ms(16),
     shadowColor: WALLET_BLUE,
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -373,24 +374,24 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   balanceLabel: {
-    fontSize: 10.5,
+    fontSize: ms(10.5),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 1,
     color: 'rgba(255,255,255,0.7)',
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   balanceValue: {
-    fontSize: 34,
+    fontSize: ms(34),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
   balanceHint: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: 'rgba(255,255,255,0.85)',
-    lineHeight: 16,
-    marginBottom: 16,
+    lineHeight: ms(16),
+    marginBottom: ms(16),
   },
   balanceActions: {
     flexDirection: 'row',
@@ -400,27 +401,27 @@ const styles = StyleSheet.create({
   balanceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     backgroundColor: '#fff',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 12,
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(9),
+    borderRadius: ms(12),
   },
   balanceBtnRight: {
     // No extra styles needed – it's just the second item in a space-between row
   },
   balanceBtnText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.bold,
     color: WALLET_BLUE,
   },
 
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  statsRow: { flexDirection: 'row', gap: ms(12), marginBottom: ms(24) },
   statCard: {
     flex: 1,
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: ms(16),
+    padding: ms(14),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -428,24 +429,24 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: ms(32),
+    height: ms(32),
+    borderRadius: ms(10),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   txnChevron: {
-    marginLeft: 4,
+    marginLeft: ms(4),
   },
   statValue: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 2,
+    marginBottom: ms(2),
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
@@ -454,21 +455,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.6,
   },
   sectionAction: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: ACCENT_BLUE,
   },
   sectionCount: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
   },
@@ -476,11 +477,11 @@ const styles = StyleSheet.create({
   planCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 24,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(24),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -488,29 +489,29 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   planIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: ms(44),
+    height: ms(44),
+    borderRadius: ms(14),
     backgroundColor: ACCENT_BLUE,
     justifyContent: 'center',
     alignItems: 'center',
   },
   planInfo: { flex: 1, minWidth: 0 },
   planName: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   planSub: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
   txnList: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.04,
@@ -521,40 +522,40 @@ const styles = StyleSheet.create({
   txnRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(14),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   txnIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(11),
     justifyContent: 'center',
     alignItems: 'center',
   },
   txnInfo: { flex: 1, minWidth: 0 },
   txnTitle: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   txnSub: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
   txnRef: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
-    marginTop: 2,
+    marginTop: ms(2),
   },
-  txnRight: { alignItems: 'flex-end', gap: 5 },
+  txnRight: { alignItems: 'flex-end', gap: ms(5) },
   txnAmount: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
@@ -565,14 +566,14 @@ const styles = StyleSheet.create({
   },
 
   statusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(2),
+    borderRadius: ms(8),
   },
   statusSuccess: { backgroundColor: 'rgba(30,158,85,0.10)' },
   statusPending: { backgroundColor: 'rgba(245,165,36,0.14)' },
   statusFailed: { backgroundColor: 'rgba(255,59,48,0.10)' },
-  statusText: { fontSize: 10, fontFamily: fonts.poppins.bold },
+  statusText: { fontSize: ms(10), fontFamily: fonts.poppins.bold },
   statusTextSuccess: { color: '#1E9E55' },
   statusTextPending: { color: '#D98A00' },
   statusTextFailed: { color: '#FF3B30' },
@@ -580,8 +581,8 @@ const styles = StyleSheet.create({
   emptyCard: {
     alignItems: 'center',
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 26,
+    borderRadius: ms(16),
+    padding: ms(26),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -589,39 +590,39 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   emptyIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: ms(56),
+    height: ms(56),
+    borderRadius: ms(28),
     backgroundColor: 'rgba(30,63,234,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
   emptyTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   emptySub: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 17,
-    marginBottom: 16,
+    lineHeight: ms(17),
+    marginBottom: ms(16),
   },
   emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     backgroundColor: ACCENT_BLUE,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 22,
+    paddingHorizontal: ms(18),
+    paddingVertical: ms(11),
+    borderRadius: ms(22),
   },
   emptyBtnText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

@@ -13,6 +13,7 @@ import { useProfile } from '../src/context/ProfileContext';
 import { useAuth } from '../src/context/AuthContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 function formatNaira(value: number) {
   return `₦${value.toLocaleString()}`;
@@ -113,7 +114,7 @@ export default function EPlanScreen() {
         <View style={styles.planCard}>
           <View style={styles.planCardTop}>
             <View style={styles.giftBadge}>
-              <Feather name="gift" size={20} color="#fff" />
+              <Feather name="gift" size={ms(20)} color="#fff" />
             </View>
             {hasActivePlan === false && (
               <View style={styles.newPill}>
@@ -143,7 +144,7 @@ export default function EPlanScreen() {
               onPress={() => router.push((active ? '/my-plan' : '/e-plan-setup') as any)}
             >
               <Text style={styles.startBtnText}>{active ? 'View Plan' : 'Start'}</Text>
-              <Feather name="arrow-right" size={15} color={foodColors.textPrimary} />
+              <Feather name="arrow-right" size={ms(15)} color={foodColors.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -156,50 +157,50 @@ export default function EPlanScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  header: { paddingHorizontal: 26, paddingBottom: 16 },
+  header: { paddingHorizontal: ms(26), paddingBottom: ms(16) },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 26 },
+  content: { paddingHorizontal: ms(26) },
 
-  banner: { backgroundColor: '#161311', borderRadius: 24, padding: 22, marginBottom: 24, overflow: 'hidden' },
-  bannerTitle: { fontSize: 34, lineHeight: 36, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 12 },
+  banner: { backgroundColor: '#161311', borderRadius: ms(24), padding: ms(22), marginBottom: ms(24), overflow: 'hidden' },
+  bannerTitle: { fontSize: ms(34), lineHeight: ms(36), fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: ms(12) },
   bannerTitleAccent: { color: foodColors.primary, fontStyle: 'italic' },
   bannerSubtitle: {
-    fontSize: 13, lineHeight: 19, fontFamily: fonts.poppins.regular,
-    color: 'rgba(255,255,255,0.7)', maxWidth: '78%', marginBottom: 26,
+    fontSize: ms(13), lineHeight: ms(19), fontFamily: fonts.poppins.regular,
+    color: 'rgba(255,255,255,0.7)', maxWidth: '78%', marginBottom: ms(26),
   },
   dishBadge: {
-    position: 'absolute', top: 18, right: 18, width: 84, height: 84, borderRadius: 42,
+    position: 'absolute', top: 18, right: 18, width: ms(84), height: ms(84), borderRadius: ms(42),
     backgroundColor: 'rgba(226,58,46,0.18)', justifyContent: 'center', alignItems: 'center',
   },
-  dishEmoji: { fontSize: 34 },
+  dishEmoji: { fontSize: ms(34) },
 
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   statsItem: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   statBlock: { flex: 1 },
-  statValue: { fontSize: 16, fontFamily: fonts.poppins.bold, color: '#fff' },
-  statLabel: { fontSize: 11, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
-  statDivider: { width: 1, height: 26, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 10 },
+  statValue: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: '#fff' },
+  statLabel: { fontSize: ms(11), fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.55)', marginTop: ms(2) },
+  statDivider: { width: 1, height: ms(26), backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: ms(10) },
 
-  sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
+  sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: ms(10) },
 
   planCard: {
-    backgroundColor: foodColors.surface, borderRadius: 20, padding: 18,
+    backgroundColor: foodColors.surface, borderRadius: ms(20), padding: ms(18),
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
   },
-  planCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  giftBadge: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#161311', justifyContent: 'center', alignItems: 'center' },
-  newPill: { backgroundColor: foodColors.primary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
-  newPillText: { fontSize: 10, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.4 },
+  planCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: ms(12) },
+  giftBadge: { width: ms(42), height: ms(42), borderRadius: ms(14), backgroundColor: '#161311', justifyContent: 'center', alignItems: 'center' },
+  newPill: { backgroundColor: foodColors.primary, borderRadius: ms(10), paddingHorizontal: ms(10), paddingVertical: ms(4) },
+  newPillText: { fontSize: ms(10), fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.4 },
 
-  planTitle: { fontSize: 20, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 6 },
-  planDescription: { fontSize: 13, lineHeight: 19, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  planTitle: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(6) },
+  planDescription: { fontSize: ms(13), lineHeight: ms(19), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
   hidden: { opacity: 0 },
 
-  planDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: 16 },
+  planDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: ms(16) },
 
   planFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  planFromLabel: { fontSize: 11, fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginBottom: 2 },
-  planPrice: { fontSize: 17, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  startBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  startBtnText: { fontSize: 15, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  planFromLabel: { fontSize: ms(11), fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginBottom: ms(2) },
+  planPrice: { fontSize: ms(17), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  startBtn: { flexDirection: 'row', alignItems: 'center', gap: ms(6) },
+  startBtnText: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
 });

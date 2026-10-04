@@ -17,6 +17,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 type Message = {
   id: string;
@@ -33,6 +35,7 @@ const initialMessages: Message[] = [
 ];
 
 export default function LiveChatScreen() {
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [draft, setDraft] = useState('');
   const [pendingImage, setPendingImage] = useState<string | null>(null);
@@ -139,15 +142,15 @@ export default function LiveChatScreen() {
                 onPress={() => setPendingImage(null)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Feather name="x" size={12} color="#fff" />
+                <Feather name="x" size={ms(12)} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        <View style={styles.inputBar}>
+        <View style={[styles.inputBar, { paddingBottom: insets.bottom + ms(14) }]}>
           <TouchableOpacity style={styles.attachButton} onPress={pickImage} activeOpacity={0.8}>
-            <Feather name="image" size={18} color={foodColors.textSecondary} />
+            <Feather name="image" size={ms(18)} color={foodColors.textSecondary} />
           </TouchableOpacity>
           <TextInput
             style={styles.input}
@@ -158,7 +161,7 @@ export default function LiveChatScreen() {
             multiline
           />
           <TouchableOpacity style={styles.sendButton} onPress={send} activeOpacity={0.8}>
-            <Feather name="send" size={16} color="#fff" />
+            <Feather name="send" size={ms(16)} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -172,60 +175,60 @@ const styles = StyleSheet.create({
   agentBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     paddingHorizontal: '5.5%',
-    paddingBottom: 14,
+    paddingBottom: ms(14),
   },
   agentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(18),
     backgroundColor: foodColors.badgeBlue,
     justifyContent: 'center',
     alignItems: 'center',
   },
   agentAvatarText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   agentName: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
-  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: foodColors.success },
+  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: ms(5), marginTop: ms(2) },
+  onlineDot: { width: 6, height: 6, borderRadius: ms(3), backgroundColor: foodColors.success },
   onlineText: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
 
-  list: { paddingHorizontal: '5.5%', paddingBottom: 12, gap: 14 },
+  list: { paddingHorizontal: '5.5%', paddingBottom: ms(12), gap: ms(14) },
 
   bubbleRow: { maxWidth: '82%' },
   bubbleRowUser: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   bubbleRowAgent: { alignSelf: 'flex-start', alignItems: 'flex-start' },
-  bubble: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleWithImage: { padding: 4 },
+  bubble: { borderRadius: ms(16), paddingHorizontal: ms(14), paddingVertical: ms(10) },
+  bubbleWithImage: { padding: ms(4) },
   bubbleAgent: { backgroundColor: foodColors.surface, borderBottomLeftRadius: 4 },
   bubbleUser: { backgroundColor: foodColors.primary, borderBottomRightRadius: 4 },
   bubbleText: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 19,
+    lineHeight: ms(19),
     color: foodColors.textPrimary,
   },
   bubbleTextUser: { color: '#fff' },
-  bubbleTextWithImage: { paddingHorizontal: 10, paddingBottom: 6 },
-  messageImage: { width: 220, height: 220, borderRadius: 12 },
-  messageImageSpaced: { marginBottom: 8 },
+  bubbleTextWithImage: { paddingHorizontal: ms(10), paddingBottom: ms(6) },
+  messageImage: { width: ms(220), height: ms(220), borderRadius: ms(12) },
+  messageImageSpaced: { marginBottom: ms(8) },
   timeText: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
-    marginTop: 4,
+    marginTop: ms(4),
   },
 
   footer: {
@@ -236,16 +239,16 @@ const styles = StyleSheet.create({
   previewRow: {
     flexDirection: 'row',
     paddingHorizontal: '5.5%',
-    paddingTop: 12,
+    paddingTop: ms(12),
   },
-  previewImage: { width: 64, height: 64, borderRadius: 12 },
+  previewImage: { width: ms(64), height: ms(64), borderRadius: ms(12) },
   previewRemove: {
     position: 'absolute',
     top: -6,
     right: -6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(10),
     backgroundColor: foodColors.textPrimary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -253,15 +256,14 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
+    gap: ms(10),
     paddingHorizontal: '5.5%',
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 26 : 14,
+    paddingTop: ms(10),
   },
   attachButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: foodColors.background,
     justifyContent: 'center',
     alignItems: 'center',
@@ -270,17 +272,17 @@ const styles = StyleSheet.create({
     flex: 1,
     maxHeight: 100,
     backgroundColor: foodColors.background,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 13.5,
+    borderRadius: ms(18),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(10),
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
   },
   sendButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: foodColors.primary,
     justifyContent: 'center',
     alignItems: 'center',

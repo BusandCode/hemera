@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Redirect } from 'expo-router';
 import {
   View,
   Text,
@@ -19,6 +20,7 @@ import { fonts } from '../src/constants/typography';
 import { termsOfUse, privacyPolicy } from '../src/constants/legalContent';
 import { useAuth } from '../src/context/AuthContext';
 import { LegalModal } from '../src/components/auth/LegalModal';
+import { ms } from '../src/utils/responsive';
 
 type Mode = 'signin' | 'signup';
 type Gender = 'Male' | 'Female' | '';
@@ -26,7 +28,7 @@ type Gender = 'Male' | 'Female' | '';
 export default function AuthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, session } = useAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [name, setName] = useState('');
@@ -60,7 +62,7 @@ export default function AuthScreen() {
     setError('');
     try {
       if (isSignUp) {
-        await signUp({
+        const signedIn = await signUp({
           fullName: name.trim(),
           gender,
           phone: phone.trim(),
@@ -68,6 +70,12 @@ export default function AuthScreen() {
           email: email.trim(),
           password,
         });
+        if (!signedIn) {
+          // Supabase "Confirm email" is on: no session until they verify.
+          setMode('signin');
+          setError('Account created. Check your email to confirm it, then sign in.');
+          return;
+        }
       } else {
         await signIn(email.trim(), password);
       }
@@ -97,6 +105,9 @@ export default function AuthScreen() {
     setAgreed(true);
     setTermsOpen(false);
   };
+
+  // Already signed in → never show the auth screen.
+  if (session) return <Redirect href={'/(tabs)' as any} />;
 
   return (
     <KeyboardAvoidingView
@@ -157,7 +168,7 @@ export default function AuthScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Full Name</Text>
             <View style={styles.inputWrap}>
-              <Feather name="user" size={16} color={foodColors.textMuted} />
+              <Feather name="user" size={ms(16)} color={foodColors.textMuted} />
               <TextInput
                 style={styles.input}
                 value={name}
@@ -199,7 +210,7 @@ export default function AuthScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Phone Number</Text>
             <View style={styles.inputWrap}>
-              <Feather name="phone" size={16} color={foodColors.textMuted} />
+              <Feather name="phone" size={ms(16)} color={foodColors.textMuted} />
               <TextInput
                 style={styles.input}
                 value={phone}
@@ -216,7 +227,7 @@ export default function AuthScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Referral Code (optional)</Text>
             <View style={styles.inputWrap}>
-              <Feather name="gift" size={16} color={foodColors.textMuted} />
+              <Feather name="gift" size={ms(16)} color={foodColors.textMuted} />
               <TextInput
                 style={styles.input}
                 value={referredBy}
@@ -232,7 +243,7 @@ export default function AuthScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Email Address</Text>
           <View style={styles.inputWrap}>
-            <Feather name="mail" size={16} color={foodColors.textMuted} />
+            <Feather name="mail" size={ms(16)} color={foodColors.textMuted} />
             <TextInput
               style={styles.input}
               value={email}
@@ -249,7 +260,7 @@ export default function AuthScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputWrap}>
-            <Feather name="lock" size={16} color={foodColors.textMuted} />
+            <Feather name="lock" size={ms(16)} color={foodColors.textMuted} />
             <TextInput
               style={styles.input}
               value={password}
@@ -265,7 +276,7 @@ export default function AuthScreen() {
             >
               <Feather
                 name={secure ? 'eye-off' : 'eye'}
-                size={16}
+                size={ms(16)}
                 color={foodColors.textMuted}
               />
             </TouchableOpacity>
@@ -293,7 +304,7 @@ export default function AuthScreen() {
                 activeOpacity={0.8}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                {agreed && <Feather name="check" size={13} color="#fff" />}
+                {agreed && <Feather name="check" size={ms(13)} color="#fff" />}
               </TouchableOpacity>
               <Text style={styles.agreeText}>
                 I agree to Hemera's{' '}
@@ -316,7 +327,7 @@ export default function AuthScreen() {
 
         {error ? (
           <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={14} color="#FF3B30" />
+            <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
@@ -333,7 +344,7 @@ export default function AuthScreen() {
           {!busy && (
             <Feather
               name={isSignUp ? 'user-plus' : 'arrow-right'}
-              size={16}
+              size={ms(16)}
               color="#fff"
             />
           )}
@@ -373,82 +384,82 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 24 },
+  content: { paddingHorizontal: ms(24) },
 
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 28,
+    gap: ms(8),
+    marginBottom: ms(28),
   },
   logoDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: ms(10),
+    height: ms(10),
+    borderRadius: ms(5),
     backgroundColor: foodColors.primary,
   },
   brand: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 2,
     color: foodColors.primary,
   },
 
   title: {
-    fontSize: 28,
+    fontSize: ms(28),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    lineHeight: 34,
-    marginBottom: 8,
+    lineHeight: ms(34),
+    marginBottom: ms(8),
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 19,
-    marginBottom: 26,
+    lineHeight: ms(19),
+    marginBottom: ms(26),
   },
 
   tabsRow: {
     flexDirection: 'row',
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 22,
+    borderRadius: ms(14),
+    padding: ms(4),
+    marginBottom: ms(22),
   },
   tabBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 11,
-    borderRadius: 10,
+    paddingVertical: ms(11),
+    borderRadius: ms(10),
   },
   tabBtnActive: { backgroundColor: foodColors.primaryDark },
   tabText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
   },
   tabTextActive: { color: '#fff' },
 
-  field: { marginBottom: 16 },
+  field: { marginBottom: ms(16) },
   label: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 6,
+    borderRadius: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(13) : ms(6),
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
@@ -457,23 +468,23 @@ const styles = StyleSheet.create({
 
   forgotRow: {
     alignItems: 'flex-end',
-    marginTop: 8,
+    marginTop: ms(8),
   },
   forgotLink: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },
 
   genderRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: ms(10),
   },
   genderPill: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: ms(13),
+    borderRadius: ms(12),
     backgroundColor: foodColors.surface,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -483,28 +494,28 @@ const styles = StyleSheet.create({
     borderColor: foodColors.primaryDark,
   },
   genderPillText: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
   },
   genderPillTextActive: { color: '#fff' },
 
-  agreeBlock: { marginBottom: 16 },
+  agreeBlock: { marginBottom: ms(16) },
   agreeRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: ms(10),
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(6),
     borderWidth: 1.5,
     borderColor: foodColors.textMuted,
     backgroundColor: foodColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 1,
+    marginTop: ms(1),
   },
   checkboxChecked: {
     backgroundColor: foodColors.primary,
@@ -512,8 +523,8 @@ const styles = StyleSheet.create({
   },
   agreeText: {
     flex: 1,
-    fontSize: 12.5,
-    lineHeight: 19,
+    fontSize: ms(12.5),
+    lineHeight: ms(19),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
@@ -523,25 +534,25 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   agreeHint: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
-    marginTop: 6,
-    marginLeft: 30,
+    marginTop: ms(6),
+    marginLeft: ms(30),
   },
 
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     backgroundColor: 'rgba(255,59,48,0.08)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
+    borderRadius: ms(10),
+    paddingVertical: ms(10),
+    paddingHorizontal: ms(12),
+    marginBottom: ms(12),
   },
   errorText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.medium,
     color: '#FF3B30',
     flexShrink: 1,
@@ -551,26 +562,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 16,
-    borderRadius: 26,
-    marginTop: 4,
+    paddingVertical: ms(16),
+    borderRadius: ms(26),
+    marginTop: ms(4),
   },
   submitDisabled: { opacity: 0.5 },
   submitText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
 
   switchLink: {
     alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 4,
+    paddingVertical: ms(16),
+    marginTop: ms(4),
   },
   switchText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },

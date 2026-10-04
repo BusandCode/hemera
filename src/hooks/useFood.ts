@@ -39,8 +39,13 @@ function toPartner(row: any): Partner {
   };
 }
 
-function toMenuItem(row: any, partnerName: string): MenuItem {
+type MenuItemExtras = { category?: string; state?: string; lga?: string };
+
+function toMenuItem(row: any, partnerName: string, extras: MenuItemExtras = {}): MenuItem {
   return {
+    category: extras.category,
+    state: extras.state,
+    lga: extras.lga,
     id: row.id,
     partnerName: partnerName.toUpperCase(),
     isPopular: row.is_popular,
@@ -80,7 +85,13 @@ function toPartnerDetail(row: any): PartnerDetail {
       .map((c: any) => ({
         id: c.id,
         title: c.title,
-        items: (c.menu_items ?? []).map((i: any) => toMenuItem(i, row.name)),
+        items: (c.menu_items ?? []).map((i: any) =>
+          toMenuItem(i, row.name, {
+            category: c.title,
+            state: row.state ?? undefined,
+            lga: row.lga ?? undefined,
+          })
+        ),
       }))
       .filter((c: any) => c.items.length > 0),
     reviews: [...(row.partner_reviews ?? [])]
@@ -175,10 +186,16 @@ export function useAllMenuItems() {
     async () => {
       const { data, error } = await supabase
         .from('menu_items')
-        .select('*, partners(name)')
+        .select('*, partners(*), menu_categories(title)')
         .eq('is_available', true);
       if (error) throw new Error(error.message);
-      return data.map((row: any) => toMenuItem(row, row.partners?.name ?? ''));
+      return data.map((row: any) =>
+        toMenuItem(row, row.partners?.name ?? '', {
+          category: row.menu_categories?.title ?? undefined,
+          state: row.partners?.state ?? undefined,
+          lga: row.partners?.lga ?? undefined,
+        })
+      );
     },
     [],
     []

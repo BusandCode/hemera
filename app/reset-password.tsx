@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -69,7 +70,7 @@ export default function ResetPasswordScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>New Password</Text>
           <View style={styles.inputWrap}>
-            <Feather name="lock" size={16} color={foodColors.textMuted} />
+            <Feather name="lock" size={ms(16)} color={foodColors.textMuted} />
             <TextInput
               style={styles.input}
               value={password}
@@ -82,7 +83,7 @@ export default function ResetPasswordScreen() {
             <TouchableOpacity onPress={() => setSecure((s) => !s)}>
               <Feather
                 name={secure ? 'eye-off' : 'eye'}
-                size={16}
+                size={ms(16)}
                 color={foodColors.textMuted}
               />
             </TouchableOpacity>
@@ -92,7 +93,7 @@ export default function ResetPasswordScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Confirm New Password</Text>
           <View style={styles.inputWrap}>
-            <Feather name="lock" size={16} color={foodColors.textMuted} />
+            <Feather name="lock" size={ms(16)} color={foodColors.textMuted} />
             <TextInput
               style={styles.input}
               value={confirm}
@@ -107,7 +108,7 @@ export default function ResetPasswordScreen() {
 
         {error ? (
           <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={14} color="#FF3B30" />
+            <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
@@ -123,7 +124,7 @@ export default function ResetPasswordScreen() {
           ) : (
             <>
               <Text style={styles.primaryBtnText}>Update Password</Text>
-              <Feather name="check" size={16} color="#fff" />
+              <Feather name="check" size={ms(16)} color="#fff" />
             </>
           )}
         </TouchableOpacity>
@@ -134,41 +135,41 @@ export default function ResetPasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  content: { flex: 1, paddingHorizontal: 24 },
+  content: { flex: 1, paddingHorizontal: ms(24) },
 
   title: {
-    fontSize: 28,
+    fontSize: ms(28),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 26,
+    lineHeight: ms(20),
+    marginBottom: ms(26),
   },
 
-  field: { marginBottom: 16 },
+  field: { marginBottom: ms(16) },
   label: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 6,
+    borderRadius: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(13) : ms(6),
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
@@ -178,15 +179,15 @@ const styles = StyleSheet.create({
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     backgroundColor: 'rgba(255,59,48,0.08)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
+    borderRadius: ms(10),
+    paddingVertical: ms(10),
+    paddingHorizontal: ms(12),
+    marginBottom: ms(12),
   },
   errorText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.medium,
     color: '#FF3B30',
     flexShrink: 1,
@@ -196,16 +197,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 16,
-    borderRadius: 26,
-    marginTop: 4,
-    minHeight: 52,
+    paddingVertical: ms(16),
+    borderRadius: ms(26),
+    marginTop: ms(4),
+    minHeight: ms(52),
   },
   primaryBtnDisabled: { opacity: 0.5 },
   primaryBtnText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

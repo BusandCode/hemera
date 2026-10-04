@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useOnboarding } from '../src/context/OnboardingContext';
+import { ms } from '../src/utils/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -127,7 +128,7 @@ export default function OnboardingScreen() {
 
             <View style={styles.textBlock}>
               <View style={[styles.tagPill, { backgroundColor: slide.accent }]}>
-                <Feather name={slide.icon} size={11} color="#fff" />
+                <Feather name={slide.icon} size={ms(11)} color="#fff" />
                 <Text style={styles.tagText}>{slide.tag}</Text>
               </View>
               <Text style={styles.slideTitle}>{slide.title}</Text>
@@ -146,7 +147,7 @@ export default function OnboardingScreen() {
 
         <TouchableOpacity style={styles.cta} onPress={goNext} activeOpacity={0.85}>
           <Text style={styles.ctaText}>{isLast ? 'Get Started' : 'Next'}</Text>
-          <Feather name={isLast ? 'check' : 'arrow-right'} size={16} color="#fff" />
+          <Feather name={isLast ? 'check' : 'arrow-right'} size={ms(16)} color="#fff" />
         </TouchableOpacity>
 
         {!isLast && <Text style={styles.hint}>Swipe to continue</Text>}
@@ -162,13 +163,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     zIndex: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(8),
+    borderRadius: ms(20),
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
   skipText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: '#fff',
   },
@@ -181,43 +182,43 @@ const styles = StyleSheet.create({
   textBlock: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingHorizontal: 28,
-    paddingBottom: 190,
+    paddingHorizontal: ms(28),
+    paddingBottom: ms(190),
   },
   tagPill: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginBottom: 16,
+    gap: ms(6),
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(5),
+    borderRadius: ms(12),
+    marginBottom: ms(16),
   },
   tagText: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 1,
     color: '#fff',
   },
   slideTitle: {
-    fontSize: 30,
+    fontSize: ms(30),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
-    lineHeight: 38,
-    marginBottom: 12,
+    lineHeight: ms(38),
+    marginBottom: ms(12),
   },
   slideBody: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 21,
+    lineHeight: ms(21),
     color: 'rgba(255,255,255,0.82)',
     maxWidth: '92%',
   },
 
   bottom: {
-    paddingHorizontal: 28,
-    paddingTop: 20,
+    paddingHorizontal: ms(28),
+    paddingTop: ms(20),
     position: 'absolute',
     left: 0,
     right: 0,
@@ -225,37 +226,37 @@ const styles = StyleSheet.create({
   },
   dotsRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: ms(6),
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: ms(20),
   },
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: ms(3),
     backgroundColor: 'rgba(255,255,255,0.35)',
   },
-  dotActive: { width: 22, backgroundColor: '#fff' },
+  dotActive: { width: ms(22), backgroundColor: '#fff' },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 16,
-    borderRadius: 28,
-    marginBottom: 12,
+    paddingVertical: ms(16),
+    borderRadius: ms(28),
+    marginBottom: ms(12),
   },
   ctaText: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   hint: {
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: 'rgba(255,255,255,0.55)',
-    marginBottom: 4,
+    marginBottom: ms(4),
   },
 });

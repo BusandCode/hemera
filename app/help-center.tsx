@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { ms } from '../src/utils/responsive';
 
 type Faq = { id: string; question: string; answer: string };
 
@@ -52,7 +53,7 @@ export default function HelpCenterScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.searchBar}>
-          <Feather name="search" size={16} color={foodColors.textMuted} />
+          <Feather name="search" size={ms(16)} color={foodColors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search for help..."
@@ -77,7 +78,7 @@ export default function HelpCenterScreen() {
                   <Text style={styles.faqQuestion}>{faq.question}</Text>
                   <Feather
                     name={isOpen ? 'chevron-up' : 'chevron-down'}
-                    size={16}
+                    size={ms(16)}
                     color={foodColors.textMuted}
                   />
                 </View>
@@ -96,7 +97,7 @@ export default function HelpCenterScreen() {
           activeOpacity={0.8}
         >
           <View style={styles.contactIconWrap}>
-            <Feather name="headphones" size={18} color={foodColors.primary} />
+            <Feather name="headphones" size={ms(18)} color={foodColors.primary} />
           </View>
           <View style={styles.contactTextBlock}>
             <Text style={styles.contactTitle}>Still need help?</Text>
@@ -104,7 +105,7 @@ export default function HelpCenterScreen() {
               Reach out to our support team directly
             </Text>
           </View>
-          <Feather name="chevron-right" size={18} color={foodColors.textMuted} />
+          <Feather name="chevron-right" size={ms(18)} color={foodColors.textMuted} />
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />
@@ -116,21 +117,21 @@ export default function HelpCenterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 4,
-    marginBottom: 18,
+    borderRadius: ms(14),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(12) : ms(4),
+    marginBottom: ms(18),
   },
   searchInput: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
@@ -138,16 +139,16 @@ const styles = StyleSheet.create({
   },
 
   sectionLabel: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   group: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: ms(20),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -155,8 +156,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   faqRow: {
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(14),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
@@ -165,36 +166,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: ms(10),
   },
   faqQuestion: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   faqAnswer: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 18,
+    lineHeight: ms(18),
     color: foodColors.textSecondary,
-    marginTop: 10,
+    marginTop: ms(10),
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: ms(20),
   },
 
   contactCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: ms(16),
+    padding: ms(14),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -202,25 +203,25 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   contactIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(12),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   contactTextBlock: { flex: 1, minWidth: 0 },
   contactTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   contactSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 });

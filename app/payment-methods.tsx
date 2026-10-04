@@ -9,6 +9,8 @@ import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { useAuth } from '../src/context/AuthContext';
 import { supabase } from '../src/lib/supabase';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 const CARD_RED = '#E4342D';
 
@@ -20,6 +22,7 @@ type BankAccount = {
 };
 
 export default function PaymentMethodsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id;
@@ -119,14 +122,14 @@ export default function PaymentMethodsScreen() {
           <ActivityIndicator color={CARD_RED} style={styles.loader} />
         ) : loadError ? (
           <TouchableOpacity style={styles.retryCard} activeOpacity={0.85} onPress={() => setReloadKey((k) => k + 1)}>
-            <Feather name="refresh-cw" size={16} color={foodColors.badgeBlue} />
+            <Feather name="refresh-cw" size={ms(16)} color={foodColors.badgeBlue} />
             <Text style={styles.retryText}>Couldn't load your bank account. Tap to retry</Text>
           </TouchableOpacity>
         ) : account ? (
           <View style={styles.list}>
             <View style={[styles.cardTile, { backgroundColor: CARD_RED }]}>
               <View style={styles.cardTopRow}>
-                <MaterialCommunityIcons name="bank-outline" size={26} color="rgba(255,255,255,0.9)" />
+                <MaterialCommunityIcons name="bank-outline" size={ms(26)} color="rgba(255,255,255,0.9)" />
                 <View style={styles.defaultPill}>
                   <Text style={styles.defaultPillText}>Default</Text>
                 </View>
@@ -167,13 +170,13 @@ export default function PaymentMethodsScreen() {
       </ScrollView>
 
       {!loading && !loadError && !account && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
           <TouchableOpacity
             style={styles.addButton}
             activeOpacity={0.85}
             onPress={() => router.push('/add-bank-account' as any)}
           >
-            <Feather name="plus" size={17} color="#fff" />
+            <Feather name="plus" size={ms(17)} color="#fff" />
             <Text style={styles.addButtonText}>Add Bank Account</Text>
           </TouchableOpacity>
         </View>
@@ -185,97 +188,97 @@ export default function PaymentMethodsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
-  loader: { marginTop: 40 },
+  loader: { marginTop: ms(40) },
 
   retryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 20,
+    borderRadius: ms(16),
+    padding: ms(16),
+    marginTop: ms(20),
   },
-  retryText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
+  retryText: { fontSize: ms(13), fontFamily: fonts.poppins.semiBold, color: foodColors.badgeBlue },
 
-  list: { gap: 14 },
+  list: { gap: ms(14) },
   cardTile: {
-    borderRadius: 18,
-    padding: 18,
-    minHeight: 150,
+    borderRadius: ms(18),
+    padding: ms(18),
+    minHeight: ms(150),
     justifyContent: 'space-between',
   },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   defaultPill: {
     backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(4),
+    borderRadius: ms(10),
   },
   defaultPillText: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   bankName: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
-    marginTop: 18,
+    marginTop: ms(18),
   },
   cardBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    gap: 12,
-    marginTop: 14,
+    gap: ms(12),
+    marginTop: ms(14),
   },
   metaBlock: { flex: 1 },
   metaBlockRight: { alignItems: 'flex-end' },
   cardMetaLabel: {
-    fontSize: 9,
+    fontSize: ms(9),
     fontFamily: fonts.poppins.regular,
     color: 'rgba(255,255,255,0.7)',
-    marginBottom: 2,
+    marginBottom: ms(2),
   },
   cardMetaValue: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
 
   emptyText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: ms(20),
   },
 
   actionsGroup: {
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
+    borderRadius: ms(14),
     overflow: 'hidden',
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
   },
   actionsLabel: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
     flexShrink: 1,
   },
   actionText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.bold,
     color: foodColors.badgeBlue,
   },
@@ -284,8 +287,7 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: foodColors.surface,
     paddingHorizontal: '5.5%',
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
@@ -293,13 +295,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
   },
   addButtonText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

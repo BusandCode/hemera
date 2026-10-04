@@ -16,13 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
-import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLocation } from '../src/context/LocationContext';
 import { useAppData } from '../src/context/AppDataContext';
 import { useReferral } from '../src/context/ReferralContext';
 import { REFERRAL_FOOD_DISCOUNT } from '../src/constants/referral';
+import { ms } from '../src/utils/responsive';
 
 const DELIVERY_FEE = 500;
 const SERVICE_FEE = 200;
@@ -65,10 +65,10 @@ export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ promoApplied?: string; discount?: string }>();
   const { session } = useAuth();
-  const { lines, itemCount, total: itemsTotal, clear } = useCart();
+  const { lines, itemCount, total: itemsTotal } = useCart();
   const { formatted } = useLocation();
   const { addresses } = useAppData();
-  const { rewards, refresh: refreshReferrals } = useReferral();
+  const { rewards } = useReferral();
 
   const defaultAddress =
     addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
@@ -97,63 +97,49 @@ export default function CheckoutScreen() {
   const canPlace =
     lines.length > 0 && !!selectedAddress && !!selectedPayment && !placing;
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = () => {
     if (!canPlace) return;
-    setPlacing(true);
 
     const ref = `CHP-${Math.floor(100000 + Math.random() * 900000)}`;
     const firstName = lines[0].item.name;
     const title =
       lines.length > 1 ? `${firstName} + ${lines.length - 1} more` : firstName;
 
-    const { error } = await supabase.from('orders').insert({
-      order_type: 'echop',
-      status: 'placed',
-      total_kobo: total * 100,
-      metadata: {
-        ref,
-        title,
-        customer_email: session?.user.email ?? '',
-        total,
-        subtotal: itemsTotal,
-        discount,
-        ...(foodReward && {
-          referral_reward_id: foodReward.id,
-          referral_discount: referralDiscount,
-        }),
-        items: itemCount,
-        slot,
-        payment_method: selectedPayment.id,
-        address: selectedAddress
-          ? `${selectedAddress.line}, ${selectedAddress.details}`
-          : '',
-        lines: lines.map(({ item, qty }) => ({
-          id: item.id,
-          name: item.name,
-          qty,
-          price: item.price,
-        })),
-      },
-    });
-
-    if (error) {
-      setPlacing(false);
-      if (foodReward) refreshReferrals();
-      Alert.alert('Order failed', error.message);
-      return;
-    }
-
-    clear();
-    refreshReferrals();
-    setPlacing(false);
-    router.replace({
-      pathname: '/order-success',
+    router.push({
+      pathname: '/fund-wallet-account',
       params: {
-        orderId: ref,
-        total: String(total),
-        items: String(itemCount),
-        slot,
-        paymentMethod: selectedPayment.id,
+        amount: String(total),
+        service: 'echop',
+        order: JSON.stringify({
+          ref,
+          itemCount,
+          slot,
+          paymentMethod: selectedPayment.id,
+          metadata: {
+            ref,
+            title,
+            customer_email: session?.user.email ?? '',
+            total,
+            subtotal: itemsTotal,
+            discount,
+            ...(foodReward && {
+              referral_reward_id: foodReward.id,
+              referral_discount: referralDiscount,
+            }),
+            items: itemCount,
+            slot,
+            payment_method: selectedPayment.id,
+            address: selectedAddress
+              ? `${selectedAddress.line}, ${selectedAddress.details}`
+              : '',
+            lines: lines.map(({ item, qty }) => ({
+              id: item.id,
+              name: item.name,
+              qty,
+              price: item.price,
+            })),
+          },
+        }),
       },
     } as any);
   };
@@ -164,13 +150,13 @@ export default function CheckoutScreen() {
         <StatusBar style="dark" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Feather name="arrow-left" size={22} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(22)} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Checkout</Text>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.emptyWrap}>
-          <Feather name="shopping-bag" size={40} color={foodColors.textMuted} />
+          <Feather name="shopping-bag" size={ms(40)} color={foodColors.textMuted} />
           <Text style={styles.emptyTitle}>Nothing to check out</Text>
           <Text style={styles.emptySubtitle}>
             Your cart is empty. Add items from the menu first.
@@ -192,7 +178,7 @@ export default function CheckoutScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={22} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(22)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Checkout</Text>
         <View style={styles.headerSpacer} />
@@ -217,7 +203,7 @@ export default function CheckoutScreen() {
                 activeOpacity={0.7}
               >
                 <View style={styles.iconWrap}>
-                  <Feather name={addr.icon} size={16} color={foodColors.primary} />
+                  <Feather name={addr.icon} size={ms(16)} color={foodColors.primary} />
                 </View>
                 <View style={styles.rowTextBlock}>
                   <View style={styles.rowTitleRow}>
@@ -233,7 +219,7 @@ export default function CheckoutScreen() {
                   </Text>
                 </View>
                 {active && (
-                  <Feather name="check-circle" size={18} color={foodColors.primary} />
+                  <Feather name="check-circle" size={ms(18)} color={foodColors.primary} />
                 )}
               </TouchableOpacity>
             );
@@ -244,7 +230,7 @@ export default function CheckoutScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.iconWrap}>
-              <Feather name="plus" size={16} color={foodColors.primary} />
+              <Feather name="plus" size={ms(16)} color={foodColors.primary} />
             </View>
             <Text style={styles.rowTitle}>Add new address</Text>
           </TouchableOpacity>
@@ -280,7 +266,13 @@ export default function CheckoutScreen() {
               <TouchableOpacity
                 key={method.id}
                 style={[styles.row, isLast && styles.rowLast]}
-                onPress={() => setSelectedPaymentId(method.id)}
+                onPress={() => {
+                  if (method.id === 'cash') {
+                    Alert.alert('Coming Soon', 'Pay with Cash will be available in a future update.');
+                    return;
+                  }
+                  setSelectedPaymentId(method.id);
+                }}
                 activeOpacity={0.7}
               >
                 <View style={styles.iconWrap}>
@@ -295,7 +287,7 @@ export default function CheckoutScreen() {
                   <Text style={styles.rowSubtitle}>{method.subtitle}</Text>
                 </View>
                 {active && (
-                  <Feather name="check-circle" size={18} color={foodColors.primary} />
+                  <Feather name="check-circle" size={ms(18)} color={foodColors.primary} />
                 )}
               </TouchableOpacity>
             );
@@ -377,7 +369,7 @@ export default function CheckoutScreen() {
           ) : (
             <>
               <Text style={styles.placeBtnText}>Place Order</Text>
-              <Feather name="check" size={16} color="#fff" />
+              <Feather name="check" size={ms(16)} color="#fff" />
             </>
           )}
         </TouchableOpacity>
@@ -394,34 +386,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: '5.5%',
-    paddingTop: Platform.OS === 'ios' ? 6 : 16,
-    paddingBottom: 14,
+    paddingTop: Platform.OS === 'ios' ? ms(6) : ms(16),
+    paddingBottom: ms(14),
   },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
+  backButton: { width: ms(40), height: ms(40), justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: {
     flex: 1,
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
-  headerSpacer: { width: 40 },
+  headerSpacer: { width: ms(40) },
 
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
   sectionLabel: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.5,
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: ms(18),
+    marginBottom: ms(8),
   },
 
   group: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -432,47 +424,47 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   rowLast: { borderBottomWidth: 0 },
   rowTextBlock: { flex: 1, minWidth: 0 },
-  rowTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowTitleRow: { flexDirection: 'row', alignItems: 'center', gap: ms(6) },
   rowTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   rowSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
   rowPrice: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(10),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultPill: {
     backgroundColor: foodColors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(2),
+    borderRadius: ms(8),
   },
   defaultPillText: {
-    fontSize: 9.5,
+    fontSize: ms(9.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.primary,
   },
@@ -480,12 +472,12 @@ const styles = StyleSheet.create({
   slotRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: ms(8),
   },
   slotPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(9),
+    borderRadius: ms(20),
     backgroundColor: foodColors.surface,
     borderWidth: 1,
     borderColor: foodColors.border,
@@ -495,31 +487,31 @@ const styles = StyleSheet.create({
     borderColor: foodColors.primaryDark,
   },
   slotText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
   },
   slotTextActive: { color: '#fff' },
 
   qtyBubble: {
-    minWidth: 34,
-    height: 34,
-    paddingHorizontal: 8,
-    borderRadius: 10,
+    minWidth: ms(34),
+    height: ms(34),
+    paddingHorizontal: ms(8),
+    borderRadius: ms(10),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   qtyBubbleText: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.primary,
   },
 
   summaryCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: ms(16),
+    padding: ms(16),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -530,44 +522,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   summaryLabel: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
   summaryValue: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   discountLabel: { color: foodColors.success },
-  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: 6 },
-  totalLabel: { fontSize: 15, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  totalValue: { fontSize: 17, fontFamily: fonts.poppins.bold, color: foodColors.primary },
+  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: ms(6) },
+  totalLabel: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  totalValue: { fontSize: ms(17), fontFamily: fonts.poppins.bold, color: foodColors.primary },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: ms(14),
     backgroundColor: foodColors.surface,
     paddingHorizontal: '5.5%',
-    paddingTop: 14,
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   footerTotalBlock: { flexShrink: 0 },
   footerTotalLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginBottom: 2,
+    marginBottom: ms(2),
   },
   footerTotalValue: {
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
@@ -576,40 +568,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
   },
   placeBtnDisabled: { opacity: 0.5 },
-  placeBtnText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  placeBtnText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 
   emptyWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    gap: 10,
+    paddingHorizontal: ms(40),
+    gap: ms(10),
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 8,
+    marginTop: ms(8),
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 19,
+    lineHeight: ms(19),
   },
   emptyBtn: {
-    marginTop: 14,
+    marginTop: ms(14),
     backgroundColor: foodColors.primary,
-    paddingHorizontal: 22,
-    paddingVertical: 13,
-    borderRadius: 24,
+    paddingHorizontal: ms(22),
+    paddingVertical: ms(13),
+    borderRadius: ms(24),
   },
-  emptyBtnText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  emptyBtnText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

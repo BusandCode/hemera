@@ -1,28 +1,35 @@
 import { View, Text, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { foodColors } from '../../constants/foodColors';
-import { partners } from '../../constants/foodData';
+import { fonts } from '../../constants/typography';
+import { usePartners } from '../../hooks/useFood';
 import { PartnerCard } from './PartnerCard';
+import { ms, MAX_FONT_SCALE } from '../../utils/responsive';
 
-const SIDE_PADDING = 26;
-const LEFT_PAD = 2;
 const GAP = 10;
-const PEEK = 0.1;
 
-export function NearbyPartners() {
+/**
+ * sidePadding must match the horizontal padding of the parent section, so the
+ * row can bleed to the right edge of the screen and the next card "peeks" in.
+ */
+export function NearbyPartners({ sidePadding = 16 }: { sidePadding?: number }) {
   const router = useRouter();
+  const { partners } = usePartners();
   const { width: screenWidth } = useWindowDimensions();
 
-  const cardWidth = (screenWidth - SIDE_PADDING - LEFT_PAD - GAP * 2) / (2 + PEEK);
+  // ~2 cards + a peek on phones, ~3 on small tablets, ~4 on large tablets.
+  const visible = screenWidth >= 900 ? 4.2 : screenWidth >= 600 ? 3.2 : 2.1;
+  const available = screenWidth - sidePadding; // left padding only; right side bleeds
+  const cardWidth = (available - GAP * Math.floor(visible)) / visible;
 
   return (
     <View>
-      <Text style={styles.heading}>NEARBY PARTNERS</Text>
+      <Text style={styles.heading} maxFontSizeMultiplier={MAX_FONT_SCALE}>NEARBY PARTNERS</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.scroll}
-        contentContainerStyle={styles.row}
+        style={{ marginRight: -sidePadding }}
+        contentContainerStyle={[styles.row, { paddingRight: sidePadding }]}
       >
         {partners.map((p) => (
           <PartnerCard
@@ -40,7 +47,12 @@ export function NearbyPartners() {
 }
 
 const styles = StyleSheet.create({
-  heading: { fontSize: 11, fontWeight: '700', color: foodColors.textMuted, letterSpacing: 0.5, marginBottom: 2 },
-  scroll: { marginRight: -SIDE_PADDING },
-  row: { gap: GAP, paddingLeft: LEFT_PAD, paddingRight: SIDE_PADDING, paddingTop: 0, paddingBottom: 4 },
+  heading: {
+    fontSize: ms(11),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: ms(6),
+  },
+  row: { gap: GAP, paddingLeft: 2, paddingTop: 0, paddingBottom: 6 },
 });

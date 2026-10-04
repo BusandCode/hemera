@@ -10,8 +10,9 @@ import {
   Platform,
   LayoutAnimation,
   UIManager,
+  Keyboard,
 } from 'react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -22,19 +23,75 @@ import { useCart } from '../src/context/CartContext';
 import type { MenuItem } from '../src/constants/foodData';
 import { useAllMenuItems } from '../src/hooks/useFood';
 import { useReferral } from '../src/context/ReferralContext';
+import { useLocation } from '../src/context/LocationContext';
 import { REFERRAL_FOOD_DISCOUNT } from '../src/constants/referral';
+import { findPromo, type PromoCode } from '../src/constants/promoCodes';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms, clamp } from '../src/utils/responsive';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HORIZONTAL_PADDING = SCREEN_WIDTH * 0.055;
-const ITEM_IMAGE_SIZE = SCREEN_WIDTH * 0.18;
-const SUGGESTION_IMAGE_SIZE = SCREEN_WIDTH * 0.24;
+const HORIZONTAL_PADDING = clamp(SCREEN_WIDTH * 0.055, 14, 32);
+// Proportional to screen width, but capped so tablets don't get giant thumbnails.
+const ITEM_IMAGE_SIZE = clamp(SCREEN_WIDTH * 0.18, 60, 110);
+const SUGGESTION_IMAGE_SIZE = clamp(SCREEN_WIDTH * 0.24, 80, 140);
 
 const DELIVERY_FEE = 500;
 const SERVICE_FEE = 200;
+
+const STOP_WORDS = new Set(['with', 'and', 'the', 'plus', 'combo', 'pack', 'meal', 'portion']);
+
+function nameTokens(name: string) {
+  return name
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
+}
+
+type DishGroup = 'rice' | 'swallow' | 'soup' | 'grill' | 'drink';
+
+// Checked in this order, so "pepper soup" lands in soup before grill.
+const GROUP_ORDER: DishGroup[] = ['rice', 'swallow', 'soup', 'grill', 'drink'];
+
+const GROUP_KEYWORDS: Record<DishGroup, string[]> = {
+  rice: ['rice', 'jollof', 'ofada'],
+  swallow: ['swallow', 'amala', 'eba', 'fufu', 'pounded', 'semo', 'tuwo', 'poundo'],
+  soup: ['soup', 'egusi', 'ogbono', 'okra', 'efo', 'banga', 'afang', 'stew', 'ewedu'],
+  grill: ['grill', 'suya', 'asun', 'chicken', 'fish', 'turkey', 'barbecue', 'bbq', 'kebab'],
+  drink: ['drink', 'juice', 'zobo', 'smoothie', 'water', 'malt', 'soda', 'chapman', 'tea', 'coffee'],
+};
+
+// What people usually order alongside each kind of dish.
+const COMPLEMENTS: Record<DishGroup, DishGroup[]> = {
+  rice: ['grill', 'drink'],
+  swallow: ['soup', 'drink'],
+  soup: ['swallow', 'drink'],
+  grill: ['rice', 'drink'],
+  drink: ['rice', 'grill'],
+};
+
+function findGroup(text: string): DishGroup | null {
+  for (const g of GROUP_ORDER) {
+    if (GROUP_KEYWORDS[g].some((k) => text.includes(k))) return g;
+  }
+  return null;
+}
+
+// Prefer the menu category; fall back to words in the dish name.
+function groupOf(item: MenuItem): DishGroup | null {
+  return findGroup((item.category ?? '').toLowerCase()) ?? findGroup(item.name.toLowerCase());
+}
+
+// Orders can mix stores as long as they're all in the chosen state and LGA.
+// If a partner has no area saved yet, it isn't excluded.
+function inDeliveryArea(item: MenuItem, state: string, lga: string) {
+  const same = (a?: string, b?: string) =>
+    !a || !b || a.trim().toLowerCase() === b.trim().toLowerCase();
+  return same(item.state, state) && same(item.lga, lga);
+}
 
 function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
@@ -50,6 +107,7 @@ function animateLayout() {
 }
 
 export default function CartScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     lines,
@@ -60,16 +118,31 @@ export default function CartScreen() {
     total: itemsTotal,
     quantityOf,
   } = useCart();
-  const { items: allMenuItems } = useAllMenuItems();
+  const { items: allMenuItems, error: menuError } = useAllMenuItems();
   const { rewards } = useReferral();
+  const { location } = useLocation();
+
+  useEffect(() => {
+    if (menuError) console.warn('[Cart] suggestions query failed:', menuError);
+  }, [menuError]);
 
   const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoNotice, setPromoNotice] = useState<{
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  } | null>(null);
+
+  // Items added from the "You might also like" row. They stay visible (as
+  // "Added") instead of vanishing, and don't re-trigger a re-rank of the row.
+  const [addedFromSuggestions, setAddedFromSuggestions] = useState<string[]>([]);
 
   const hasFoodReward = !!rewards.food;
 
   const { discount, referralDiscount, total } = useMemo(() => {
-    const discount = promoApplied ? Math.round(itemsTotal * 0.1) : 0;
+    const discount = appliedPromo ? Math.round(itemsTotal * (appliedPromo.percent / 100)) : 0;
     const referralDiscount = hasFoodReward
       ? Math.min(REFERRAL_FOOD_DISCOUNT, Math.max(itemsTotal - discount, 0))
       : 0;
@@ -77,18 +150,66 @@ export default function CartScreen() {
       Math.max(itemsTotal - discount - referralDiscount, 0) +
       (lines.length > 0 ? DELIVERY_FEE + SERVICE_FEE : 0);
     return { discount, referralDiscount, total };
-  }, [itemsTotal, promoApplied, lines.length, hasFoodReward]);
+  }, [itemsTotal, appliedPromo, lines.length, hasFoodReward]);
+
+  const dismissPromoNotice = () => {
+    setPromoNotice(null);
+  };
 
   const applyPromo = () => {
-    if (promoCode.trim().length > 0) {
+    Keyboard.dismiss();
+    animateLayout();
+
+    if (!promoCode.trim()) {
+      setAppliedPromo(null);
+      setPromoError('Enter a promo code');
+      setPromoNotice({
+        type: 'error',
+        title: 'Promo code required',
+        message: 'Please enter a promo code before applying it.',
+      });
+      return;
+    }
+
+    const found = findPromo(promoCode);
+    if (!found) {
+      setAppliedPromo(null);
+      setPromoError('Invalid promo code');
+      setPromoNotice({
+        type: 'error',
+        title: 'Invalid promo code',
+        message: 'Please try a different promo code.',
+      });
+      return;
+    }
+
+    setPromoError(null);
+    setAppliedPromo(found);
+    setPromoNotice({
+      type: 'success',
+      title: 'Promo applied',
+      message: `${found.percent}% off your subtotal has been added.`,
+    });
+  };
+
+  const handlePromoChange = (text: string) => {
+    setPromoCode(text);
+    if (appliedPromo || promoError || promoNotice) {
       animateLayout();
-      setPromoApplied(true);
+      setAppliedPromo(null);
+      setPromoError(null);
+      setPromoNotice(null);
     }
   };
 
   const handleAdd = (item: MenuItem) => {
     animateLayout();
     addItem(item, 1);
+  };
+
+  const handleAddSuggestion = (item: MenuItem) => {
+    setAddedFromSuggestions((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]));
+    handleAdd(item);
   };
 
   const handleSetQty = (id: string, qty: number) => {
@@ -101,29 +222,48 @@ export default function CartScreen() {
     removeItem(id);
   };
 
-  // Suggest items not already in the cart, prioritizing same partner names
-  // as items currently in the cart, then popular items.
-  const [suggestions, setSuggestions] = useState<MenuItem[]>([]);
-  const suggestionsBuilt = useRef(false);
+  // Suggestions come from any store in the chosen state and LGA, ranked by how
+  // they relate to the most recently added item (last line): dishes that go with
+  // it come first (rice -> grill/drinks, swallow -> soup), then similar dishes,
+  // then similar names, then popular items. Items added from the suggestion row
+  // are left out of the ranking so the row doesn't reshuffle under the user's finger.
+  const suggestions = useMemo<MenuItem[]>(() => {
+    if (allMenuItems.length === 0 || lines.length === 0) return [];
 
-  useEffect(() => {
-    if (suggestionsBuilt.current || allMenuItems.length === 0) return;
-    suggestionsBuilt.current = true;
+    const seedLines = lines.filter((l) => !addedFromSuggestions.includes(l.item.id));
+    const basis = seedLines.length > 0 ? seedLines : lines;
 
-    const inCartIds = new Set(lines.map((l) => l.item.id));
-    const cartPartners = new Set(lines.map((l) => l.item.partnerName));
+    const seedIds = new Set(basis.map((l) => l.item.id));
+    const anchor = basis[basis.length - 1].item;
 
-    const available = allMenuItems.filter((it) => !inCartIds.has(it.id));
+    const anchorGroup = groupOf(anchor);
+    const complements = anchorGroup ? COMPLEMENTS[anchorGroup] : [];
+    const cartGroups = new Set(basis.map((l) => groupOf(l.item)).filter(Boolean));
+    const anchorTokens = new Set(nameTokens(anchor.name));
 
     const score = (it: MenuItem) => {
       let s = 0;
-      if (cartPartners.has(it.partnerName)) s += 2;
+      const g = groupOf(it);
+      if (g) {
+        if (complements.includes(g)) s += 5;
+        else if (g === anchorGroup) s += 4;
+        else if (cartGroups.has(g)) s += 1;
+      }
+
+      const shared = nameTokens(it.name).filter((t) => anchorTokens.has(t)).length;
+      s += Math.min(shared, 2) * 2;
+
       if (it.isPopular) s += 1;
       return s;
     };
 
-    setSuggestions([...available].sort((a, b) => score(b) - score(a)).slice(0, 8));
-  }, [allMenuItems]);
+    return allMenuItems
+      .filter((it) => !seedIds.has(it.id) && inDeliveryArea(it, location.state, location.lga))
+      .map((it) => ({ it, s: score(it) }))
+      .sort((a, b) => b.s - a.s || b.it.rating - a.it.rating)
+      .slice(0, 8)
+      .map(({ it }) => it);
+  }, [allMenuItems, lines, addedFromSuggestions, location.state, location.lga]);
 
   const isEmpty = lines.length === 0;
 
@@ -131,13 +271,13 @@ export default function CartScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + ms(10) }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-left" size={22} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(22)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Cart</Text>
         {!isEmpty ? (
@@ -152,7 +292,7 @@ export default function CartScreen() {
       {isEmpty ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconWrap}>
-            <Feather name="shopping-cart" size={34} color={foodColors.textMuted} />
+            <Feather name="shopping-cart" size={ms(34)} color={foodColors.textMuted} />
           </View>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySubtitle}>
@@ -163,7 +303,7 @@ export default function CartScreen() {
             onPress={() => router.push('/echop')}
           >
             <Text style={styles.browseButtonText}>Browse Menu</Text>
-            <Feather name="arrow-right" size={16} color="#fff" />
+            <Feather name="arrow-right" size={ms(16)} color="#fff" />
           </TouchableOpacity>
         </View>
       ) : (
@@ -172,6 +312,7 @@ export default function CartScreen() {
             style={styles.scroll}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             <View style={styles.itemsSection}>
               {lines.map(({ item, qty }) => (
@@ -201,7 +342,7 @@ export default function CartScreen() {
                         >
                           <Feather
                             name={qty === 1 ? 'trash-2' : 'minus'}
-                            size={13}
+                            size={ms(13)}
                             color={foodColors.textPrimary}
                           />
                         </TouchableOpacity>
@@ -210,7 +351,7 @@ export default function CartScreen() {
                           style={[styles.stepperButton, styles.stepperButtonPrimary]}
                           onPress={() => handleSetQty(item.id, qty + 1)}
                         >
-                          <Feather name="plus" size={13} color="#fff" />
+                          <Feather name="plus" size={ms(13)} color="#fff" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -221,7 +362,7 @@ export default function CartScreen() {
                     onPress={() => handleRemove(item.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Feather name="x" size={14} color={foodColors.textMuted} />
+                    <Feather name="x" size={ms(14)} color={foodColors.textMuted} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -230,35 +371,25 @@ export default function CartScreen() {
             <View style={styles.promoSection}>
               <Text style={styles.sectionLabel}>Promo Code</Text>
               <View style={styles.promoRow}>
-                <View style={styles.promoInputWrap}>
-                  <Feather name="tag" size={15} color={foodColors.textMuted} />
+                <View style={[styles.promoInputWrap, !!promoError && styles.promoInputWrapError]}>
+                  <Feather name="tag" size={ms(15)} color={foodColors.textMuted} />
                   <TextInput
                     style={styles.promoInput}
                     placeholder="Enter promo code"
                     placeholderTextColor={foodColors.textMuted}
                     value={promoCode}
-                    onChangeText={(text) => {
-                      setPromoCode(text);
-                      if (promoApplied) {
-                        animateLayout();
-                        setPromoApplied(false);
-                      }
-                    }}
+                    onChangeText={handlePromoChange}
+                    onSubmitEditing={applyPromo}
+                    returnKeyType="done"
                     autoCapitalize="characters"
+                    autoCorrect={false}
                   />
                 </View>
                 <TouchableOpacity style={styles.promoApplyButton} onPress={applyPromo}>
                   <Text style={styles.promoApplyText}>Apply</Text>
                 </TouchableOpacity>
               </View>
-              {promoApplied && (
-                <View style={styles.promoAppliedRow}>
-                  <Feather name="check-circle" size={13} color={foodColors.success} />
-                  <Text style={styles.promoAppliedText}>
-                    Promo applied — 10% off your subtotal
-                  </Text>
-                </View>
-              )}
+              {/* promo feedback is shown in a native alert popup for a cleaner cart experience */}
             </View>
 
             <View style={styles.summarySection}>
@@ -340,13 +471,13 @@ export default function CartScreen() {
                             inCart && styles.suggestionAddActive,
                           ]}
                           onPress={() => {
-                            if (!inCart) handleAdd(item);
+                            if (!inCart) handleAddSuggestion(item);
                           }}
                           activeOpacity={0.85}
                         >
                           <Feather
                             name={inCart ? 'check' : 'plus'}
-                            size={13}
+                            size={ms(13)}
                             color="#fff"
                           />
                           <Text style={styles.suggestionAddText}>
@@ -363,7 +494,7 @@ export default function CartScreen() {
             <View style={styles.bottomSpacer} />
           </ScrollView>
 
-          <View style={styles.checkoutBar}>
+          <View style={[styles.checkoutBar, { paddingBottom: insets.bottom + ms(14) }]}>
             <View style={styles.checkoutTotalBlock}>
               <Text style={styles.checkoutTotalLabel}>Total</Text>
               <Text style={styles.checkoutTotalValue}>{formatNaira(total)}</Text>
@@ -375,16 +506,56 @@ export default function CartScreen() {
                 router.push({
                   pathname: '/checkout',
                   params: {
-                    promoApplied: promoApplied ? '1' : '0',
+                    promoApplied: appliedPromo ? '1' : '0',
+                    promoCode: appliedPromo?.code ?? '',
                     discount: String(discount),
                   },
                 } as any)
               }
             >
               <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
-              <Feather name="arrow-right" size={16} color="#fff" />
+              <Feather name="arrow-right" size={ms(16)} color="#fff" />
             </TouchableOpacity>
           </View>
+
+          {promoNotice && (
+            <View style={[styles.noticeOverlay, { bottom: insets.bottom + ms(88) }]} pointerEvents="box-none">
+              <View
+                style={[
+                  styles.noticeCard,
+                  promoNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError,
+                ]}
+              >
+                <View style={styles.noticeHeader}>
+                  <View style={styles.noticeTitleWrap}>
+                    <Feather
+                      name={promoNotice.type === 'success' ? 'check-circle' : 'alert-circle'}
+                      size={ms(18)}
+                      color={promoNotice.type === 'success' ? foodColors.success : foodColors.primary}
+                    />
+                    <Text style={styles.noticeTitle}>{promoNotice.title}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.noticeCloseButton}
+                    onPress={dismissPromoNotice}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Feather name="x" size={ms(16)} color={foodColors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.noticeMessage}>{promoNotice.message}</Text>
+
+                <TouchableOpacity
+                  style={styles.noticeButton}
+                  onPress={dismissPromoNotice}
+                  activeOpacity={0.9}
+                >
+                  <Text style={styles.noticeButtonText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </>
       )}
     </View>
@@ -394,32 +565,31 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 16 },
+  content: { paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: ms(16) },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: Platform.OS === 'ios' ? 54 : 42,
-    paddingBottom: 14,
+    paddingBottom: ms(14),
   },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
+  backButton: { width: ms(40), height: ms(40), justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
   headerCount: {
-    minWidth: 40,
+    minWidth: ms(40),
     textAlign: 'right',
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
   },
-  headerSpacer: { minWidth: 40 },
+  headerSpacer: { minWidth: ms(40) },
 
   emptyState: {
     flex: 1,
@@ -428,160 +598,238 @@ const styles = StyleSheet.create({
     paddingHorizontal: HORIZONTAL_PADDING * 1.5,
   },
   emptyIconWrap: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: ms(84),
+    height: ms(84),
+    borderRadius: ms(42),
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: ms(18),
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 19,
+    lineHeight: ms(19),
     color: foodColors.textSecondary,
     textAlign: 'center',
-    marginBottom: 22,
+    marginBottom: ms(22),
   },
   browseButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingHorizontal: 22,
-    paddingVertical: 13,
-    borderRadius: 24,
+    paddingHorizontal: ms(22),
+    paddingVertical: ms(13),
+    borderRadius: ms(24),
   },
-  browseButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  browseButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 
-  itemsSection: { gap: 12, marginBottom: 22 },
+  itemsSection: { gap: ms(12), marginBottom: ms(22) },
   itemCard: {
     flexDirection: 'row',
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 12,
-    gap: 12,
+    borderRadius: ms(16),
+    padding: ms(12),
+    gap: ms(12),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  itemImage: { width: ITEM_IMAGE_SIZE, height: ITEM_IMAGE_SIZE, borderRadius: 12 },
+  itemImage: { width: ITEM_IMAGE_SIZE, height: ITEM_IMAGE_SIZE, borderRadius: ms(12) },
   itemInfo: { flex: 1, minWidth: 0 },
   itemPartner: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.3,
     color: foodColors.badgeBlue,
-    marginBottom: 2,
+    marginBottom: ms(2),
   },
   itemName: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 3,
+    marginBottom: ms(3),
   },
   itemDescription: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 15,
+    lineHeight: ms(15),
     color: foodColors.textSecondary,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   itemBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: ms(8),
   },
   itemPrice: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     flexShrink: 1,
   },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: ms(8) },
   stepperButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: ms(26),
+    height: ms(26),
+    borderRadius: ms(8),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepperButtonPrimary: { backgroundColor: foodColors.primary },
   stepperValue: {
-    minWidth: 16,
+    minWidth: ms(16),
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   removeButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: ms(22),
+    height: ms(22),
+    borderRadius: ms(11),
     backgroundColor: foodColors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   sectionLabel: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
 
-  promoSection: { marginBottom: 22 },
-  promoRow: { flexDirection: 'row', gap: 10 },
+  promoSection: { marginBottom: ms(22) },
+  promoRow: { flexDirection: 'row', gap: ms(10) },
   promoInputWrap: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 4,
+    borderRadius: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(12) : ms(4),
     minWidth: 0,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
+  promoInputWrapError: { borderColor: foodColors.primary },
   promoInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
   },
   promoApplyButton: {
     backgroundColor: foodColors.primaryDark,
-    paddingHorizontal: 18,
-    borderRadius: 12,
+    paddingHorizontal: ms(18),
+    borderRadius: ms(12),
     justifyContent: 'center',
     alignItems: 'center',
   },
-  promoApplyText: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
-  promoAppliedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  promoApplyText: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: '#fff' },
+  promoAppliedRow: { flexDirection: 'row', alignItems: 'center', gap: ms(6), marginTop: ms(8) },
   promoAppliedText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.success,
     flexShrink: 1,
   },
+  promoErrorText: {
+    fontSize: ms(12),
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.primary,
+    flexShrink: 1,
+  },
 
-  summarySection: { marginBottom: 22 },
+  summarySection: { marginBottom: ms(22) },
+  noticeOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 88,
+    zIndex: 20,
+  },
+  noticeCard: {
+    borderRadius: ms(16),
+    padding: ms(16),
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+    borderWidth: 1,
+  },
+  noticeSuccess: {
+    backgroundColor: '#F1FFF7',
+    borderColor: '#BFEBD0',
+  },
+  noticeError: {
+    backgroundColor: '#FFF3F3',
+    borderColor: '#F9C2C2',
+  },
+  noticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: ms(6),
+  },
+  noticeTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ms(8),
+    flex: 1,
+  },
+  noticeTitle: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+  },
+  noticeCloseButton: {
+    width: ms(28),
+    height: ms(28),
+    borderRadius: ms(14),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  noticeMessage: {
+    fontSize: ms(12.5),
+    fontFamily: fonts.poppins.regular,
+    lineHeight: ms(18),
+    color: foodColors.textSecondary,
+    marginBottom: ms(12),
+  },
+  noticeButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: foodColors.primary,
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(9),
+    borderRadius: ms(10),
+  },
+  noticeButtonText: {
+    fontSize: ms(12),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
   summaryCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: ms(16),
+    padding: ms(16),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -592,37 +840,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   summaryLabel: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
   summaryValue: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   discountLabel: { color: foodColors.success },
-  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: 6 },
-  totalLabel: { fontSize: 15, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  totalValue: { fontSize: 17, fontFamily: fonts.poppins.bold, color: foodColors.primary },
+  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: ms(6) },
+  totalLabel: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  totalValue: { fontSize: ms(17), fontFamily: fonts.poppins.bold, color: foodColors.primary },
 
-  suggestionsSection: { marginBottom: 8, marginHorizontal: -HORIZONTAL_PADDING },
+  suggestionsSection: { marginBottom: ms(8), marginHorizontal: -HORIZONTAL_PADDING },
   suggestionsHeader: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   suggestionsRow: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    gap: 12,
+    gap: ms(12),
   },
   suggestionCard: {
     width: SUGGESTION_IMAGE_SIZE + 40,
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 10,
+    borderRadius: ms(16),
+    padding: ms(10),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -632,67 +880,66 @@ const styles = StyleSheet.create({
   suggestionImage: {
     width: '100%',
     height: SUGGESTION_IMAGE_SIZE,
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: ms(12),
+    marginBottom: ms(8),
   },
   suggestionPartner: {
-    fontSize: 9.5,
+    fontSize: ms(9.5),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.3,
     color: foodColors.badgeBlue,
   },
   suggestionName: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 1,
+    marginTop: ms(1),
   },
   suggestionPrice: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginTop: 3,
-    marginBottom: 8,
+    marginTop: ms(3),
+    marginBottom: ms(8),
   },
   suggestionAdd: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: ms(5),
     backgroundColor: foodColors.primaryDark,
-    paddingVertical: 8,
-    borderRadius: 18,
+    paddingVertical: ms(8),
+    borderRadius: ms(18),
   },
   suggestionAddActive: { backgroundColor: foodColors.success },
   suggestionAddText: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
 
-  bottomSpacer: { height: 100 },
+  bottomSpacer: { height: ms(100) },
 
   checkoutBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 14,
+    gap: ms(14),
     backgroundColor: foodColors.surface,
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   checkoutTotalBlock: { flexShrink: 0 },
   checkoutTotalLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginBottom: 2,
+    marginBottom: ms(2),
   },
   checkoutTotalValue: {
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
@@ -701,11 +948,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     maxWidth: '68%',
   },
-  checkoutButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  checkoutButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

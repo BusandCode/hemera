@@ -5,6 +5,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
 import { useReferral, RewardType } from '../../context/ReferralContext';
+import { ms } from '../../utils/responsive';
 
 export function ReferralRewardPrompt() {
   const { earned, claimReward } = useReferral();
@@ -38,7 +39,7 @@ export function ReferralRewardPrompt() {
       <View style={styles.overlay}>
         <View style={styles.card}>
           <View style={styles.iconWrap}>
-            <Feather name="gift" size={24} color={foodColors.primary} />
+            <Feather name="gift" size={ms(24)} color={foodColors.primary} />
           </View>
           <Text style={styles.title}>You've earned a reward!</Text>
           <Text style={styles.body}>
@@ -58,7 +59,7 @@ export function ReferralRewardPrompt() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Feather name="coffee" size={16} color="#fff" />
+                <Feather name="coffee" size={ms(16)} color="#fff" />
                 <Text style={styles.primaryBtnText}>₦1,000 off food order</Text>
               </>
             )}
@@ -74,7 +75,7 @@ export function ReferralRewardPrompt() {
               <ActivityIndicator color={foodColors.badgeBlue} />
             ) : (
               <>
-                <MaterialCommunityIcons name="washing-machine" size={18} color={foodColors.badgeBlue} />
+                <MaterialCommunityIcons name="washing-machine" size={ms(18)} color={foodColors.badgeBlue} />
                 <Text style={styles.secondaryBtnText}>5% off laundry subscription</Text>
               </>
             )}
@@ -97,72 +98,75 @@ const styles = StyleSheet.create({
     paddingHorizontal: '7%',
   },
   card: {
+    width: '100%',
+    maxWidth: ms(420),
+    alignSelf: 'center',
     backgroundColor: foodColors.surface,
-    borderRadius: 22,
-    padding: 22,
+    borderRadius: ms(22),
+    padding: ms(22),
     alignItems: 'center',
   },
   iconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: ms(52),
+    height: ms(52),
+    borderRadius: ms(16),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: ms(14),
   },
   title: {
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
   body: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 8,
-    marginBottom: 18,
+    lineHeight: ms(19),
+    marginTop: ms(8),
+    marginBottom: ms(18),
   },
   error: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: '#FF3B30',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
   primaryBtn: {
     alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 14,
-    borderRadius: 26,
+    paddingVertical: ms(14),
+    borderRadius: ms(26),
   },
-  primaryBtnText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  primaryBtnText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
   secondaryBtn: {
     alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: 'rgba(46,90,172,0.1)',
-    paddingVertical: 14,
-    borderRadius: 26,
-    marginTop: 10,
+    paddingVertical: ms(14),
+    borderRadius: ms(26),
+    marginTop: ms(10),
   },
   secondaryBtnText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.badgeBlue,
   },
-  laterBtn: { paddingVertical: 12, marginTop: 4 },
+  laterBtn: { paddingVertical: ms(12), marginTop: ms(4) },
   laterText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textMuted,
   },

@@ -2,9 +2,11 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { washColors } from '../../constants/washColors';
 import { fonts } from '../../constants/typography';
+import { ms } from '../../utils/responsive';
 
 type Props = {
   status: 'none' | 'expired';
@@ -36,6 +38,7 @@ const content = {
 
 export function PlanRequiredState({ status, expiredOn, planName }: Props) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const c = content[status];
 
   const description =
@@ -47,9 +50,9 @@ export function PlanRequiredState({ status, expiredOn, planName }: Props) {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + ms(12) }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={22} color={washColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(22)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Request Pickup</Text>
       </View>
@@ -57,7 +60,7 @@ export function PlanRequiredState({ status, expiredOn, planName }: Props) {
       <View style={styles.body}>
         <View style={styles.iconOuter}>
           <View style={[styles.iconInner, status === 'expired' && styles.iconInnerExpired]}>
-            <Feather name={c.icon} size={30} color="#fff" />
+            <Feather name={c.icon} size={ms(30)} color="#fff" />
           </View>
         </View>
 
@@ -71,7 +74,7 @@ export function PlanRequiredState({ status, expiredOn, planName }: Props) {
         <Text style={styles.description}>{description}</Text>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(16) }]}>
         <TouchableOpacity
           style={styles.primaryButton}
           activeOpacity={0.85}
@@ -98,34 +101,33 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 20,
-    paddingTop: 55,
-    paddingBottom: 16,
+    gap: ms(16),
+    paddingHorizontal: ms(20),
+    paddingBottom: ms(16),
   },
-  backBtn: { width: 28, height: 28, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 22, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  backBtn: { width: ms(28), height: ms(28), justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: ms(22), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
 
   body: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingBottom: 40,
+    paddingHorizontal: ms(32),
+    paddingBottom: ms(40),
   },
   iconOuter: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    width: ms(108),
+    height: ms(108),
+    borderRadius: ms(54),
     backgroundColor: washColors.coveredBg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: ms(20),
   },
   iconInner: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: ms(68),
+    height: ms(68),
+    borderRadius: ms(34),
     backgroundColor: washColors.navySolid,
     justifyContent: 'center',
     alignItems: 'center',
@@ -134,44 +136,44 @@ const styles = StyleSheet.create({
 
   badge: {
     backgroundColor: washColors.coveredBg,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(5),
+    borderRadius: ms(12),
+    marginBottom: ms(12),
   },
   badgeExpired: { backgroundColor: '#FDE8E8' },
-  badgeText: { fontSize: 11.5, fontFamily: fonts.poppins.bold, color: washColors.navySolid },
+  badgeText: { fontSize: ms(11.5), fontFamily: fonts.poppins.bold, color: washColors.navySolid },
   badgeTextExpired: { color: washColors.red },
 
   title: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
     color: washColors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
   description: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: ms(13),
+    lineHeight: ms(20),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
     textAlign: 'center',
   },
 
-  footer: { paddingHorizontal: 20, paddingBottom: 34, gap: 10 },
+  footer: { paddingHorizontal: ms(20), gap: ms(10) },
   primaryButton: {
     backgroundColor: washColors.red,
-    paddingVertical: 16,
-    borderRadius: 28,
+    paddingVertical: ms(16),
+    borderRadius: ms(28),
     alignItems: 'center',
   },
-  primaryButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  primaryButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
   secondaryButton: {
-    paddingVertical: 14,
-    borderRadius: 28,
+    paddingVertical: ms(14),
+    borderRadius: ms(28),
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: washColors.grayBorder,
   },
-  secondaryButtonText: { fontSize: 13.5, fontFamily: fonts.poppins.bold, color: washColors.navySolid },
+  secondaryButtonText: { fontSize: ms(13.5), fontFamily: fonts.poppins.bold, color: washColors.navySolid },
 });

@@ -5,12 +5,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
-import { FoodCategory, MenuItem, categories, todaysMenu } from '../src/constants/foodData';
+import { FoodCategory, MenuItem, categories } from '../src/constants/foodData';
 import { fonts } from '../src/constants/typography';
 import { useCart } from '../src/context/CartContext';
+import { useTodaysMenu } from '../src/hooks/useFood';
 import { SearchBar } from '../src/components/food/SearchBar';
 import { CategoryTabs } from '../src/components/food/CategoryTabs';
 import { ViewOrderBar } from '../src/components/food/ViewOrderBar';
+import { ms } from '../src/utils/responsive';
 
 // The first entry in `categories` is treated as the "show everything" tab.
 const ALL_CATEGORY = categories[0];
@@ -37,7 +39,7 @@ function MenuRow({ item }: { item: MenuItem }) {
         <Text style={styles.partnerName} numberOfLines={1}>{item.partnerName}</Text>
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         <View style={styles.metaRow}>
-          <Feather name="star" size={10} color={foodColors.primary} />
+          <Feather name="star" size={ms(10)} color={foodColors.primary} />
           <Text style={styles.meta}>{item.rating} • {item.etaMinutes} min</Text>
         </View>
         <Text style={styles.price}>{priceFmt}</Text>
@@ -49,11 +51,11 @@ function MenuRow({ item }: { item: MenuItem }) {
           onPress={handleMinus}
           disabled={qty <= 1}
         >
-          <Feather name="minus" size={13} color={foodColors.textPrimary} />
+          <Feather name="minus" size={ms(13)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.stepValue}>{qty}</Text>
         <TouchableOpacity style={styles.stepBtn} onPress={handlePlus}>
-          <Feather name="plus" size={13} color={foodColors.textPrimary} />
+          <Feather name="plus" size={ms(13)} color={foodColors.textPrimary} />
         </TouchableOpacity>
       </View>
     </View>
@@ -64,6 +66,8 @@ export default function TodaysMenuScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { quantityOf } = useCart();
+  const { items: menuItems } = useTodaysMenu();
+  const todaysMenu: MenuItem[] = menuItems ?? [];
 
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<FoodCategory>(ALL_CATEGORY);
@@ -77,7 +81,7 @@ export default function TodaysMenuScreen() {
         !q || item.name.toLowerCase().includes(q) || item.partnerName.toLowerCase().includes(q);
       return matchesCategory && matchesQuery;
     });
-  }, [query, category]);
+  }, [todaysMenu, query, category]);
 
   const { itemCount, total } = todaysMenu.reduce(
     (acc, item) => {
@@ -97,7 +101,7 @@ export default function TodaysMenuScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-left" size={22} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(22)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <View>
           <Text style={styles.title}>Today's Menu</Text>
@@ -148,14 +152,14 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 20,
-    marginBottom: 14,
+    gap: ms(14),
+    paddingHorizontal: ms(20),
+    marginBottom: ms(14),
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(12),
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -166,58 +170,58 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   title: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: ms(24),
+    lineHeight: ms(30),
     letterSpacing: -0.4,
     fontFamily: fonts.serif.medium,
     color: foodColors.textPrimary,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
 
-  filters: { paddingHorizontal: 20, marginBottom: 14 },
-  categoriesWrap: { marginTop: 14 },
+  filters: { paddingHorizontal: ms(20), marginBottom: ms(14) },
+  categoriesWrap: { marginTop: ms(14) },
 
-  list: { paddingHorizontal: 20 },
-  separator: { height: 12 },
+  list: { paddingHorizontal: ms(20) },
+  separator: { height: ms(12) },
 
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 10,
+    borderRadius: ms(16),
+    padding: ms(10),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  image: { width: 72, height: 72, borderRadius: 14 },
+  image: { width: ms(72), height: ms(72), borderRadius: ms(14) },
   body: { flex: 1, minWidth: 0 },
   partnerName: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.3,
     color: foodColors.primary,
   },
   name: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 1,
+    marginTop: ms(1),
   },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
-  meta: { fontSize: 10, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: ms(3), marginTop: ms(2) },
+  meta: { fontSize: ms(10), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
   price: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 4,
+    marginTop: ms(4),
   },
 
   stepper: {
@@ -225,15 +229,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: ms(20),
     borderWidth: 1,
     borderColor: foodColors.border,
-    paddingHorizontal: 6,
-    height: 30,
-    width: 74,
+    paddingHorizontal: ms(6),
+    height: ms(30),
+    width: ms(74),
   },
-  stepBtn: { width: 20, height: 20, justifyContent: 'center', alignItems: 'center' },
-  stepValue: { fontSize: 12, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  stepBtn: { width: ms(20), height: ms(20), justifyContent: 'center', alignItems: 'center' },
+  stepValue: { fontSize: ms(12), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   controlDisabled: { opacity: 0.35 },
 
   orderBarWrap: {
@@ -241,16 +245,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingTop: 10,
+    paddingTop: ms(10),
     backgroundColor: foodColors.background,
   },
 
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyTitle: { fontSize: 16, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  empty: { alignItems: 'center', paddingTop: ms(60) },
+  emptyTitle: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   emptyText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 4,
+    marginTop: ms(4),
   },
 });

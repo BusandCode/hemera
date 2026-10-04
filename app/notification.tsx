@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 type NotificationItem = {
   id: string;
@@ -53,7 +55,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
       <View style={[styles.iconContainer, item.unread && styles.iconContainerUnread]}>
         <Feather
           name={item.icon}
-          size={18}
+          size={ms(18)}
           color={item.unread ? '#fff' : foodColors.textPrimary}
         />
       </View>
@@ -70,6 +72,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
 }
 
 export default function NotificationScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   return (
@@ -78,12 +81,12 @@ export default function NotificationScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + ms(10) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Feather name="arrow-left" size={24} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(24)} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Notifications</Text>
           <TouchableOpacity style={styles.clearButton}>
@@ -99,7 +102,7 @@ export default function NotificationScreen() {
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Feather name="bell-off" size={40} color={foodColors.textMuted} />
+            <Feather name="bell-off" size={ms(40)} color={foodColors.textMuted} />
             <Text style={styles.emptyText}>No notifications yet</Text>
           </View>
         )}
@@ -113,28 +116,28 @@ export default function NotificationScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 46, paddingBottom: 20 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(20) },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: ms(20),
   },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  backButton: { width: ms(40), height: ms(40), justifyContent: 'center', alignItems: 'center' },
   headerTitle: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
-  clearButton: { paddingHorizontal: 10, paddingVertical: 6 },
+  clearButton: { paddingHorizontal: ms(10), paddingVertical: ms(6) },
   clearText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },
   list: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -144,15 +147,15 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    padding: 14,
+    padding: ms(14),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
-    gap: 12,
+    gap: ms(12),
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: ms(36),
+    height: ms(36),
+    borderRadius: ms(10),
     backgroundColor: 'rgba(255,107,53,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -162,42 +165,42 @@ const styles = StyleSheet.create({
   rowHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 3,
+    gap: ms(6),
+    marginBottom: ms(3),
   },
   rowTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   unreadDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: ms(3),
     backgroundColor: foodColors.primary,
   },
   rowMessage: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 4,
+    lineHeight: ms(18),
+    marginBottom: ms(4),
   },
   rowTime: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 80,
-    gap: 12,
+    paddingTop: ms(80),
+    gap: ms(12),
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
   },
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 });

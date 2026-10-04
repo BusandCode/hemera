@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { ms } from '../src/utils/responsive';
 
 const languages = ['English', 'Hausa', 'Yoruba', 'Igbo', 'Pidgin'];
 
@@ -25,7 +26,7 @@ export default function LanguageLocationScreen() {
         <Text style={styles.sectionLabel}>Current Location</Text>
         <View style={styles.locationCard}>
           <View style={styles.locationIconWrap}>
-            <Feather name="map-pin" size={18} color={foodColors.primary} />
+            <Feather name="map-pin" size={ms(18)} color={foodColors.primary} />
           </View>
           <View style={styles.locationTextBlock}>
             <Text style={styles.locationTitle}>Lokoja, Kogi State</Text>
@@ -35,7 +36,7 @@ export default function LanguageLocationScreen() {
           </View>
         </View>
         <TouchableOpacity style={styles.changeLocationButton} activeOpacity={0.8}>
-          <Feather name="navigation" size={14} color={foodColors.badgeBlue} />
+          <Feather name="navigation" size={ms(14)} color={foodColors.badgeBlue} />
           <Text style={styles.changeLocationText}>Change Location</Text>
         </TouchableOpacity>
 
@@ -55,7 +56,7 @@ export default function LanguageLocationScreen() {
               >
                 <Text style={styles.langText}>{lang}</Text>
                 {isActive && (
-                  <Feather name="check" size={16} color={foodColors.primary} />
+                  <Feather name="check" size={ms(16)} color={foodColors.primary} />
                 )}
               </TouchableOpacity>
             );
@@ -71,24 +72,24 @@ export default function LanguageLocationScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 30 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(30) },
 
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.5,
     color: foodColors.textMuted,
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: ms(8),
+    marginTop: ms(16),
   },
   locationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(10),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -96,44 +97,44 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   locationIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(12),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   locationTextBlock: { flex: 1, minWidth: 0 },
   locationTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   locationSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
+    marginTop: ms(2),
+    lineHeight: ms(16),
   },
   changeLocationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: 'rgba(46,90,172,0.08)',
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingVertical: ms(12),
+    borderRadius: ms(14),
   },
   changeLocationText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.badgeBlue,
   },
 
   group: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -145,17 +146,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(15),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   langRowLast: { borderBottomWidth: 0 },
   langText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 });

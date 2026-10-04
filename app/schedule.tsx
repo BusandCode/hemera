@@ -1,21 +1,35 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { supabase } from '../src/lib/supabase';
+import { useAuth } from '../src/context/AuthContext';
+import { ms } from '../src/utils/responsive';
 
-type PickupStatus = 'scheduled' | 'out-for-delivery';
+type PickupStatus = 'scheduled' | 'picked-up' | 'processing' | 'ready' | 'out-for-delivery';
 
 type Pickup = {
-  id: string;
+  id: string; // the order's uuid, used for navigation and updates
+  ref: string; // short number shown to the customer
   month: string;
   day: number;
   slot: string;
   status: PickupStatus;
+  sortTime: number;
 };
 
 type StatusIcon = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -25,15 +39,79 @@ const STATUS_STYLE: Record<
   { label: string; icon: StatusIcon; bg: string; fg: string }
 > = {
   scheduled: { label: 'Scheduled', icon: 'calendar', bg: '#EDEEF1', fg: '#5F6B77' },
+  'picked-up': { label: 'Picked Up', icon: 'truck', bg: '#DBEAFE', fg: '#1E3A9F' },
+  processing: { label: 'Processing', icon: 'washing-machine', bg: '#DBEAFE', fg: '#1E3A9F' },
+  ready: { label: 'Ready', icon: 'check-circle-outline', bg: '#E3F1E8', fg: '#1F7A4A' },
   'out-for-delivery': { label: 'Out for Delivery', icon: 'moped', bg: '#E3F1E8', fg: '#1F7A4A' },
 };
 
-const INITIAL_PICKUPS: Pickup[] = [
-  { id: '781126', month: 'MAY', day: 4, slot: 'Evening · 4 PM – 8 PM', status: 'out-for-delivery' },
-  { id: '239604', month: 'JUN', day: 7, slot: 'Evening · 4 PM – 8 PM', status: 'scheduled' },
-  { id: '193021', month: 'JUN', day: 7, slot: 'Morning · 8 AM – 12 PM', status: 'scheduled' },
-  { id: '217452', month: 'JUN', day: 9, slot: 'Morning · 8 AM – 12 PM', status: 'scheduled' },
-];
+// Statuses that mean the order is finished, so it isn't "upcoming" any more.
+const FINISHED = new Set([
+  'delivered',
+  'completed',
+  'complete',
+  'fulfilled',
+  'cancelled',
+  'canceled',
+  'failed',
+  'rejected',
+  'refunded',
+]);
+
+function toPickupStatus(raw: string | null): PickupStatus | null {
+  const s = (raw ?? '').toLowerCase().trim().replace(/[\s_]+/g, '-');
+  if (FINISHED.has(s)) return null;
+  switch (s) {
+    case 'scheduled':
+    case 'placed':
+    case 'confirmed':
+    case 'pending':
+      return 'scheduled';
+    case 'picked-up':
+      return 'picked-up';
+    case 'ready':
+      return 'ready';
+    case 'out-for-delivery':
+    case 'on-the-way':
+      return 'out-for-delivery';
+    default:
+      return 'processing'; // in-progress, active, processing...
+  }
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
+
+// Uses the saved pickup date when it's stored as an ISO date; otherwise falls back
+// to when the order was placed.
+function pickupDateOf(meta: Record<string, any>, createdAt: string) {
+  const candidates = [meta.pickup_date, meta.pickupDate, meta.pickup_at, meta.date];
+  for (const c of candidates) {
+    if (typeof c === 'string' && ISO_DATE.test(c)) {
+      const d = new Date(c);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return new Date(createdAt);
+}
+
+function toPickup(row: any): Pickup | null {
+  const status = toPickupStatus(row.status);
+  if (!status) return null;
+
+  const meta = (row.metadata ?? {}) as Record<string, any>;
+  const when = pickupDateOf(meta, row.created_at);
+  const ref = String(meta.ref ?? meta.order_number ?? String(row.id).slice(0, 8).toUpperCase());
+
+  return {
+    id: row.id,
+    ref,
+    month: when.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    day: when.getDate(),
+    slot: meta.slot ?? meta.pickup_time ?? meta.pickupTime ?? '',
+    status,
+    sortTime: when.getTime(),
+  };
+}
 
 const ui = {
   border: '#E8E3D0',
@@ -53,26 +131,98 @@ const ui = {
 export default function ScheduleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [pickups, setPickups] = useState<Pickup[]>(INITIAL_PICKUPS);
+  const { session } = useAuth();
+  const userId = session?.user.id;
+
+  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!userId) {
+      setPickups([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error: queryError } = await supabase
+      .from('orders')
+      .select('id, status, metadata, created_at')
+      .eq('user_id', userId)
+      .eq('order_type', 'ewash')
+      .order('created_at', { ascending: false });
+
+    if (queryError) {
+      setError(queryError.message);
+    } else {
+      const list = (data ?? [])
+        .map(toPickup)
+        .filter((p): p is Pickup => p !== null)
+        .sort((a, b) => a.sortTime - b.sortTime);
+      setPickups(list);
+      setError(null);
+    }
+    setLoading(false);
+  }, [userId]);
+
+  // Reload whenever the screen comes back into view, so a pickup that was just
+  // scheduled shows up straight away.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
 
   const openOrder = (id: string) => {
     router.push({ pathname: '/order-details', params: { id } } as any);
   };
 
-  const cancelPickup = (id: string) => {
-    Alert.alert('Cancel pickup?', `Order #${id} will be removed from your schedule.`, [
+  const cancelPickup = (pickup: Pickup) => {
+    Alert.alert('Cancel pickup?', `Order #${pickup.ref} will be cancelled.`, [
       { text: 'Keep pickup', style: 'cancel' },
       {
         text: 'Cancel pickup',
         style: 'destructive',
-        onPress: () => setPickups((current) => current.filter((p) => p.id !== id)),
+        onPress: async () => {
+          if (!userId) return;
+          setBusyId(pickup.id);
+          const { data, error: updateError } = await supabase
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .eq('id', pickup.id)
+            .eq('user_id', userId)
+            .select('id');
+          setBusyId(null);
+
+          if (updateError || !data || data.length === 0) {
+            Alert.alert(
+              "Couldn't cancel pickup",
+              updateError?.message ?? 'This pickup could not be cancelled. Please try again.'
+            );
+            return;
+          }
+          setPickups((current) => current.filter((p) => p.id !== pickup.id));
+        },
       },
     ]);
   };
 
-  const requestCancelViaSupport = (id: string) => {
+  const requestCancelViaSupport = () => {
     router.push('/contact-support' as any);
   };
+
+  const hasPickups = useMemo(() => pickups.length > 0, [pickups]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -85,7 +235,7 @@ export default function ScheduleScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Schedule</Text>
       </View>
@@ -94,6 +244,13 @@ export default function ScheduleScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={ui.heroMid}
+          />
+        }
       >
         <LinearGradient
           colors={[ui.heroStart, ui.heroMid, ui.heroEnd]}
@@ -110,24 +267,35 @@ export default function ScheduleScreen() {
             onPress={() => router.push('/pickup-options' as any)}
             activeOpacity={0.85}
           >
-            <Feather name="plus" size={30} color="#fff" />
+            <Feather name="plus" size={ms(30)} color="#fff" />
           </TouchableOpacity>
         </LinearGradient>
 
         <Text style={styles.sectionTitle}>Upcoming pickups</Text>
 
-        {pickups.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator style={styles.loader} color={ui.heroMid} />
+        ) : error ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No upcoming pickups</Text>
+            <Text style={styles.emptyTitle}>Couldn't load your pickups</Text>
+            <Text style={styles.emptyText}>{error}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={onRefresh} activeOpacity={0.8}>
+              <Text style={styles.retryText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : !hasPickups ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No upcoming orders</Text>
             <Text style={styles.emptyText}>Schedule a pickup and it will show up here.</Text>
           </View>
         ) : (
           pickups.map((pickup) => {
             const status = STATUS_STYLE[pickup.status];
             const locked = pickup.status !== 'scheduled';
+            const busy = busyId === pickup.id;
 
             return (
-              <View key={pickup.id} style={styles.card}>
+              <View key={pickup.id} style={[styles.card, busy && styles.cardBusy]}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={styles.cardTop}
@@ -139,21 +307,27 @@ export default function ScheduleScreen() {
                   </View>
 
                   <View style={styles.cardInfo}>
-                    <Text style={styles.orderId}>Order #{pickup.id}</Text>
-                    <Text style={styles.slot}>{pickup.slot}</Text>
-                    <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
-                      <MaterialCommunityIcons name={status.icon} size={15} color={status.fg} />
+                    <Text style={styles.orderId}>Order #{pickup.ref}</Text>
+                    {!!pickup.slot && <Text style={styles.slot}>{pickup.slot}</Text>}
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: status.bg },
+                        !pickup.slot && styles.statusPillNoSlot,
+                      ]}
+                    >
+                      <MaterialCommunityIcons name={status.icon} size={ms(15)} color={status.fg} />
                       <Text style={[styles.statusText, { color: status.fg }]}>{status.label}</Text>
                     </View>
                   </View>
 
-                  <Feather name="chevron-right" size={22} color={ui.chevron} />
+                  <Feather name="chevron-right" size={ms(22)} color={ui.chevron} />
                 </TouchableOpacity>
 
                 {locked ? (
                   <>
                     <View style={styles.notice}>
-                      <Feather name="headphones" size={18} color={ui.noticeIcon} />
+                      <Feather name="headphones" size={ms(18)} color={ui.noticeIcon} />
                       <Text style={styles.noticeText}>
                         Already with our team — message support to request a cancel.
                       </Text>
@@ -161,9 +335,9 @@ export default function ScheduleScreen() {
                     <TouchableOpacity
                       activeOpacity={0.8}
                       style={[styles.actionButton, styles.supportButton]}
-                      onPress={() => requestCancelViaSupport(pickup.id)}
+                      onPress={requestCancelViaSupport}
                     >
-                      <Feather name="message-square" size={20} color={ui.blue} />
+                      <Feather name="message-square" size={ms(20)} color={ui.blue} />
                       <Text style={[styles.actionText, { color: ui.blue }]}>Request cancel via support</Text>
                     </TouchableOpacity>
                   </>
@@ -171,9 +345,10 @@ export default function ScheduleScreen() {
                   <TouchableOpacity
                     activeOpacity={0.8}
                     style={[styles.actionButton, styles.cancelButton]}
-                    onPress={() => cancelPickup(pickup.id)}
+                    onPress={() => cancelPickup(pickup)}
+                    disabled={busy}
                   >
-                    <Feather name="x-circle" size={20} color={foodColors.primary} />
+                    <Feather name="x-circle" size={ms(20)} color={foodColors.primary} />
                     <Text style={[styles.actionText, { color: foodColors.primary }]}>Cancel pickup</Text>
                   </TouchableOpacity>
                 )}
@@ -189,24 +364,24 @@ export default function ScheduleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 16 },
+  content: { paddingHorizontal: ms(16), paddingTop: ms(16) },
 
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    gap: 10,
+    paddingHorizontal: ms(20),
+    gap: ms(10),
   },
   backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: ms(32),
+    height: ms(32),
+    borderRadius: ms(16),
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   screenTitle: {
-    fontSize: 24,
+    fontSize: ms(24),
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
@@ -215,33 +390,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
+    borderRadius: ms(28),
+    paddingHorizontal: ms(24),
+    paddingVertical: ms(28),
     elevation: 8,
     shadowColor: ui.heroMid,
     shadowOpacity: 0.3,
     shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: ms(8) },
   },
-  heroText: { flex: 1, paddingRight: 12 },
+  heroText: { flex: 1, paddingRight: ms(12) },
   heroTitle: {
-    fontSize: 26,
-    lineHeight: 34,
+    fontSize: ms(26),
+    lineHeight: ms(34),
     fontFamily: fonts.poppins.medium,
     color: '#fff',
   },
   heroSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: ms(15),
+    lineHeight: ms(22),
     fontFamily: fonts.poppins.regular,
     color: 'rgba(255,255,255,0.85)',
-    marginTop: 4,
+    marginTop: ms(4),
   },
   heroPlus: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: ms(64),
+    height: ms(64),
+    borderRadius: ms(32),
     backgroundColor: foodColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -253,88 +428,91 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 22,
+    fontSize: ms(22),
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
-    marginTop: 28,
-    marginBottom: 14,
-    marginLeft: 4,
+    marginTop: ms(28),
+    marginBottom: ms(14),
+    marginLeft: ms(4),
   },
+  loader: { marginTop: ms(32) },
 
   card: {
     backgroundColor: '#fff',
-    borderRadius: 26,
+    borderRadius: ms(26),
     borderWidth: 1,
     borderColor: ui.border,
-    padding: 16,
-    marginBottom: 16,
+    padding: ms(16),
+    marginBottom: ms(16),
   },
+  cardBusy: { opacity: 0.55 },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: ms(14),
   },
   dateTile: {
-    width: 78,
-    height: 78,
-    borderRadius: 20,
+    width: ms(78),
+    height: ms(78),
+    borderRadius: ms(20),
     backgroundColor: ui.dateTile,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dateMonth: {
-    fontSize: 15,
+    fontSize: ms(15),
     letterSpacing: 0.6,
     fontFamily: fonts.poppins.regular,
     color: ui.heading,
   },
   dateDay: {
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: ms(30),
+    lineHeight: ms(36),
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
   cardInfo: { flex: 1 },
   orderId: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
   slot: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
-    marginBottom: 8,
+    marginTop: ms(2),
+    marginBottom: ms(8),
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
+    gap: ms(8),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(7),
+    borderRadius: ms(16),
   },
+  statusPillNoSlot: { marginTop: ms(8) },
   statusText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.medium,
   },
 
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: ui.noticeBg,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 14,
+    borderRadius: ms(16),
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(14),
+    marginTop: ms(14),
   },
   noticeText: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: ms(15),
+    lineHeight: ms(22),
     fontFamily: fonts.poppins.regular,
     color: ui.noticeText,
   },
@@ -343,37 +521,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    borderRadius: 24,
+    gap: ms(10),
+    borderRadius: ms(24),
     borderWidth: 1.5,
-    paddingVertical: 16,
-    marginTop: 14,
+    paddingVertical: ms(16),
+    marginTop: ms(14),
   },
   cancelButton: { borderColor: foodColors.primary },
   supportButton: { borderColor: ui.blue },
   actionText: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.medium,
   },
 
   emptyCard: {
     backgroundColor: '#fff',
-    borderRadius: 26,
+    borderRadius: ms(26),
     borderWidth: 1,
     borderColor: ui.border,
-    padding: 24,
+    padding: ms(24),
     alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textPrimary,
-  },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: fonts.poppins.regular,
-    color: foodColors.textSecondary,
-    marginTop: 4,
     textAlign: 'center',
   },
+  emptyText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    marginTop: ms(4),
+    textAlign: 'center',
+  },
+  retryBtn: { marginTop: ms(14), paddingVertical: ms(8), paddingHorizontal: ms(12) },
+  retryText: { fontSize: ms(14), fontFamily: fonts.poppins.medium, color: ui.blue },
 });

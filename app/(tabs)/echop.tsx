@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FoodHeader } from '../../src/components/food/FoodHeader';
 import { SearchBar } from '../../src/components/food/SearchBar';
@@ -15,21 +16,28 @@ import { foodColors } from '../../src/constants/foodColors';
 import { FoodCategory } from '../../src/constants/foodData';
 import { useLocation } from '../../src/context/LocationContext';
 import { useCart } from '../../src/context/CartContext';
+import { ms } from '../../src/utils/responsive';
 
 export default function FoodScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { formatted } = useLocation();
   const { itemCount, total } = useCart();
   const [category, setCategory] = useState<FoodCategory>('All');
 
+  // Same side padding rule as Home: tighter on small phones, roomier on tablets.
+  const hPad = width < 360 ? 12 : width >= 600 ? 28 : 16;
+  const padded = { paddingHorizontal: hPad };
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, padded, { paddingTop: insets.top + ms(8) }]}>
         <FoodHeader
           location={formatted}
           cartCount={itemCount}
           onPressLocation={() => router.push('/location-picker' as any)}
-          onPressCart={() => router.push('/cart')}
+          onPressCart={() => router.push('/cart' as any)}
           onPressEPlan={() => router.push('/e-plan' as any)}
         />
       </View>
@@ -40,23 +48,23 @@ export default function FoodScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <View style={styles.searchSection}>
+        <View style={[styles.searchSection, padded]}>
           <SearchBar />
         </View>
 
-        <View style={styles.bannerSection}>
+        <View style={[styles.bannerSection, padded]}>
           <PromoBanner />
         </View>
 
-        <View style={styles.categorySection}>
+        <View style={[styles.categorySection, padded]}>
           <CategoryTabs active={category} onSelect={setCategory} />
         </View>
 
-        <View style={styles.partnersSection}>
-          <NearbyPartners />
+        <View style={[styles.partnersSection, padded]}>
+          <NearbyPartners sidePadding={hPad} />
         </View>
 
-        <View style={styles.menuSection}>
+        <View style={[styles.menuSection, padded]}>
           <TodaysMenu />
         </View>
       </ScrollView>
@@ -66,7 +74,7 @@ export default function FoodScreen() {
           <ViewOrderBar
             itemCount={itemCount}
             total={total}
-            onPress={() => router.push('/cart')}
+            onPress={() => router.push('/cart' as any)}
           />
         </View>
 
@@ -78,19 +86,19 @@ export default function FoodScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  header: { paddingHorizontal: 16, paddingTop: 55, paddingBottom: 8 },
+  header: { paddingBottom: ms(8) },
   scroll: { flex: 1 },
-  content: { paddingBottom: 18 },
-  searchSection: { paddingHorizontal: 16, marginBottom: 14 },
-  bannerSection: { paddingHorizontal: 16, marginBottom: 22 },
-  categorySection: { paddingHorizontal: 16, marginBottom: 20 },
-  partnersSection: { paddingHorizontal: 16, marginBottom: 5 },
-  menuSection: { paddingHorizontal: 16, marginBottom: 10 },
+  content: { paddingBottom: ms(18) },
+  searchSection: { marginBottom: ms(14) },
+  bannerSection: { marginBottom: ms(20) },
+  categorySection: { marginBottom: ms(18) },
+  partnersSection: { marginBottom: ms(8) },
+  menuSection: { marginBottom: ms(10) },
   footer: {
     backgroundColor: foodColors.background,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.025)',
     paddingTop: 4,
   },
-  orderBarContainer: { paddingHorizontal: 0, paddingBottom: 4 },
+  orderBarContainer: { paddingBottom: 4 },
 });

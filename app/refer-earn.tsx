@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Share,
   Modal,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -17,10 +18,13 @@ import { useRouter } from 'expo-router';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { REFERRAL_FOOD_DISCOUNT, REFERRAL_LAUNDRY_PERCENT } from '../src/constants/referral';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { useReferral, type Referral, type RewardType } from '../src/context/ReferralContext';
+import { ms } from '../src/utils/responsive';
 
-const REFERRAL_CODE = 'SULE-4K92';
-const SHARE_URL = `${REFERRAL_CODE}`;
+const FOOD_REWARD = `₦${REFERRAL_FOOD_DISCOUNT.toLocaleString('en-US')}`;
+const LAUNDRY_REWARD = `${REFERRAL_LAUNDRY_PERCENT}%`;
 
 const steps = [
   {
@@ -39,7 +43,7 @@ const steps = [
     id: '3',
     icon: 'gift',
     title: 'Choose your reward',
-    subtitle: 'Pick ₦1,000 off your next food order or 5% off your next laundry plan',
+    subtitle: `Pick ${FOOD_REWARD} off your next food order or ${LAUNDRY_REWARD} off your next laundry plan`,
   },
   {
     id: '4',
@@ -49,79 +53,100 @@ const steps = [
   },
 ] as const;
 
-type Invite = {
-  id: string;
-  name: string;
-  status: string;
-  reward?: string;
-  rewardType?: 'food' | 'laundry';
-  pending?: boolean;
-};
+type InviteRow = Referral & { number: number };
 
-const invites: Invite[] = [
-  {
-    id: 'i1',
-    name: 'Chidinma O.',
-    status: 'Reward applied — ₦1,000 off your next food order',
-    reward: '₦1,000 Food',
-    rewardType: 'food',
-  },
-  {
-    id: 'i2',
-    name: 'Amina Y.',
-    status: 'Reward applied — 5% off your next laundry plan',
-    reward: '5% Laundry',
-    rewardType: 'laundry',
-  },
-  {
-    id: 'i3',
-    name: 'Yusuf B.',
-    status: 'Waiting on their first order',
-    pending: true,
-  },
-];
+function describeInvite(invite: InviteRow): string {
+  const rewardText =
+    invite.rewardType === 'laundry'
+      ? `${LAUNDRY_REWARD} off your next laundry plan`
+      : `${FOOD_REWARD} off your next food order`;
 
-type RewardChoice = 'food' | 'laundry';
+  switch (invite.status) {
+    case 'pending':
+      return 'Signed up — waiting on their first order';
+    case 'earned':
+      return 'First order done — choose your reward';
+    case 'claimed':
+      return `Reward ready — ${rewardText}`;
+    case 'redeemed':
+      return 'Reward used';
+    default:
+      return '';
+  }
+}
 
 export default function ReferEarnScreen() {
   const router = useRouter();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedReward, setSelectedReward] = useState<RewardChoice | null>(null);
+  const {
+    code,
+    loading,
+    invitedCount,
+    qualifiedCount,
+    referrals,
+    claimReward,
+    shareInvite,
+    refresh,
+  } = useReferral();
+
+  const [claimTarget, setClaimTarget] = useState<string | null>(null);
+  const [selectedReward, setSelectedReward] = useState<RewardType | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Newest first, numbered in the order friends joined.
+  const invites: InviteRow[] = referrals.map((r, i) => ({ ...r, number: i + 1 })).reverse();
 
   const handleCopyCode = async () => {
+    if (!code) return;
     try {
-      await Clipboard.setStringAsync(REFERRAL_CODE);
+      await Clipboard.setStringAsync(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {}
   };
 
-  const handleShare = () => {
-    Share.share({
-      message: `Join me on Hemera! Use my invite code to sign up: ${SHARE_URL}`,
-    }).catch(() => {});
-  };
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
 
-  const handleOpenRewardModal = () => {
+  const handleOpenRewardModal = (referralId: string) => {
     setSelectedReward(null);
-    setModalVisible(true);
+    setClaimError(null);
+    setClaimTarget(referralId);
   };
 
-  const handlePickReward = (choice: RewardChoice) => {
-    setSelectedReward(choice);
+  const handlePickReward = async (choice: RewardType) => {
+    if (!claimTarget || claiming) return;
+    setClaiming(true);
+    setClaimError(null);
+    try {
+      await claimReward(claimTarget, choice);
+      setSelectedReward(choice);
+    } catch (e: any) {
+      setClaimError(e?.message ?? 'Could not claim this reward. Please try again.');
+    } finally {
+      setClaiming(false);
+    }
   };
 
   const handleCloseModal = () => {
-    setModalVisible(false);
+    setClaimTarget(null);
     setSelectedReward(null);
+    setClaimError(null);
   };
 
   const successMessage =
     selectedReward === 'food'
-      ? '₦1,000 credit locked in! It will apply automatically at your next food checkout.'
+      ? `${FOOD_REWARD} credit locked in! It will apply automatically at your next food checkout.`
       : selectedReward === 'laundry'
-        ? '5% discount locked in! It will apply automatically to your next laundry subscription renewal.'
+        ? `${LAUNDRY_REWARD} discount locked in! It will apply automatically to your next laundry subscription renewal.`
         : '';
 
   return (
@@ -133,6 +158,13 @@ export default function ReferEarnScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={foodColors.primary}
+          />
+        }
       >
         <LinearGradient
           colors={[foodColors.primary, foodColors.primaryDark]}
@@ -140,25 +172,27 @@ export default function ReferEarnScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
         >
-          <Text style={styles.heroTitle}>Get ₦1,000, Choose Your Reward</Text>
+          <Text style={styles.heroTitle}>Get {FOOD_REWARD}, Choose Your Reward</Text>
           <Text style={styles.heroSubtitle}>
             Invite friends to Hemera. When they complete their first order, you choose
-            your reward, ₦1,000 off food or 5% off laundry. It applies automatically.
+            your reward, {FOOD_REWARD} off food or {LAUNDRY_REWARD} off laundry. It applies
+            automatically.
           </Text>
 
           <TouchableOpacity
             style={styles.linkBox}
             onPress={handleCopyCode}
+            disabled={!code}
             activeOpacity={0.85}
           >
-            <Feather name="gift" size={14} color="rgba(255,255,255,0.9)" />
+            <Feather name="gift" size={ms(14)} color="rgba(255,255,255,0.9)" />
             <Text style={styles.codeText} numberOfLines={1}>
-              {REFERRAL_CODE}
+              {code || 'Getting your code…'}
             </Text>
             <View style={styles.copyChip}>
               <Feather
                 name={copied ? 'check' : 'copy'}
-                size={12}
+                size={ms(12)}
                 color={foodColors.primaryDark}
               />
               <Text style={styles.copyChipText}>{copied ? 'Copied' : 'Copy'}</Text>
@@ -166,35 +200,26 @@ export default function ReferEarnScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.shareButton}
-            onPress={handleShare}
+            style={[styles.shareButton, !code && styles.rewardOptionDisabled]}
+            onPress={shareInvite}
+            disabled={!code}
             activeOpacity={0.85}
           >
-            <Feather name="share-2" size={15} color="#fff" />
+            <Feather name="share-2" size={ms(15)} color="#fff" />
             <Text style={styles.shareButtonText}>Share Invite Link</Text>
           </TouchableOpacity>
         </LinearGradient>
 
         <View style={styles.earningsRow}>
           <View style={styles.earningsCard}>
-            <Text style={styles.earningsValue}>₦2,000</Text>
-            <Text style={styles.earningsLabel}>Total Earned</Text>
+            <Text style={styles.earningsValue}>{qualifiedCount}</Text>
+            <Text style={styles.earningsLabel}>Rewards Earned</Text>
           </View>
           <View style={styles.earningsCard}>
-            <Text style={styles.earningsValue}>3</Text>
-            <Text style={styles.earningsLabel}>Friends Invited</Text>
+            <Text style={styles.earningsValue}>{invitedCount}</Text>
+            <Text style={styles.earningsLabel}>Friends Joined</Text>
           </View>
         </View>
-
-        {/* Dev preview trigger — remove in production, hook to backend instead */}
-        <TouchableOpacity
-          style={styles.previewButton}
-          onPress={handleOpenRewardModal}
-          activeOpacity={0.85}
-        >
-          <Feather name="gift" size={14} color={foodColors.primary} />
-          <Text style={styles.previewButtonText}>Preview reward</Text>
-        </TouchableOpacity>
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionLabel}>How it works</Text>
@@ -215,7 +240,7 @@ export default function ReferEarnScreen() {
                 <View style={styles.stepIconWrap}>
                   <Feather
                     name={step.icon as keyof typeof Feather.glyphMap}
-                    size={16}
+                    size={ms(16)}
                     color={foodColors.primary}
                   />
                 </View>
@@ -228,68 +253,88 @@ export default function ReferEarnScreen() {
           })}
         </View>
 
-        <Text style={styles.sectionLabel}>Your Invites</Text>
-        <View style={styles.stepsGroup}>
-          {invites.map((invite, index) => {
-            const isLast = index === invites.length - 1;
-            return (
-              <View key={invite.id} style={[styles.inviteRow, isLast && styles.inviteRowLast]}>
-                <View style={styles.inviteAvatar}>
-                  <Text style={styles.inviteAvatarText}>{invite.name.charAt(0)}</Text>
-                </View>
-                <View style={styles.stepTextBlock}>
-                  <Text style={styles.stepTitle}>{invite.name}</Text>
-                  <Text style={styles.stepSubtitle}>{invite.status}</Text>
-                </View>
-                {invite.reward && (
-                  <View
-                    style={[
-                      styles.rewardChip,
-                      invite.rewardType === 'laundry'
-                        ? styles.rewardChipLaundry
-                        : styles.rewardChipFood,
-                    ]}
-                  >
-                    <Feather
-                      name={invite.rewardType === 'laundry' ? 'droplet' : 'coffee'}
-                      size={10}
-                      color={
-                        invite.rewardType === 'laundry'
-                          ? foodColors.badgeBlue
-                          : foodColors.primary
-                      }
-                    />
-                    <Text
+        <Text style={[styles.sectionLabel, styles.invitesLabel]}>Your Invites</Text>
+
+        {loading ? (
+          <ActivityIndicator style={styles.invitesLoader} color={foodColors.primary} />
+        ) : invites.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconWrap}>
+              <Feather name="users" size={ms(22)} color={foodColors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>No invites yet</Text>
+            <Text style={styles.emptyText}>
+              When a friend signs up with your code, they'll show up here.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.stepsGroup}>
+            {invites.map((invite, index) => {
+              const isLast = index === invites.length - 1;
+              const isLaundry = invite.rewardType === 'laundry';
+              const chipColor = isLaundry ? foodColors.badgeBlue : foodColors.primary;
+
+              return (
+                <View key={invite.id} style={[styles.inviteRow, isLast && styles.inviteRowLast]}>
+                  <View style={styles.inviteAvatar}>
+                    <Text style={styles.inviteAvatarText}>{invite.number}</Text>
+                  </View>
+                  <View style={styles.stepTextBlock}>
+                    <Text style={styles.stepTitle}>Friend #{invite.number}</Text>
+                    <Text style={styles.stepSubtitle}>{describeInvite(invite)}</Text>
+                  </View>
+
+                  {invite.status === 'pending' && (
+                    <View style={styles.pendingChip}>
+                      <Text style={styles.pendingChipText}>Pending</Text>
+                    </View>
+                  )}
+
+                  {invite.status === 'earned' && (
+                    <TouchableOpacity
+                      style={styles.chooseChip}
+                      onPress={() => handleOpenRewardModal(invite.id)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.chooseChipText}>Choose reward</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {invite.status === 'claimed' && invite.rewardType && (
+                    <View
                       style={[
-                        styles.rewardChipText,
-                        {
-                          color:
-                            invite.rewardType === 'laundry'
-                              ? foodColors.badgeBlue
-                              : foodColors.primary,
-                        },
+                        styles.rewardChip,
+                        isLaundry ? styles.rewardChipLaundry : styles.rewardChipFood,
                       ]}
                     >
-                      {invite.reward}
-                    </Text>
-                  </View>
-                )}
-                {invite.pending && (
-                  <View style={styles.pendingChip}>
-                    <Text style={styles.pendingChipText}>Pending</Text>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
+                      <Feather
+                        name={isLaundry ? 'droplet' : 'coffee'}
+                        size={ms(10)}
+                        color={chipColor}
+                      />
+                      <Text style={[styles.rewardChipText, { color: chipColor }]}>
+                        {isLaundry ? `${LAUNDRY_REWARD} Laundry` : `${FOOD_REWARD} Food`}
+                      </Text>
+                    </View>
+                  )}
+
+                  {invite.status === 'redeemed' && (
+                    <View style={styles.pendingChip}>
+                      <Text style={styles.pendingChipText}>Used</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Reward selection modal */}
       <Modal
-        visible={modalVisible}
+        visible={claimTarget !== null}
         transparent
         animationType="slide"
         onRequestClose={handleCloseModal}
@@ -306,49 +351,54 @@ export default function ReferEarnScreen() {
 
                 <Text style={styles.modalTitle}>Referral Successful!</Text>
                 <Text style={styles.modalBody}>
-                  Amina just completed her first order using your invite link. You've
+                  A friend just completed their first order using your invite link. You've
                   unlocked a reward!
                 </Text>
 
                 <Text style={styles.modalSectionLabel}>Choose your reward</Text>
 
                 <TouchableOpacity
-                  style={styles.rewardOption}
+                  style={[styles.rewardOption, claiming && styles.rewardOptionDisabled]}
                   activeOpacity={0.85}
+                  disabled={claiming}
                   onPress={() => handlePickReward('food')}
                 >
                   <View style={styles.rewardOptionIcon}>
-                    <Feather name="coffee" size={20} color={foodColors.primary} />
+                    <Feather name="coffee" size={ms(20)} color={foodColors.primary} />
                   </View>
                   <View style={styles.rewardOptionTextBlock}>
                     <Text style={styles.rewardOptionTitle}>
-                      ₦1,000 off your next food order
+                      {FOOD_REWARD} off your next food order
                     </Text>
                     <Text style={styles.rewardOptionSubtitle}>
                       Applied automatically at checkout — no code needed
                     </Text>
                   </View>
-                  <Feather name="chevron-right" size={18} color={foodColors.textMuted} />
+                  <Feather name="chevron-right" size={ms(18)} color={foodColors.textMuted} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.rewardOption}
+                  style={[styles.rewardOption, claiming && styles.rewardOptionDisabled]}
                   activeOpacity={0.85}
+                  disabled={claiming}
                   onPress={() => handlePickReward('laundry')}
                 >
                   <View style={styles.rewardOptionIcon}>
-                    <Feather name="droplet" size={20} color={foodColors.badgeBlue} />
+                    <Feather name="droplet" size={ms(20)} color={foodColors.badgeBlue} />
                   </View>
                   <View style={styles.rewardOptionTextBlock}>
                     <Text style={styles.rewardOptionTitle}>
-                      5% off your next laundry plan
+                      {LAUNDRY_REWARD} off your next laundry plan
                     </Text>
                     <Text style={styles.rewardOptionSubtitle}>
                       Applied automatically to your next subscription renewal
                     </Text>
                   </View>
-                  <Feather name="chevron-right" size={18} color={foodColors.textMuted} />
+                  <Feather name="chevron-right" size={ms(18)} color={foodColors.textMuted} />
                 </TouchableOpacity>
+
+                {claiming && <ActivityIndicator color={foodColors.primary} style={{ marginTop: 6 }} />}
+                {claimError && <Text style={styles.claimError}>{claimError}</Text>}
 
                 <Text style={styles.modalFootnote}>
                   Select one to apply automatically to your account
@@ -357,7 +407,7 @@ export default function ReferEarnScreen() {
             ) : (
               <>
                 <View style={styles.successIconWrap}>
-                  <Feather name="check" size={30} color="#fff" />
+                  <Feather name="check" size={ms(30)} color="#fff" />
                 </View>
 
                 <Text style={styles.modalTitle}>Reward locked in!</Text>
@@ -382,38 +432,38 @@ export default function ReferEarnScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
-  heroCard: { borderRadius: 22, padding: 20, marginBottom: 14 },
+  heroCard: { borderRadius: ms(22), padding: ms(20), marginBottom: ms(14) },
   heroTitle: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   heroSubtitle: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 18,
+    lineHeight: ms(18),
     color: 'rgba(255,255,255,0.85)',
-    marginBottom: 18,
+    marginBottom: ms(18),
   },
   linkBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.28)',
-    borderRadius: 14,
-    paddingLeft: 14,
-    paddingRight: 6,
-    paddingVertical: 8,
-    marginBottom: 14,
+    borderRadius: ms(14),
+    paddingLeft: ms(14),
+    paddingRight: ms(6),
+    paddingVertical: ms(8),
+    marginBottom: ms(14),
   },
   codeText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: ms(16),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 1.5,
     color: '#fff',
@@ -421,14 +471,14 @@ const styles = StyleSheet.create({
   copyChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: ms(4),
     backgroundColor: '#fff',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(7),
+    borderRadius: ms(10),
   },
   copyChipText: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: foodColors.primaryDark,
   },
@@ -436,25 +486,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
-    paddingVertical: 13,
-    borderRadius: 24,
+    paddingVertical: ms(13),
+    borderRadius: ms(24),
   },
   shareButtonText: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
 
-  earningsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  earningsRow: { flexDirection: 'row', gap: ms(12), marginBottom: ms(12) },
   earningsCard: {
     flex: 1,
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    paddingVertical: 16,
+    borderRadius: ms(16),
+    paddingVertical: ms(16),
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -463,58 +513,38 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   earningsValue: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   earningsLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
-  },
-
-  previewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: foodColors.primaryLight,
-    backgroundColor: foodColors.primaryLight,
-    marginBottom: 20,
-  },
-  previewButtonText: {
-    fontSize: 12,
-    fontFamily: fonts.poppins.bold,
-    color: foodColors.primary,
+    marginTop: ms(2),
   },
 
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   sectionLabel: {
-  fontSize: 13,
+  fontSize: ms(13),
   fontFamily: fonts.poppins.bold,
   color: foodColors.textPrimary,
 },
   sectionLink: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },
   stepsGroup: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: ms(20),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -524,84 +554,141 @@ const styles = StyleSheet.create({
   stepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   stepRowLast: { borderBottomWidth: 0 },
   stepIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(10),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepTextBlock: { flex: 1, minWidth: 0 },
   stepTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   stepSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
   inviteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   inviteRowLast: { borderBottomWidth: 0 },
   inviteAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(17),
     backgroundColor: foodColors.badgeBlue,
     justifyContent: 'center',
     alignItems: 'center',
   },
   inviteAvatarText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   rewardChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: ms(4),
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(4),
+    borderRadius: ms(12),
   },
   rewardChipFood: { backgroundColor: foodColors.primaryLight },
   rewardChipLaundry: { backgroundColor: 'rgba(37,93,222,0.1)' },
   rewardChipText: {
-    fontSize: 10.5,
+    fontSize: ms(10.5),
     fontFamily: fonts.poppins.bold,
   },
   pendingChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(4),
+    borderRadius: ms(12),
     backgroundColor: 'rgba(181,175,168,0.18)',
   },
   pendingChipText: {
-    fontSize: 10.5,
+    fontSize: ms(10.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
   },
 
-  bottomSpacer: { height: 20 },
+  emptyCard: {
+    alignItems: 'center',
+    backgroundColor: foodColors.surface,
+    borderRadius: ms(16),
+    paddingVertical: ms(26),
+    paddingHorizontal: ms(20),
+    marginBottom: ms(20),
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  emptyIconWrap: {
+    width: ms(52),
+    height: ms(52),
+    borderRadius: ms(26),
+    backgroundColor: foodColors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: ms(12),
+  },
+  emptyTitle: {
+    fontSize: ms(14.5),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+  },
+  emptyText: {
+    fontSize: ms(12),
+    lineHeight: ms(18),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+    marginTop: ms(4),
+  },
+  invitesLoader: { marginVertical: ms(24) },
+  chooseChip: {
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(5),
+    borderRadius: ms(12),
+    backgroundColor: foodColors.primary,
+  },
+  chooseChipText: {
+    fontSize: ms(10.5),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
+  claimError: {
+    fontSize: ms(12),
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.primary,
+    textAlign: 'center',
+    marginTop: ms(4),
+  },
+  rewardOptionDisabled: { opacity: 0.5 },
+  invitesLabel: { marginBottom: ms(10) },
+
+  bottomSpacer: { height: ms(20) },
 
   // ----- Modal -----
   modalBackdrop: {
@@ -611,110 +698,110 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     backgroundColor: foodColors.surface,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 32,
+    borderTopLeftRadius: ms(26),
+    borderTopRightRadius: ms(26),
+    paddingHorizontal: ms(22),
+    paddingTop: ms(10),
+    paddingBottom: ms(32),
     alignItems: 'stretch',
   },
   sheetHandle: {
     alignSelf: 'center',
-    width: 40,
+    width: ms(40),
     height: 4,
-    borderRadius: 2,
+    borderRadius: ms(2),
     backgroundColor: foodColors.border,
-    marginBottom: 16,
+    marginBottom: ms(16),
   },
   celebrateIconWrap: {
     alignSelf: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: ms(64),
+    height: ms(64),
+    borderRadius: ms(32),
     backgroundColor: foodColors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
-  celebrateEmoji: { fontSize: 30 },
+  celebrateEmoji: { fontSize: ms(30) },
   successIconWrap: {
     alignSelf: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: ms(64),
+    height: ms(64),
+    borderRadius: ms(32),
     backgroundColor: foodColors.success,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
   modalTitle: {
-    fontSize: 19,
+    fontSize: ms(19),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   modalBody: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 19,
+    lineHeight: ms(19),
     color: foodColors.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: ms(20),
   },
   modalSectionLabel: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   rewardOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.background,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: ms(16),
+    padding: ms(14),
     borderWidth: 1,
     borderColor: foodColors.border,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   rewardOptionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(12),
     backgroundColor: foodColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rewardOptionTextBlock: { flex: 1, minWidth: 0 },
   rewardOptionTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   rewardOptionSubtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
   modalFootnote: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: ms(8),
   },
   doneButton: {
     backgroundColor: foodColors.primary,
-    borderRadius: 24,
-    paddingVertical: 14,
+    borderRadius: ms(24),
+    paddingVertical: ms(14),
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: ms(8),
   },
   doneButtonText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

@@ -14,6 +14,7 @@ import { useProfile } from '../src/context/ProfileContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { useEPlanDraft } from '../src/context/EPlanDraftContext';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
@@ -65,28 +66,40 @@ export default function EPlanReviewScreen() {
     setSubmitting(true);
     setError('');
 
-    const { data, error: rpcError } = await supabase.rpc('activate_eplan', {
-      p_amount_kobo: draft.amount * 100,
-      p_plan_name: 'E-Plan',
-      p_duration_days: durationDays,
-      p_exclusions: exclusions,
-      p_delivery_window: deliveryWindow,
-    });
+    let data: string | null = null;
+    try {
+      const result = await supabase.rpc('activate_eplan', {
+        p_amount_kobo: draft.amount * 100,
+        p_plan_name: 'E-Plan',
+        p_duration_days: durationDays,
+        p_exclusions: exclusions,
+        p_delivery_window: deliveryWindow,
+      });
 
-    setSubmitting(false);
+      if (result.error) {
+        if (/insufficient.*balance/i.test(result.error.message)) {
+          setError('Insufficient wallet balance. Fund your wallet first.');
+        } else {
+          setError(result.error.message || 'Could not activate E-Plan. Please try again.');
+        }
+        return;
+      }
 
-    if (rpcError) {
+      data = result.data as string | null;
+    } catch (paymentError) {
       setError(
-        rpcError.message.includes('insufficient_balance')
-          ? 'Insufficient wallet balance. Fund your wallet first.'
-          : 'Something went wrong. Please try again.'
+        paymentError instanceof Error && paymentError.message
+          ? paymentError.message
+          : 'Could not reach the wallet service. Please try again.'
       );
       return;
+    } finally {
+      setSubmitting(false);
     }
 
     await refresh();
     resetDraft();
-    router.replace({ pathname: '/e-plan-success', params: { planId: data as string } } as any);
+    router.replace({ pathname: '/e-plan-success', params: { planId: data ?? '' } } as any);
   };
 
   return (
@@ -109,7 +122,7 @@ export default function EPlanReviewScreen() {
       >
         <View style={styles.titleRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.title}>Setup E-Plan</Text>
         </View>
@@ -124,7 +137,7 @@ export default function EPlanReviewScreen() {
         <Text style={styles.sectionLabel}>WALLET LOCK NOTICE</Text>
         <View style={styles.noticeBox}>
           <View style={styles.noticeIconContainer}>
-            <Feather name="lock" size={20} color="#fff" />
+            <Feather name="lock" size={ms(20)} color="#fff" />
           </View>
           <View style={styles.noticeTextContainer}>
             <Text style={styles.noticeTitle}>Your funds will be securely locked</Text>
@@ -167,7 +180,7 @@ export default function EPlanReviewScreen() {
 
         {error ? (
           <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={14} color="#FF3B30" />
+            <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
@@ -182,7 +195,7 @@ export default function EPlanReviewScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Feather name="lock" size={16} color="#fff" style={styles.btnIcon} />
+              <Feather name="lock" size={ms(16)} color="#fff" style={styles.btnIcon} />
               <Text style={styles.primaryBtnText}>
                 {selectedMethod === 'transfer' ? 'Fund Wallet' : `Lock ${formatNaira(draft.amount)} & Activate`}
               </Text>
@@ -213,7 +226,7 @@ function SummaryRow({
     <View style={[styles.summaryRow, !isLast && styles.summaryRowBorder]}>
       <View style={styles.summaryRowLeft}>
         <View style={styles.summaryIconWrapper}>
-          <Feather name={icon} size={14} color={ACCENT_BLUE} />
+          <Feather name={icon} size={ms(14)} color={ACCENT_BLUE} />
         </View>
         <Text style={styles.summaryLabel}>{label}</Text>
       </View>
@@ -244,7 +257,7 @@ function PaymentOption({
       onPress={() => onSelect(id)}
     >
       <View style={[styles.paymentIconBox, isSelected && styles.paymentIconBoxSelected]}>
-        <MaterialCommunityIcons name={icon} size={20} color={isSelected ? '#fff' : ACCENT_BLUE} />
+        <MaterialCommunityIcons name={icon} size={ms(20)} color={isSelected ? '#fff' : ACCENT_BLUE} />
       </View>
       <View style={styles.paymentTextContainer}>
         <Text style={styles.paymentTitle}>{title}</Text>
@@ -259,75 +272,75 @@ function PaymentOption({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  header: { paddingHorizontal: 26, paddingBottom: 8 },
+  header: { paddingHorizontal: ms(26), paddingBottom: ms(8) },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 26 },
+  content: { paddingHorizontal: ms(26) },
 
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginBottom: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: ms(12), marginTop: ms(8), marginBottom: ms(4) },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: ms(38), height: ms(38), borderRadius: ms(19),
     backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
   },
 
-  title: { fontSize: 27, fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
-  subtitle: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginBottom: 18 },
+  title: { fontSize: ms(27), fontFamily: serif, fontWeight: '700', color: foodColors.textPrimary },
+  subtitle: { fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginBottom: ms(18) },
 
-  progressTrack: { height: 4, borderRadius: 2, backgroundColor: foodColors.border, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: foodColors.primary, borderRadius: 2 },
+  progressTrack: { height: 4, borderRadius: ms(2), backgroundColor: foodColors.border, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: foodColors.primary, borderRadius: ms(2) },
   progressLabel: {
-    alignSelf: 'center', fontSize: 11, fontFamily: fonts.poppins.regular,
-    color: foodColors.textMuted, marginTop: 6, marginBottom: 24,
+    alignSelf: 'center', fontSize: ms(11), fontFamily: fonts.poppins.regular,
+    color: foodColors.textMuted, marginTop: ms(6), marginBottom: ms(24),
   },
 
-  sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: 10 },
-  sectionSpacing: { marginTop: 26 },
+  sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: ms(10) },
+  sectionSpacing: { marginTop: ms(26) },
 
-  noticeBox: { flexDirection: 'row', backgroundColor: '#161311', borderRadius: 16, padding: 16, alignItems: 'flex-start' },
+  noticeBox: { flexDirection: 'row', backgroundColor: '#161311', borderRadius: ms(16), padding: ms(16), alignItems: 'flex-start' },
   noticeIconContainer: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center', alignItems: 'center', marginRight: 14, marginTop: 2,
+    width: ms(36), height: ms(36), borderRadius: ms(18), backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center', alignItems: 'center', marginRight: ms(14), marginTop: ms(2),
   },
   noticeTextContainer: { flex: 1 },
-  noticeTitle: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 4 },
-  noticeBody: { fontSize: 12, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.7)', lineHeight: 18 },
+  noticeTitle: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: ms(4) },
+  noticeBody: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.7)', lineHeight: ms(18) },
 
-  summaryCard: { backgroundColor: foodColors.surface, borderRadius: 16, borderWidth: 1, borderColor: foodColors.border, paddingHorizontal: 16 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, gap: 10 },
+  summaryCard: { backgroundColor: foodColors.surface, borderRadius: ms(16), borderWidth: 1, borderColor: foodColors.border, paddingHorizontal: ms(16) },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: ms(14), gap: ms(10) },
   summaryRowBorder: { borderBottomWidth: 1, borderBottomColor: foodColors.border },
-  summaryRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  summaryIconWrapper: { width: 24, height: 24, borderRadius: 6, backgroundColor: 'rgba(30,63,234,0.08)', justifyContent: 'center', alignItems: 'center' },
-  summaryLabel: { fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
-  summaryValue: { flex: 1, textAlign: 'right', fontSize: 13, fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
+  summaryRowLeft: { flexDirection: 'row', alignItems: 'center', gap: ms(10) },
+  summaryIconWrapper: { width: ms(24), height: ms(24), borderRadius: ms(6), backgroundColor: 'rgba(30,63,234,0.08)', justifyContent: 'center', alignItems: 'center' },
+  summaryLabel: { fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  summaryValue: { flex: 1, textAlign: 'right', fontSize: ms(13), fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
   summaryValueBold: { fontFamily: fonts.poppins.bold, color: ACCENT_BLUE },
 
   paymentCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: foodColors.surface,
-    borderRadius: 16, borderWidth: 1.5, borderColor: foodColors.border, padding: 16, marginBottom: 12,
+    borderRadius: ms(16), borderWidth: 1.5, borderColor: foodColors.border, padding: ms(16), marginBottom: ms(12),
   },
   paymentCardSelected: { borderColor: ACCENT_BLUE, backgroundColor: 'rgba(30,63,234,0.03)' },
   paymentIconBox: {
-    width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(30,63,234,0.08)',
-    justifyContent: 'center', alignItems: 'center', marginRight: 14,
+    width: ms(40), height: ms(40), borderRadius: ms(10), backgroundColor: 'rgba(30,63,234,0.08)',
+    justifyContent: 'center', alignItems: 'center', marginRight: ms(14),
   },
   paymentIconBoxSelected: { backgroundColor: ACCENT_BLUE },
   paymentTextContainer: { flex: 1 },
-  paymentTitle: { fontSize: 14, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 2 },
-  paymentSubtitle: { fontSize: 12, fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
-  radioCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: foodColors.border, justifyContent: 'center', alignItems: 'center' },
+  paymentTitle: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(2) },
+  paymentSubtitle: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
+  radioCircle: { width: ms(20), height: ms(20), borderRadius: ms(10), borderWidth: 1.5, borderColor: foodColors.border, justifyContent: 'center', alignItems: 'center' },
   radioCircleSelected: { borderColor: ACCENT_BLUE },
-  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: ACCENT_BLUE },
+  radioInner: { width: ms(10), height: ms(10), borderRadius: ms(5), backgroundColor: ACCENT_BLUE },
 
   errorBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,59,48,0.08)',
-    borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginTop: 14,
+    flexDirection: 'row', alignItems: 'center', gap: ms(6), backgroundColor: 'rgba(255,59,48,0.08)',
+    borderRadius: ms(10), paddingVertical: ms(10), paddingHorizontal: ms(12), marginTop: ms(14),
   },
-  errorText: { fontSize: 12, fontFamily: fonts.poppins.medium, color: '#FF3B30', flexShrink: 1 },
+  errorText: { fontSize: ms(12), fontFamily: fonts.poppins.medium, color: '#FF3B30', flexShrink: 1 },
 
   primaryBtn: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    backgroundColor: foodColors.primary, borderRadius: 26, paddingVertical: 16, marginTop: 20,
+    backgroundColor: foodColors.primary, borderRadius: ms(26), paddingVertical: ms(16), marginTop: ms(20),
   },
   primaryBtnDisabled: { opacity: 0.7 },
-  btnIcon: { marginRight: 8 },
-  primaryBtnText: { fontSize: 15, fontFamily: fonts.poppins.bold, color: '#fff' },
+  btnIcon: { marginRight: ms(8) },
+  primaryBtnText: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

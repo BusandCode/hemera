@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { ms } from '../src/utils/responsive';
 
 // TODO: replace with the user's real plan status (same source as planStatus on the wash screen).
 const HAS_ACTIVE_PLAN = false;
@@ -35,7 +36,7 @@ export default function PickupOptionsScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="x" size={26} color={foodColors.textPrimary} />
+          <Feather name="x" size={ms(26)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>REQUEST PICKUP</Text>
         <View style={styles.closeBtn} />
@@ -48,7 +49,7 @@ export default function PickupOptionsScreen() {
           onPress={() => router.push((HAS_ACTIVE_PLAN ? '/request-pickup' : '/choose-plan') as any)}
         >
           <View style={[styles.iconTile, { backgroundColor: ui.subscriberTile }]}>
-            <MaterialCommunityIcons name="washing-machine" size={34} color={ui.onCard} />
+            <MaterialCommunityIcons name="washing-machine" size={ms(34)} color={ui.onCard} />
           </View>
           <View style={styles.optionText}>
             <Text style={styles.optionTitle}>REQUEST A PICKUP</Text>
@@ -63,7 +64,7 @@ export default function PickupOptionsScreen() {
           onPress={() => router.push('/pay-per-pickup' as any)}
         >
           <View style={[styles.iconTile, { backgroundColor: ui.payTile }]}>
-            <MaterialCommunityIcons name="cash-multiple" size={34} color={ui.onCard} />
+            <MaterialCommunityIcons name="cash-multiple" size={ms(34)} color={ui.onCard} />
           </View>
           <View style={styles.optionText}>
             <Text style={styles.optionTitle}>REQUEST A PICKUP</Text>
@@ -85,11 +86,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: ms(20),
   },
-  closeBtn: { width: 32, height: 40, justifyContent: 'center' },
+  closeBtn: { width: ms(32), height: ms(40), justifyContent: 'center' },
   headerTitle: {
-    fontSize: 20,
+    fontSize: ms(20),
     letterSpacing: 0.8,
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
@@ -98,22 +99,22 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    gap: 16,
+    paddingHorizontal: ms(16),
+    gap: ms(16),
   },
 
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    borderRadius: 26,
+    gap: ms(16),
+    borderRadius: ms(26),
     borderWidth: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
+    paddingHorizontal: ms(20),
+    paddingVertical: ms(22),
     elevation: 8,
     shadowOpacity: 0.28,
     shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: ms(8) },
   },
   subscriberCard: {
     backgroundColor: ui.subscriberCard,
@@ -127,30 +128,30 @@ const styles = StyleSheet.create({
   },
 
   iconTile: {
-    width: 92,
-    height: 92,
-    borderRadius: 24,
+    width: ms(92),
+    height: ms(92),
+    borderRadius: ms(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
   optionText: { flex: 1 },
   optionTitle: {
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: ms(22),
+    lineHeight: ms(28),
     fontFamily: fonts.poppins.medium,
     color: ui.onCard,
   },
   optionSubtitle: {
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: ms(18),
+    lineHeight: ms(24),
     fontFamily: fonts.poppins.medium,
     color: ui.onCard,
   },
   optionDescription: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: ms(15),
+    lineHeight: ms(22),
     fontFamily: fonts.poppins.regular,
     color: ui.onCardSoft,
-    marginTop: 6,
+    marginTop: ms(6),
   },
 });

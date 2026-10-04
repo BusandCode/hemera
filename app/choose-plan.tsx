@@ -22,6 +22,7 @@ import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/context/AuthContext';
 import { useReferral } from '../src/context/ReferralContext';
 import { REFERRAL_LAUNDRY_PERCENT } from '../src/constants/referral';
+import { ms } from '../src/utils/responsive';
 
 type PlanId = 'basic' | 'standard' | 'premium' | 'vip';
 type PaymentMethod = 'transfer' | 'card';
@@ -189,6 +190,7 @@ export default function ChoosePlanScreen() {
     const ref = `WSH-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const { error } = await supabase.from('orders').insert({
+      user_id: session?.user.id,
       order_type: 'ewash',
       status: 'placed',
       total_kobo: total * 100,
@@ -228,7 +230,7 @@ export default function ChoosePlanScreen() {
 
         <View style={styles.dTitleRow}>
           <TouchableOpacity style={styles.dBackBtn} onPress={() => setStep('plans')} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={18} color={washColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(18)} color={washColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.dTitle}>Choose Duration</Text>
         </View>
@@ -246,7 +248,7 @@ export default function ChoosePlanScreen() {
           >
             <Text style={styles.dPlanTitle}>{selectedPlan.name} Plan</Text>
             <View style={styles.dBadge}>
-              <Feather name="check-circle" size={12} color="#fff" />
+              <Feather name="check-circle" size={ms(12)} color="#fff" />
               <Text style={styles.dBadgeText}>{formatNaira(selectedPlan.price)} / month</Text>
             </View>
             <Text style={styles.dPlanDescription}>
@@ -297,7 +299,7 @@ export default function ChoosePlanScreen() {
                 style={[styles.includedRow, i !== selectedPlan.features.length - 1 && styles.includedRowDivider]}
               >
                 <View style={styles.includedIconWrap}>
-                  <Feather name="check" size={16} color={washColors.navySolid} />
+                  <Feather name="check" size={ms(16)} color={washColors.navySolid} />
                 </View>
                 <Text style={styles.includedLabel}>{feature}</Text>
               </View>
@@ -310,7 +312,7 @@ export default function ChoosePlanScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
-              {agreed && <Feather name="check" size={13} color="#fff" />}
+              {agreed && <Feather name="check" size={ms(13)} color="#fff" />}
             </View>
             <Text style={styles.agreeText}>
               By ticking this box, you agree to our{' '}
@@ -342,7 +344,7 @@ export default function ChoosePlanScreen() {
             disabled={!agreed || paying}
           >
             <Text style={[styles.dPayButtonText, !agreed && styles.dPayButtonTextDisabled]}>Subscribe Now</Text>
-            <Feather name="arrow-right" size={16} color={agreed ? '#fff' : washColors.textMuted} />
+            <Feather name="arrow-right" size={ms(16)} color={agreed ? '#fff' : washColors.textMuted} />
           </TouchableOpacity>
         </View>
       </View>
@@ -353,13 +355,13 @@ export default function ChoosePlanScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + ms(10) }]}>
         <TouchableOpacity
           style={styles.closeButton}
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="x" size={24} color={foodColors.textPrimary} />
+          <Feather name="x" size={ms(24)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Choose your plan</Text>
       </View>
@@ -371,7 +373,7 @@ export default function ChoosePlanScreen() {
       >
         <View style={styles.savingsCard}>
           <View style={styles.savingsTop}>
-            <Feather name="award" size={24} color={foodColors.forestGreen} />
+            <Feather name="award" size={ms(24)} color={foodColors.forestGreen} />
             <Text style={styles.savingsTitle}>Subscribe & Save 20%</Text>
             <View style={styles.bestValuePill}>
               <Text style={styles.bestValueText}>BEST VALUE</Text>
@@ -380,7 +382,7 @@ export default function ChoosePlanScreen() {
           {savingsPoints.map((point) => (
             <View key={point} style={styles.savingsRow}>
               <View style={styles.savingsCheck}>
-                <Feather name="check" size={11} color="#fff" />
+                <Feather name="check" size={ms(11)} color="#fff" />
               </View>
               <Text style={styles.savingsText}>{point}</Text>
             </View>
@@ -409,7 +411,7 @@ export default function ChoosePlanScreen() {
                 <View style={styles.planImageFooter}>
                   <Text style={styles.planName}>{plan.name}</Text>
                   <View style={[styles.radio, selected && styles.radioSelected]}>
-                    {selected && <Feather name="check" size={15} color={foodColors.textPrimary} />}
+                    {selected && <Feather name="check" size={ms(15)} color={foodColors.textPrimary} />}
                   </View>
                 </View>
               </ImageBackground>
@@ -422,7 +424,7 @@ export default function ChoosePlanScreen() {
                 </View>
                 {plan.features.map((feature) => (
                   <View key={feature} style={styles.featureRow}>
-                    <Feather name="check" size={17} color={plan.accent} style={styles.featureIcon} />
+                    <Feather name="check" size={ms(17)} color={plan.accent} style={styles.featureIcon} />
                     <Text style={styles.featureText}>{feature}</Text>
                   </View>
                 ))}
@@ -452,9 +454,9 @@ export default function ChoosePlanScreen() {
                 onPress={() => selectMethod(m)}
               >
                 {m.id === 'transfer' ? (
-                  <MaterialCommunityIcons name="bank-transfer" size={24} color={iconColor} />
+                  <MaterialCommunityIcons name="bank-transfer" size={ms(24)} color={iconColor} />
                 ) : (
-                  <Feather name="credit-card" size={20} color={iconColor} />
+                  <Feather name="credit-card" size={ms(20)} color={iconColor} />
                 )}
                 <Text
                   style={[
@@ -478,7 +480,7 @@ export default function ChoosePlanScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         <TouchableOpacity
           style={styles.confirmButton}
           onPress={() => setStep('duration')}
@@ -494,19 +496,18 @@ export default function ChoosePlanScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 },
+  content: { paddingHorizontal: ms(20), paddingTop: ms(8), paddingBottom: ms(20) },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 54 : 42,
-    paddingBottom: 14,
+    gap: ms(24),
+    paddingHorizontal: ms(20),
+    paddingBottom: ms(14),
   },
-  closeButton: { width: 32, height: 40, justifyContent: 'center' },
+  closeButton: { width: ms(32), height: ms(40), justifyContent: 'center' },
   headerTitle: {
-    fontSize: 19,
+    fontSize: ms(19),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
@@ -515,31 +516,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#DDF0E4',
     borderWidth: 1,
     borderColor: '#B4DAC2',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 18,
+    borderRadius: ms(22),
+    padding: ms(18),
+    marginBottom: ms(18),
   },
   savingsTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
+    gap: ms(10),
+    marginBottom: ms(14),
   },
   savingsTitle: {
     flex: 1,
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: ms(20),
+    lineHeight: ms(26),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.forestGreen,
   },
   bestValuePill: {
     backgroundColor: foodColors.forestGreen,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(6),
+    borderRadius: ms(14),
   },
   bestValueText: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.4,
     color: '#fff',
@@ -547,35 +548,35 @@ const styles = StyleSheet.create({
   savingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
+    gap: ms(10),
+    marginTop: ms(8),
   },
   savingsCheck: {
-    width: 19,
-    height: 19,
-    borderRadius: 10,
+    width: ms(19),
+    height: ms(19),
+    borderRadius: ms(10),
     backgroundColor: foodColors.forestGreen,
     justifyContent: 'center',
     alignItems: 'center',
   },
   savingsText: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: ms(14.5),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textPrimary,
   },
 
   planCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 24,
+    borderRadius: ms(24),
     borderWidth: 1.5,
     borderColor: foodColors.border,
     overflow: 'hidden',
-    marginBottom: 18,
+    marginBottom: ms(18),
   },
   planCardSelected: { borderColor: foodColors.badgeBlue },
   planImage: {
-    height: 150,
+    height: ms(150),
     justifyContent: 'flex-end',
     backgroundColor: '#3A3A3A',
   },
@@ -584,12 +585,12 @@ const styles = StyleSheet.create({
     top: 12,
     right: 14,
     backgroundColor: '#F0B429',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(6),
+    borderRadius: ms(14),
   },
   recommendedText: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.5,
     color: foodColors.textPrimary,
@@ -598,18 +599,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingHorizontal: ms(16),
+    paddingBottom: ms(14),
   },
   planName: {
-    fontSize: 26,
+    fontSize: ms(26),
     fontFamily: fonts.poppins.medium,
     color: '#fff',
   },
   radio: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(17),
     borderWidth: 2.5,
     borderColor: '#fff',
     justifyContent: 'center',
@@ -617,56 +618,56 @@ const styles = StyleSheet.create({
   },
   radioSelected: { backgroundColor: '#fff' },
 
-  planBody: { padding: 18 },
+  planBody: { padding: ms(18) },
   planTagline: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: ms(15),
+    lineHeight: ms(22),
     fontFamily: fonts.poppins.regular,
     color: '#55504B',
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginTop: 12,
-    marginBottom: 14,
+    marginTop: ms(12),
+    marginBottom: ms(14),
   },
-  price: { fontSize: 34, fontFamily: fonts.poppins.semiBold },
+  price: { fontSize: ms(34), fontFamily: fonts.poppins.semiBold },
   perMonth: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.regular,
     color: '#55504B',
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 9,
+    gap: ms(12),
+    marginBottom: ms(9),
   },
-  featureIcon: { marginTop: 3 },
+  featureIcon: { marginTop: ms(3) },
   featureText: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: ms(15),
+    lineHeight: ms(22),
     fontFamily: fonts.poppins.regular,
     color: '#55504B',
   },
 
   sectionTitle: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
-    marginTop: 10,
-    marginBottom: 12,
+    marginTop: ms(10),
+    marginBottom: ms(12),
   },
-  paymentRow: { flexDirection: 'row', gap: 12 },
+  paymentRow: { flexDirection: 'row', gap: ms(12) },
   paymentTile: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: 16,
+    gap: ms(10),
+    paddingVertical: ms(16),
+    borderRadius: ms(16),
     borderWidth: 1.5,
     borderColor: foodColors.border,
     backgroundColor: foodColors.surface,
@@ -674,7 +675,7 @@ const styles = StyleSheet.create({
   paymentTileActive: { borderColor: foodColors.badgeBlue },
   paymentTileDisabled: { opacity: 0.6 },
   paymentLabel: {
-    fontSize: 14.5,
+    fontSize: ms(14.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
@@ -682,174 +683,173 @@ const styles = StyleSheet.create({
   paymentLabelDisabled: { color: '#9A9A9A' },
   soonPill: {
     backgroundColor: '#F0B429',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: ms(7),
+    paddingVertical: ms(2),
+    borderRadius: ms(8),
   },
   soonText: {
-    fontSize: 9.5,
+    fontSize: ms(9.5),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.4,
     color: foodColors.textPrimary,
   },
 
   footer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
+    paddingHorizontal: ms(20),
+    paddingTop: ms(12),
     backgroundColor: foodColors.background,
   },
   confirmButton: {
     backgroundColor: foodColors.badgeBlue,
-    paddingVertical: 18,
-    borderRadius: 30,
+    paddingVertical: ms(18),
+    borderRadius: ms(30),
     alignItems: 'center',
   },
   confirmText: {
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.semiBold,
     color: '#fff',
   },
-  bottomSpacer: { height: 10 },
+  bottomSpacer: { height: ms(10) },
 
   dContainer: { flex: 1, backgroundColor: washColors.background },
-  dContent: { paddingHorizontal: 20, paddingBottom: 20 },
+  dContent: { paddingHorizontal: ms(20), paddingBottom: ms(20) },
   dTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    gap: ms(12),
+    paddingHorizontal: ms(20),
+    marginBottom: ms(16),
   },
   dBackBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: washColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dTitle: { fontSize: 20, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  dTitle: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
 
   dPlanCard: {
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: ms(24),
+    padding: ms(20),
+    marginBottom: ms(24),
   },
-  dPlanTitle: { fontSize: 20, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 12 },
+  dPlanTitle: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: ms(12) },
   dBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     alignSelf: 'flex-start',
     backgroundColor: washColors.overlay,
     borderWidth: 1,
     borderColor: washColors.overlayBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginBottom: 14,
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(6),
+    borderRadius: ms(14),
+    marginBottom: ms(14),
   },
-  dBadgeText: { fontSize: 12, fontFamily: fonts.poppins.bold, color: '#fff' },
+  dBadgeText: { fontSize: ms(12), fontFamily: fonts.poppins.bold, color: '#fff' },
   dPlanDescription: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 19,
+    lineHeight: ms(19),
     color: washColors.whiteText85,
   },
 
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: washColors.textMuted,
     letterSpacing: 0.6,
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
-  sectionSpacing: { marginTop: 26 },
+  sectionSpacing: { marginTop: ms(26) },
 
-  durationList: { gap: 10 },
+  durationList: { gap: ms(10) },
   durationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: washColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     borderWidth: 1.5,
     borderColor: washColors.grayBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: ms(14),
+    paddingHorizontal: ms(14),
   },
   durationCardSelected: {
     borderColor: washColors.navySolid,
     backgroundColor: washColors.coveredBg,
   },
   durationRadio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(10),
     borderWidth: 2,
     borderColor: washColors.grayBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
   durationRadioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: ms(10),
+    height: ms(10),
+    borderRadius: ms(5),
     backgroundColor: washColors.navySolid,
   },
   durationInfo: { flex: 1 },
-  durationLabel: { fontSize: 14.5, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
-  durationSub: { fontSize: 12, fontFamily: fonts.poppins.regular, color: washColors.textSecondary, marginTop: 2 },
-  durationRight: { alignItems: 'flex-end', gap: 4 },
+  durationLabel: { fontSize: ms(14.5), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  durationSub: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: washColors.textSecondary, marginTop: ms(2) },
+  durationRight: { alignItems: 'flex-end', gap: ms(4) },
   saveBadge: {
     backgroundColor: washColors.red,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(3),
+    borderRadius: ms(10),
   },
-  saveBadgeText: { fontSize: 9.5, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.3 },
-  durationPrice: { fontSize: 14, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  saveBadgeText: { fontSize: ms(9.5), fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.3 },
+  durationPrice: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
 
   includedCard: {
     backgroundColor: washColors.surface,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    borderRadius: ms(18),
+    paddingHorizontal: ms(16),
   },
   includedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
+    gap: ms(12),
+    paddingVertical: ms(14),
   },
   includedRowDivider: {
     borderBottomWidth: 1,
     borderBottomColor: washColors.divider,
   },
   includedIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(17),
     backgroundColor: washColors.coveredBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  includedLabel: { flex: 1, fontSize: 13, fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
+  includedLabel: { flex: 1, fontSize: ms(13), fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
 
   termsBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: '#FBF3D9',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginTop: 24,
+    borderRadius: ms(16),
+    paddingVertical: ms(14),
+    paddingHorizontal: ms(16),
+    marginTop: ms(24),
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(5),
     borderWidth: 1.5,
     borderColor: washColors.textSecondary,
     justifyContent: 'center',
@@ -861,8 +861,8 @@ const styles = StyleSheet.create({
   },
   agreeText: {
     flex: 1,
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: ms(12.5),
+    lineHeight: ms(18),
     fontFamily: fonts.poppins.regular,
     color: washColors.textSecondary,
   },
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 
-  dBottomSpacer: { height: 100 },
+  dBottomSpacer: { height: ms(100) },
 
   dFooter: {
     position: 'absolute',
@@ -881,26 +881,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: ms(14),
     backgroundColor: washColors.background,
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: ms(20),
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: washColors.divider,
   },
   dFooterSummary: { flex: 1 },
-  dFooterLabel: { fontSize: 12, fontFamily: fonts.poppins.regular, color: washColors.textSecondary },
-  dFooterPrice: { fontSize: 20, fontFamily: fonts.poppins.bold, color: washColors.textPrimary, marginTop: 2 },
+  dFooterLabel: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: washColors.textSecondary },
+  dFooterPrice: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.textPrimary, marginTop: ms(2) },
   dPayButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: washColors.red,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 26,
+    paddingHorizontal: ms(24),
+    paddingVertical: ms(16),
+    borderRadius: ms(26),
   },
   dPayButtonDisabled: { backgroundColor: washColors.grayBorder },
-  dPayButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  dPayButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
   dPayButtonTextDisabled: { color: washColors.textMuted },
 });

@@ -21,6 +21,7 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useAuth } from '../src/context/AuthContext';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const WALLET_BLUE = '#0032C1';
 const ACCOUNT_NUMBER_LENGTH = 10;
@@ -171,7 +172,7 @@ export default function AddBankAccountScreen() {
 
         <View style={styles.titleRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -190,7 +191,7 @@ export default function AddBankAccountScreen() {
             <Text style={[styles.selectText, !bank && styles.placeholderText]}>
               {bank ? bank.name : 'Select your bank'}
             </Text>
-            <Feather name="chevron-down" size={18} color={foodColors.textMuted} />
+            <Feather name="chevron-down" size={ms(18)} color={foodColors.textMuted} />
           </TouchableOpacity>
 
           <Text style={[styles.fieldLabel, styles.fieldSpacing]}>Account number</Text>
@@ -223,14 +224,14 @@ export default function AddBankAccountScreen() {
               placeholderTextColor={foodColors.textMuted}
               returnKeyType="done"
             />
-            {nameVerified ? <Feather name="check-circle" size={18} color={foodColors.success} /> : null}
+            {nameVerified ? <Feather name="check-circle" size={ms(18)} color={foodColors.success} /> : null}
           </View>
           {resolveFailed ? (
             <Text style={styles.hint}>We couldn't verify this account automatically. Enter the name exactly as it appears on the account.</Text>
           ) : null}
 
           <View style={styles.infoCard}>
-            <Feather name="info" size={18} color={WALLET_BLUE} />
+            <Feather name="info" size={ms(18)} color={WALLET_BLUE} />
             <View style={styles.infoTextBlock}>
               <Text style={styles.infoTitle}>Use your own account</Text>
               <Text style={styles.infoSubtitle}>
@@ -252,7 +253,7 @@ export default function AddBankAccountScreen() {
             ) : (
               <>
                 <Text style={styles.continueButtonText}>Save Bank Account</Text>
-                <Feather name="check" size={16} color="#fff" />
+                <Feather name="check" size={ms(16)} color="#fff" />
               </>
             )}
           </TouchableOpacity>
@@ -270,12 +271,12 @@ export default function AddBankAccountScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select bank</Text>
               <TouchableOpacity onPress={() => setPickerOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Feather name="x" size={20} color={foodColors.textPrimary} />
+                <Feather name="x" size={ms(20)} color={foodColors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchRow}>
-              <Feather name="search" size={16} color={foodColors.textMuted} />
+              <Feather name="search" size={ms(16)} color={foodColors.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 value={search}
@@ -304,7 +305,7 @@ export default function AddBankAccountScreen() {
                     }}
                   >
                     <Text style={[styles.bankOptionText, selected && styles.bankOptionTextSelected]}>{item.name}</Text>
-                    {selected ? <Feather name="check" size={18} color={WALLET_BLUE} /> : null}
+                    {selected ? <Feather name="check" size={ms(18)} color={WALLET_BLUE} /> : null}
                   </TouchableOpacity>
                 );
               }}
@@ -319,70 +320,70 @@ export default function AddBankAccountScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: foodColors.background },
-  content: { paddingHorizontal: 20, paddingBottom: 24 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(24) },
 
-  titleRow: { paddingHorizontal: 20, marginBottom: 4 },
+  titleRow: { paddingHorizontal: ms(20), marginBottom: ms(4) },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: ms(38), height: ms(38), borderRadius: ms(19),
     backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
   },
 
-  title: { fontSize: 28, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginTop: 10, marginBottom: 6 },
-  subtitle: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 18, marginBottom: 22 },
+  title: { fontSize: ms(28), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginTop: ms(10), marginBottom: ms(6) },
+  subtitle: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: ms(18), marginBottom: ms(22) },
 
-  fieldLabel: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 10 },
-  fieldSpacing: { marginTop: 18 },
+  fieldLabel: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(10) },
+  fieldSpacing: { marginTop: ms(18) },
 
   selectRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: foodColors.surface, borderWidth: 1.5, borderColor: foodColors.border,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14,
+    borderRadius: ms(14), paddingHorizontal: ms(14), paddingVertical: ms(14),
   },
-  selectText: { fontSize: 14, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  selectText: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
   placeholderText: { color: foodColors.textMuted, fontFamily: fonts.poppins.regular },
 
   inputRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: ms(8),
     backgroundColor: foodColors.surface, borderWidth: 1.5, borderColor: foodColors.border,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+    borderRadius: ms(14), paddingHorizontal: ms(14), paddingVertical: ms(12),
   },
   inputRowVerified: { borderColor: foodColors.success },
-  input: { flex: 1, fontSize: 14, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary, padding: 0 },
-  hint: { fontSize: 11, fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: 6, lineHeight: 15 },
+  input: { flex: 1, fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary, padding: 0 },
+  hint: { fontSize: ms(11), fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: ms(6), lineHeight: ms(15) },
 
   infoCard: {
-    flexDirection: 'row', gap: 12, backgroundColor: 'rgba(0,50,193,0.06)',
-    borderRadius: 16, padding: 14, marginTop: 24,
+    flexDirection: 'row', gap: ms(12), backgroundColor: 'rgba(0,50,193,0.06)',
+    borderRadius: ms(16), padding: ms(14), marginTop: ms(24),
   },
   infoTextBlock: { flex: 1 },
-  infoTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 3 },
-  infoSubtitle: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 16 },
+  infoTitle: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(3) },
+  infoSubtitle: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: ms(16) },
 
-  footer: { paddingHorizontal: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: foodColors.border },
+  footer: { paddingHorizontal: ms(20), paddingTop: ms(14), borderTopWidth: 1, borderTopColor: foodColors.border },
   continueButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#0B1020', paddingVertical: 16, borderRadius: 26, minHeight: 52,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ms(8),
+    backgroundColor: '#0B1020', paddingVertical: ms(16), borderRadius: ms(26), minHeight: ms(52),
   },
   continueButtonDisabled: { opacity: 0.5 },
-  continueButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  continueButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: foodColors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 20, paddingTop: 18, maxHeight: '80%',
+    backgroundColor: foodColors.background, borderTopLeftRadius: ms(24), borderTopRightRadius: ms(24),
+    paddingHorizontal: ms(20), paddingTop: ms(18), maxHeight: '80%',
   },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  modalTitle: { fontSize: 16, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: ms(14) },
+  modalTitle: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   searchRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: foodColors.surface, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: ms(8),
+    backgroundColor: foodColors.surface, borderRadius: ms(12), paddingHorizontal: ms(12), paddingVertical: ms(10), marginBottom: ms(8),
   },
-  searchInput: { flex: 1, fontSize: 13.5, fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, padding: 0 },
+  searchInput: { flex: 1, fontSize: ms(13.5), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, padding: 0 },
   bankOption: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: foodColors.border,
+    paddingVertical: ms(14), borderBottomWidth: 1, borderBottomColor: foodColors.border,
   },
-  bankOptionText: { fontSize: 14, fontFamily: fonts.poppins.regular, color: foodColors.textPrimary },
+  bankOptionText: { fontSize: ms(14), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary },
   bankOptionTextSelected: { fontFamily: fonts.poppins.bold, color: WALLET_BLUE },
-  emptyText: { textAlign: 'center', paddingVertical: 24, fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
+  emptyText: { textAlign: 'center', paddingVertical: ms(24), fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
 });

@@ -17,6 +17,7 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { NIGERIAN_STATES_LGAS, getLGAsForState } from '../src/constants/nigerianStatesLGAs';
 import { useLocation } from '../src/context/LocationContext';
+import { ms } from '../src/utils/responsive';
 
 type Step = 'state' | 'lga';
 
@@ -75,7 +76,7 @@ export default function LocationPickerScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={goBack}>
-          <Feather name="arrow-left" size={22} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(22)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {step === 'state' ? 'Choose State' : selectedState || 'Choose LGA'}
@@ -84,20 +85,20 @@ export default function LocationPickerScreen() {
           style={[styles.headerBtn, styles.headerBtnRight]}
           onPress={() => router.back()}
         >
-          <Feather name="x" size={20} color={foodColors.textMuted} />
+          <Feather name="x" size={ms(20)} color={foodColors.textMuted} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.currentWrap}>
         <Text style={styles.currentLabel}>CURRENT LOCATION</Text>
         <View style={styles.currentChip}>
-          <Feather name="map-pin" size={13} color={foodColors.primary} />
+          <Feather name="map-pin" size={ms(13)} color={foodColors.primary} />
           <Text style={styles.currentText}>{currentLabel}</Text>
         </View>
       </View>
 
       <View style={styles.searchWrap}>
-        <Feather name="search" size={16} color={foodColors.textMuted} />
+        <Feather name="search" size={ms(16)} color={foodColors.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder={step === 'state' ? 'Search states...' : 'Search LGAs...'}
@@ -108,7 +109,7 @@ export default function LocationPickerScreen() {
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={() => setQuery('')}>
-            <Feather name="x-circle" size={16} color={foodColors.textMuted} />
+            <Feather name="x-circle" size={ms(16)} color={foodColors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -130,12 +131,12 @@ export default function LocationPickerScreen() {
                 onPress={() => pickState(s.state)}
               >
                 <View style={styles.rowIcon}>
-                  <Feather name="map" size={15} color={foodColors.primary} />
+                  <Feather name="map" size={ms(15)} color={foodColors.primary} />
                 </View>
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle}>{s.state}</Text>
                 </View>
-                {isActive && <Feather name="check" size={16} color={foodColors.primary} />}
+                {isActive && <Feather name="check" size={ms(16)} color={foodColors.primary} />}
               </TouchableOpacity>
             );
           })}
@@ -152,12 +153,12 @@ export default function LocationPickerScreen() {
                 onPress={() => pickLga(lga)}
               >
                 <View style={styles.rowIcon}>
-                  <Feather name="map-pin" size={15} color={foodColors.primary} />
+                  <Feather name="map-pin" size={ms(15)} color={foodColors.primary} />
                 </View>
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle}>{lga}</Text>
                 </View>
-                {isActive && <Feather name="check" size={16} color={foodColors.primary} />}
+                {isActive && <Feather name="check" size={ms(16)} color={foodColors.primary} />}
               </TouchableOpacity>
             );
           })}
@@ -183,45 +184,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: '5.5%',
-    paddingTop: Platform.OS === 'ios' ? 6 : 16,
-    paddingBottom: 14,
+    paddingTop: Platform.OS === 'ios' ? ms(6) : ms(16),
+    paddingBottom: ms(14),
   },
   headerBtn: {
-    width: 40,
-    height: 40,
+    width: ms(40),
+    height: ms(40),
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
   headerBtnRight: { alignItems: 'flex-end' },
   headerTitle: {
     flex: 1,
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: ms(8),
   },
 
-  currentWrap: { paddingHorizontal: '5.5%', marginBottom: 14 },
+  currentWrap: { paddingHorizontal: '5.5%', marginBottom: ms(14) },
   currentLabel: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.6,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   currentChip: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     backgroundColor: foodColors.primaryLight,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(6),
+    borderRadius: ms(12),
   },
   currentText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },
@@ -229,17 +230,17 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     marginHorizontal: '5.5%',
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 4,
-    marginBottom: 14,
+    borderRadius: ms(14),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(12) : ms(4),
+    marginBottom: ms(14),
   },
   searchInput: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
@@ -247,38 +248,38 @@ const styles = StyleSheet.create({
   },
 
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    marginBottom: 8,
+    borderRadius: ms(14),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
+    marginBottom: ms(8),
   },
   rowIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(10),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   empty: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    paddingVertical: 40,
+    paddingVertical: ms(40),
   },
-  spacer: { height: 20 },
+  spacer: { height: ms(20) },
 });

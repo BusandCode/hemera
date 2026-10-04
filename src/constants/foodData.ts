@@ -36,6 +36,11 @@ export type MenuItem = {
   rating: number;
   etaMinutes: number;
   image: string;
+  /** Menu category title, e.g. "Rice Dishes". Used for related suggestions. */
+  category?: string;
+  /** Delivery area of the partner that sells this item. */
+  state?: string;
+  lga?: string;
 };
 
 export type PartnerCategory = {

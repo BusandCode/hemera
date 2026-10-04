@@ -1,9 +1,10 @@
-// src/components/food/FoodTabBar.tsx
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, PixelRatio } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
+import { ms, MAX_FONT_SCALE } from '../../utils/responsive';
 
 type TabItem = {
   key: string;
@@ -11,6 +12,8 @@ type TabItem = {
   icon: keyof typeof Feather.glyphMap;
   route: string;
 };
+
+const CIRCLE = PixelRatio.roundToNearestPixel(Math.round(ms(38)));
 
 const tabs: TabItem[] = [
   { key: 'home', label: 'Home', icon: 'home', route: '/' },
@@ -22,11 +25,13 @@ const tabs: TabItem[] = [
 export function FoodTabBar() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const isActive = (route: string) => pathname === route;
 
   return (
-    <View style={styles.container}>
+    // Bottom inset keeps the tabs above the iPhone home bar / Android gesture bar.
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, ms(10)) }]}>
       {tabs.map((tab) => {
         const active = isActive(tab.route);
         return (
@@ -38,11 +43,15 @@ export function FoodTabBar() {
             <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
               <Feather
                 name={tab.icon}
-                size={active ? 20 : 22}
+                size={Math.round(ms(20))}
                 color={active ? '#fff' : foodColors.textMuted}
               />
             </View>
-            <Text style={[styles.label, active && styles.labelActive]}>
+            <Text
+              style={[styles.label, active && styles.labelActive]}
+              numberOfLines={1}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -56,8 +65,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: foodColors.surface,
-    paddingVertical: 8,
-    paddingBottom: 12,
+    paddingTop: ms(8),
     borderTopWidth: 1,
     borderTopColor: foodColors.border,
   },
@@ -67,9 +75,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: CIRCLE,
+    height: CIRCLE,
+    minWidth: CIRCLE,
+    maxWidth: CIRCLE,
+    aspectRatio: 1,
+    borderRadius: CIRCLE / 2,
+    overflow: 'hidden',
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
@@ -78,7 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: foodColors.tabColor,
   },
   label: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textMuted,
   },

@@ -21,6 +21,8 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { useProfile } from '../src/context/ProfileContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 type Field = {
   key: 'fullName' | 'email' | 'phone' | 'gender';
@@ -38,6 +40,7 @@ const fields: Field[] = [
 ];
 
 export default function EditProfileScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, updateProfile } = useProfile();
 
@@ -146,7 +149,7 @@ export default function EditProfileScreen() {
             <View key={field.key} style={styles.fieldBlock}>
               <Text style={styles.fieldLabel}>{field.label}</Text>
               <View style={[styles.fieldInputWrap, !field.editable && styles.fieldInputLocked]}>
-                <Feather name={field.icon} size={16} color={foodColors.textMuted} />
+                <Feather name={field.icon} size={ms(16)} color={foodColors.textMuted} />
                 <TextInput
                   style={[styles.fieldInput, !field.editable && styles.fieldInputTextLocked]}
                   value={draft[field.key]}
@@ -157,7 +160,7 @@ export default function EditProfileScreen() {
                   selectTextOnFocus={field.editable}
                 />
                 {!field.editable && (
-                  <Feather name="lock" size={14} color={foodColors.textMuted} />
+                  <Feather name="lock" size={ms(14)} color={foodColors.textMuted} />
                 )}
               </View>
             </View>
@@ -167,7 +170,7 @@ export default function EditProfileScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
@@ -186,7 +189,7 @@ export default function EditProfileScreen() {
           <View style={styles.modalCard}>
             <View style={styles.badgeRing}>
               <View style={styles.badgeCore}>
-                <Feather name="check" size={30} color="#fff" />
+                <Feather name="check" size={ms(30)} color="#fff" />
               </View>
             </View>
 
@@ -206,33 +209,33 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
-  avatarSection: { alignItems: 'center', marginBottom: 26 },
+  avatarSection: { alignItems: 'center', marginBottom: ms(26) },
   avatarWrapper: { position: 'relative' },
-  avatar: { width: 108, height: 108, borderRadius: 54, backgroundColor: foodColors.border },
+  avatar: { width: ms(108), height: ms(108), borderRadius: ms(54), backgroundColor: foodColors.border },
 
-  form: { gap: 16 },
+  form: { gap: ms(16) },
   fieldBlock: {},
   fieldLabel: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   fieldInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 4,
+    borderRadius: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(13) : ms(4),
   },
   fieldInputLocked: { opacity: 0.7 },
   fieldInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
@@ -240,24 +243,23 @@ const styles = StyleSheet.create({
   },
   fieldInputTextLocked: { color: foodColors.textSecondary },
 
-  bottomSpacer: { height: 90 },
+  bottomSpacer: { height: ms(90) },
 
   footer: {
     backgroundColor: foodColors.surface,
     paddingHorizontal: '5.5%',
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   saveButton: {
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     alignItems: 'center',
   },
   saveButtonText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
@@ -266,7 +268,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: ms(28),
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
@@ -275,58 +277,58 @@ const styles = StyleSheet.create({
   modalCard: {
     alignSelf: 'stretch',
     backgroundColor: '#fff',
-    borderRadius: 26,
-    paddingHorizontal: 24,
-    paddingTop: 30,
-    paddingBottom: 22,
+    borderRadius: ms(26),
+    paddingHorizontal: ms(24),
+    paddingTop: ms(30),
+    paddingBottom: ms(22),
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: ms(8) },
     elevation: 10,
   },
   badgeRing: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: ms(88),
+    height: ms(88),
+    borderRadius: ms(44),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: ms(18),
   },
   badgeCore: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: ms(60),
+    height: ms(60),
+    borderRadius: ms(30),
     backgroundColor: foodColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: 13.5,
-    lineHeight: 20,
+    fontSize: ms(13.5),
+    lineHeight: ms(20),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 22,
+    marginTop: ms(6),
+    marginBottom: ms(22),
   },
   modalButton: {
     alignSelf: 'stretch',
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     alignItems: 'center',
   },
   modalButtonText: {
-    fontSize: 14.5,
+    fontSize: ms(14.5),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

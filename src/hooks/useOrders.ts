@@ -21,18 +21,29 @@ function normalizeType(raw: string | null): Order['type'] {
 }
 
 function normalizeStatus(raw: string | null): OrderStatus {
-  switch ((raw ?? '').toLowerCase()) {
+  switch ((raw ?? '').toLowerCase().trim()) {
     case 'delivered':
+    case 'completed':
+    case 'complete':
+    case 'fulfilled':
       return 'Delivered';
     case 'cancelled':
     case 'canceled':
+    case 'failed':
+    case 'rejected':
+    case 'refunded':
       return 'Cancelled';
     case 'scheduled':
       return 'Scheduled';
     default:
+      // pending, confirmed, preparing, out_for_delivery, picked_up, etc.
       return 'In Progress';
   }
 }
+
+export type OrderScope = 'all' | 'active';
+
+const ACTIVE_STATUSES: OrderStatus[] = ['In Progress', 'Scheduled'];
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -80,7 +91,12 @@ function toOrder(row: OrderRow): Order {
   };
 }
 
-export function useOrders(type?: Order['type']) {
+/**
+ * type:  limit to one service ('echop' | 'ewash'), or omit for both.
+ * scope: 'active' keeps only In Progress / Scheduled orders (My Orders);
+ *        'all' (default) returns every status, newest first (Order History).
+ */
+export function useOrders(type?: Order['type'], scope: OrderScope = 'all') {
   const { session } = useAuth();
   const userId = session?.user.id;
   const [orders, setOrders] = useState<Order[]>([]);
@@ -104,11 +120,14 @@ export function useOrders(type?: Order['type']) {
       setError(queryError.message);
     } else {
       const mapped = (data as OrderRow[]).map(toOrder);
+      const byType = type ? mapped.filter((o) => o.type === type) : mapped;
+      const byScope =
+        scope === 'active' ? byType.filter((o) => ACTIVE_STATUSES.includes(o.status)) : byType;
       setError(null);
-      setOrders(type ? mapped.filter((o) => o.type === type) : mapped);
+      setOrders(byScope);
     }
     setLoading(false);
-  }, [type, userId]);
+  }, [type, scope, userId]);
 
   useFocusEffect(
     useCallback(() => {

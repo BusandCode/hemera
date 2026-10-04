@@ -15,8 +15,11 @@ type SignUpDetails = {
 type AuthContextType = {
   session: Session | null;
   loading: boolean;
+  /** Best available display name: profile metadata saved at sign-up. */
+  displayName: string;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (details: SignUpDetails) => Promise<void>;
+  /** Resolves true if the user is signed in now, false if they must confirm their email first. */
+  signUp: (details: SignUpDetails) => Promise<boolean>;
   signOut: () => Promise<void>;
 };
 
@@ -40,29 +43,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
+    // Set it right away so the tabs guard sees the session on the very next render.
+    setSession(data.session);
   };
 
   const signUp = async ({ fullName, gender, phone, referredBy, email, password }: SignUpDetails) => {
     const pending = await getPendingReferral();
     const referral = (referredBy || pending || '').trim().toUpperCase();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName, gender, phone, referred_by: referral } },
     });
     if (error) throw new Error(error.message);
     await clearPendingReferral();
+    // With "Confirm email" on in Supabase, no session is returned until the user verifies.
+    setSession(data.session);
+    return !!data.session;
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
+    setSession(null);
   };
 
+  const displayName: string =
+    (session?.user?.user_metadata?.full_name as string | undefined)?.trim() ?? '';
+
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, loading, displayName, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

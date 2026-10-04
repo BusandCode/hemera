@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -59,7 +60,7 @@ export default function ForgotPasswordScreen() {
 
         <View style={styles.successWrap}>
           <View style={styles.successIcon}>
-            <Feather name="mail" size={34} color={foodColors.primary} />
+            <Feather name="mail" size={ms(34)} color={foodColors.primary} />
           </View>
 
           <Text style={styles.successTitle}>Check your inbox</Text>
@@ -74,7 +75,7 @@ export default function ForgotPasswordScreen() {
             activeOpacity={0.85}
             onPress={() => router.replace('/auth' as any)}
           >
-            <Feather name="arrow-left" size={16} color="#fff" />
+            <Feather name="arrow-left" size={ms(16)} color="#fff" />
             <Text style={styles.primaryBtnText}>Back to Sign In</Text>
           </TouchableOpacity>
 
@@ -114,7 +115,7 @@ export default function ForgotPasswordScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-left" size={20} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(20)} color={foodColors.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.brandRow}>
@@ -131,7 +132,7 @@ export default function ForgotPasswordScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Email Address</Text>
           <View style={styles.inputWrap}>
-            <Feather name="mail" size={16} color={foodColors.textMuted} />
+            <Feather name="mail" size={ms(16)} color={foodColors.textMuted} />
             <TextInput
               style={styles.input}
               value={email}
@@ -154,7 +155,7 @@ export default function ForgotPasswordScreen() {
 
         {error ? (
           <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={14} color="#FF3B30" />
+            <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
@@ -170,7 +171,7 @@ export default function ForgotPasswordScreen() {
           ) : (
             <>
               <Text style={styles.primaryBtnText}>Send Reset Link</Text>
-              <Feather name="arrow-right" size={16} color="#fff" />
+              <Feather name="arrow-right" size={ms(16)} color="#fff" />
             </>
           )}
         </TouchableOpacity>
@@ -190,71 +191,71 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 24 },
+  content: { paddingHorizontal: ms(24) },
 
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(20),
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: ms(24),
   },
 
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 28,
+    gap: ms(8),
+    marginBottom: ms(28),
   },
   logoDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: ms(10),
+    height: ms(10),
+    borderRadius: ms(5),
     backgroundColor: foodColors.primary,
   },
   brand: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 2,
     color: foodColors.primary,
   },
 
   title: {
-    fontSize: 28,
+    fontSize: ms(28),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    lineHeight: 34,
-    marginBottom: 8,
+    lineHeight: ms(34),
+    marginBottom: ms(8),
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 26,
+    lineHeight: ms(20),
+    marginBottom: ms(26),
   },
 
-  field: { marginBottom: 16 },
+  field: { marginBottom: ms(16) },
   label: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 6,
+    borderRadius: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(13) : ms(6),
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
@@ -264,15 +265,15 @@ const styles = StyleSheet.create({
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     backgroundColor: 'rgba(255,59,48,0.08)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
+    borderRadius: ms(10),
+    paddingVertical: ms(10),
+    paddingHorizontal: ms(12),
+    marginBottom: ms(12),
   },
   errorText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.medium,
     color: '#FF3B30',
     flexShrink: 1,
@@ -282,60 +283,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.primary,
-    paddingVertical: 16,
-    borderRadius: 26,
-    marginTop: 4,
-    minHeight: 52,
+    paddingVertical: ms(16),
+    borderRadius: ms(26),
+    marginTop: ms(4),
+    minHeight: ms(52),
   },
   primaryBtnDisabled: { opacity: 0.5 },
   primaryBtnText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
 
   linkBtn: {
     alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 4,
+    paddingVertical: ms(16),
+    marginTop: ms(4),
   },
   linkText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
   },
 
   successWrap: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: ms(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
   successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: ms(80),
+    height: ms(80),
+    borderRadius: ms(40),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: ms(20),
   },
   successTitle: {
-    fontSize: 22,
+    fontSize: ms(22),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 10,
+    marginBottom: ms(10),
     textAlign: 'center',
   },
   successBody: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 20,
+    lineHeight: ms(20),
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: ms(30),
     maxWidth: 320,
   },
   successEmail: {

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
+import { ms } from '../../utils/responsive';
 
 export type OrderStatus = 'Delivered' | 'In Progress' | 'Cancelled' | 'Scheduled';
 export type OrderType = 'echop' | 'ewash';
@@ -35,9 +36,9 @@ export function OrderCard({ order, onPress }: { order: Order; onPress?: () => vo
     <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onPress}>
       <View style={styles.iconWrap}>
         {order.type === 'echop' ? (
-          <Feather name="coffee" size={17} color={foodColors.primary} />
+          <Feather name="coffee" size={ms(17)} color={foodColors.primary} />
         ) : (
-          <MaterialCommunityIcons name="washing-machine" size={18} color={foodColors.badgeBlue} />
+          <MaterialCommunityIcons name="washing-machine" size={ms(18)} color={foodColors.badgeBlue} />
         )}
       </View>
 
@@ -65,10 +66,10 @@ export function OrderCard({ order, onPress }: { order: Order; onPress?: () => vo
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: ms(16),
+    padding: ms(14),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -76,20 +77,20 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(12),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   info: { flex: 1, minWidth: 0 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  title: { flex: 1, fontSize: 14, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  amount: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  meta: { fontSize: 12, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: 2, marginBottom: 10 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: ms(8) },
+  title: { flex: 1, fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  amount: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  meta: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(2), marginBottom: ms(10) },
   bottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  date: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  statusText: { fontSize: 10.5, fontFamily: fonts.poppins.bold },
+  date: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
+  statusPill: { paddingHorizontal: ms(10), paddingVertical: ms(3), borderRadius: ms(10) },
+  statusText: { fontSize: ms(10.5), fontFamily: fonts.poppins.bold },
 });

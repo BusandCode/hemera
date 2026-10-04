@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
+import { ms, MAX_FONT_SCALE } from '../../utils/responsive';
 
 const TABS = [
   { key: 'home', label: 'Home', icon: 'home', route: '/e-plan' },
@@ -28,7 +29,7 @@ export function BottomTabs() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, ms(10)) }]}>
       {TABS.map((tab) => {
         let isActive = false;
 
@@ -55,10 +56,14 @@ export function BottomTabs() {
           >
             <Feather
               name={tab.icon as any}
-              size={22}
+              size={ms(22)}
               color={isActive ? '#161311' : foodColors.textMuted}
             />
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+            <Text
+              style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+              numberOfLines={1}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
               {tab.label}
             </Text>
             {isActive && <View style={styles.activeIndicator} />}
@@ -75,8 +80,8 @@ const styles = StyleSheet.create({
     backgroundColor: foodColors.surface,
     borderTopWidth: 1,
     borderTopColor: foodColors.border,
-    paddingTop: 12,
-    paddingHorizontal: 10,
+    paddingTop: ms(12),
+    paddingHorizontal: ms(10),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.04,
@@ -87,11 +92,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: ms(4),
     position: 'relative',
   },
   tabLabel: {
-    fontSize: 10.5,
+    fontSize: ms(10.5),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textMuted,
   },
@@ -101,10 +106,10 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: 'absolute',
-    bottom: -12,
-    width: 20,
+    bottom: -ms(12),
+    width: ms(20),
     height: 3,
-    borderRadius: 1.5,
+    borderRadius: ms(1.5),
     backgroundColor: foodColors.primary,
   },
 });

@@ -15,6 +15,8 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { useAppData, PaymentCard } from '../src/context/AppDataContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 const brandOptions: PaymentCard['brand'][] = ['Verve', 'Mastercard', 'Visa'];
 
@@ -25,6 +27,7 @@ function detectBrand(digits: string): PaymentCard['brand'] {
 }
 
 export default function AddPaymentMethodScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { addCard } = useAppData();
 
@@ -125,7 +128,7 @@ export default function AddPaymentMethodScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         <TouchableOpacity
           style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -142,25 +145,25 @@ export default function AddPaymentMethodScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
   fieldLabel: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: ms(8),
+    marginTop: ms(16),
   },
-  brandRow: { flexDirection: 'row', gap: 10 },
+  brandRow: { flexDirection: 'row', gap: ms(10) },
   brandPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(10),
+    borderRadius: ms(20),
     backgroundColor: foodColors.surface,
   },
   brandPillActive: { backgroundColor: foodColors.primary },
   brandPillText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textSecondary,
   },
@@ -168,40 +171,39 @@ const styles = StyleSheet.create({
 
   input: {
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 10,
-    fontSize: 13.5,
+    borderRadius: ms(14),
+    paddingHorizontal: ms(14),
+    paddingVertical: Platform.OS === 'ios' ? ms(13) : ms(10),
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
   },
-  row: { flexDirection: 'row', gap: 12 },
+  row: { flexDirection: 'row', gap: ms(12) },
   halfField: { flex: 1 },
 
   hint: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 17,
+    lineHeight: ms(17),
     color: foodColors.textMuted,
-    marginTop: 18,
+    marginTop: ms(18),
   },
 
-  bottomSpacer: { height: 90 },
+  bottomSpacer: { height: ms(90) },
 
   footer: {
     backgroundColor: foodColors.surface,
     paddingHorizontal: '5.5%',
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   saveButton: {
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     alignItems: 'center',
   },
   saveButtonDisabled: { opacity: 0.45 },
-  saveButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  saveButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const WALLET_BLUE = '#0032C1';
 
@@ -103,7 +104,7 @@ export default function ConfirmWithdrawalScreen() {
 
       <View style={styles.titleRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -129,7 +130,7 @@ export default function ConfirmWithdrawalScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <Feather name="info" size={18} color={WALLET_BLUE} />
+          <Feather name="info" size={ms(18)} color={WALLET_BLUE} />
           <View style={styles.infoTextBlock}>
             <Text style={styles.infoTitle}>Processing Time</Text>
             <Text style={styles.infoSubtitle}>Your withdrawal request is usually processed within 24 hours on business days.</Text>
@@ -149,12 +150,12 @@ export default function ConfirmWithdrawalScreen() {
           ) : (
             <>
               <Text style={styles.confirmButtonText}>Confirm Withdrawal</Text>
-              <Feather name="arrow-right" size={16} color="#fff" />
+              <Feather name="arrow-right" size={ms(16)} color="#fff" />
             </>
           )}
         </TouchableOpacity>
         <View style={styles.secureRow}>
-          <Feather name="lock" size={12} color={foodColors.success} />
+          <Feather name="lock" size={ms(12)} color={foodColors.success} />
           <Text style={styles.secureText}>Your money is secure with bank-level encryption</Text>
         </View>
       </View>
@@ -178,7 +179,7 @@ function DetailRow({
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailIconWrap}>
-        <Feather name={icon} size={15} color={WALLET_BLUE} />
+        <Feather name={icon} size={ms(15)} color={WALLET_BLUE} />
       </View>
       <Text style={styles.detailLabel}>{label}</Text>
       <Text style={[styles.detailValue, bold && styles.detailValueBold, valueColor && { color: valueColor }]}>
@@ -191,46 +192,46 @@ function DetailRow({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  content: { flex: 1, paddingHorizontal: 20 },
+  content: { flex: 1, paddingHorizontal: ms(20) },
 
-  titleRow: { paddingHorizontal: 20, marginBottom: 4 },
+  titleRow: { paddingHorizontal: ms(20), marginBottom: ms(4) },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: ms(38), height: ms(38), borderRadius: ms(19),
     backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
   },
 
-  title: { fontSize: 28, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginTop: 10, marginBottom: 6 },
-  subtitle: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 18, marginBottom: 20 },
+  title: { fontSize: ms(28), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginTop: ms(10), marginBottom: ms(6) },
+  subtitle: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: ms(18), marginBottom: ms(20) },
 
   detailsCard: {
-    backgroundColor: foodColors.surface, borderRadius: 18, padding: 16, marginBottom: 16,
+    backgroundColor: foodColors.surface, borderRadius: ms(18), padding: ms(16), marginBottom: ms(16),
     shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  sectionLabel: { fontSize: 11, fontFamily: fonts.poppins.bold, letterSpacing: 0.6, color: WALLET_BLUE, marginBottom: 10 },
-  sectionSpacing: { marginTop: 20 },
+  sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.bold, letterSpacing: 0.6, color: WALLET_BLUE, marginBottom: ms(10) },
+  sectionSpacing: { marginTop: ms(20) },
 
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
-  detailIconWrap: { width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(0,50,193,0.08)', justifyContent: 'center', alignItems: 'center' },
-  detailLabel: { flex: 1, fontSize: 13, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
-  detailValue: { fontSize: 13.5, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  detailValueBold: { fontSize: 15, fontFamily: fonts.poppins.bold },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: ms(10), paddingVertical: ms(10) },
+  detailIconWrap: { width: ms(30), height: ms(30), borderRadius: ms(8), backgroundColor: 'rgba(0,50,193,0.08)', justifyContent: 'center', alignItems: 'center' },
+  detailLabel: { flex: 1, fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  detailValue: { fontSize: ms(13.5), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  detailValueBold: { fontSize: ms(15), fontFamily: fonts.poppins.bold },
   divider: { height: 1, backgroundColor: foodColors.border },
 
   infoCard: {
-    flexDirection: 'row', gap: 12, backgroundColor: 'rgba(0,50,193,0.06)',
-    borderRadius: 16, padding: 14,
+    flexDirection: 'row', gap: ms(12), backgroundColor: 'rgba(0,50,193,0.06)',
+    borderRadius: ms(16), padding: ms(14),
   },
   infoTextBlock: { flex: 1 },
-  infoTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 3 },
-  infoSubtitle: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 16 },
+  infoTitle: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(3) },
+  infoSubtitle: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: ms(16) },
 
-  footer: { paddingHorizontal: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: foodColors.border },
+  footer: { paddingHorizontal: ms(20), paddingTop: ms(14), borderTopWidth: 1, borderTopColor: foodColors.border },
   confirmButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#0B1020', paddingVertical: 16, borderRadius: 26,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ms(8),
+    backgroundColor: '#0B1020', paddingVertical: ms(16), borderRadius: ms(26),
   },
   confirmButtonDisabled: { opacity: 0.7 },
-  confirmButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
-  secureRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 12 },
-  secureText: { fontSize: 11, fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
+  confirmButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
+  secureRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: ms(6), marginTop: ms(12) },
+  secureText: { fontSize: ms(11), fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
 });

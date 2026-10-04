@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { ms } from '../src/utils/responsive';
 
 type Term = {
   id: string;
@@ -79,7 +80,7 @@ export default function ReferTermsScreen() {
             return (
               <View key={term.id} style={[styles.termRow, isLast && styles.termRowLast]}>
                 <View style={styles.termIconWrap}>
-                  <Feather name={term.icon} size={16} color={foodColors.primary} />
+                  <Feather name={term.icon} size={ms(16)} color={foodColors.primary} />
                 </View>
                 <View style={styles.termTextBlock}>
                   <Text style={styles.termTitle}>{term.title}</Text>
@@ -91,7 +92,7 @@ export default function ReferTermsScreen() {
         </View>
 
         <View style={styles.footerNote}>
-          <Feather name="info" size={14} color={foodColors.textMuted} />
+          <Feather name="info" size={ms(14)} color={foodColors.textMuted} />
           <Text style={styles.footerText}>
             These terms may be updated at any time. Continued use of the referral program
             constitutes acceptance of the latest version.
@@ -107,27 +108,27 @@ export default function ReferTermsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingTop: 4, paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingTop: ms(4), paddingBottom: ms(16) },
 
   pageTitle: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   pageSubtitle: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 18,
+    lineHeight: ms(18),
     color: foodColors.textSecondary,
-    marginBottom: 18,
+    marginBottom: ms(18),
   },
 
   termsGroup: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
-    marginBottom: 18,
+    marginBottom: ms(18),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -137,52 +138,52 @@ const styles = StyleSheet.create({
   termRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(14),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   termRowLast: { borderBottomWidth: 0 },
   termIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(10),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   termTextBlock: { flex: 1, minWidth: 0 },
   termTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 2,
+    marginBottom: ms(2),
   },
   termBody: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 18,
+    lineHeight: ms(18),
     color: foodColors.textSecondary,
   },
 
   footerNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: ms(14),
+    padding: ms(14),
     borderWidth: 1,
     borderColor: foodColors.border,
   },
   footerText: {
     flex: 1,
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 17,
+    lineHeight: ms(17),
     color: foodColors.textMuted,
   },
 
-  bottomSpacer: { height: 20 },
+  bottomSpacer: { height: ms(20) },
 });

@@ -28,6 +28,8 @@ type ReferralContextValue = {
   loading: boolean;
   invitedCount: number;
   qualifiedCount: number;
+  /** Every referral, oldest first (one per friend who signed up with the code). */
+  referrals: Referral[];
   earned: Referral[];
   rewards: { food: Referral | null; laundry: Referral | null };
   claimReward: (referralId: string, choice: RewardType) => Promise<void>;
@@ -123,10 +125,10 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
     if (!code) return;
     try {
       await Share.share({
-        message: `Join me on Hemera to order food and book laundry pickups: ${inviteLink}\nReferral code: ${code}`,
+        message: `Join me on Hemera! Use my invite code to sign up: ${code}`,
       });
     } catch {}
-  }, [code, inviteLink]);
+  }, [code]);
 
   const value = useMemo<ReferralContextValue>(() => {
     const claimed = referrals.filter((r) => r.status === 'claimed');
@@ -134,6 +136,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
       code,
       inviteLink,
       loading,
+      referrals,
       invitedCount: referrals.length,
       qualifiedCount: referrals.filter((r) => r.status !== 'pending').length,
       earned: referrals.filter((r) => r.status === 'earned'),

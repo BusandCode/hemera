@@ -1,4 +1,3 @@
-
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -7,6 +6,7 @@ import { foodColors } from '../src/constants/foodColors';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { ChangeSecretForm } from '../src/components/profile/ChangeSecretForm';
 import { useAppData } from '../src/context/AppDataContext';
+import { ms } from '../src/utils/responsive';
 
 export default function ChangePinScreen() {
   const router = useRouter();
@@ -45,5 +45,5 @@ export default function ChangePinScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 30 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(30) },
 });

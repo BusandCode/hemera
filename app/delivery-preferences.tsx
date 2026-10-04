@@ -15,6 +15,8 @@ import { StatusBar } from 'expo-status-bar';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ms } from '../src/utils/responsive';
 
 const timeSlots = [
   'As soon as possible',
@@ -24,6 +26,7 @@ const timeSlots = [
 ];
 
 export default function DeliveryPreferencesScreen() {
+  const insets = useSafeAreaInsets();
   const [defaultAddress, setDefaultAddress] = useState<'home' | 'work'>('home');
   const [instructions, setInstructions] = useState('Call when you arrive at the gate.');
   const [contactless, setContactless] = useState(true);
@@ -47,14 +50,14 @@ export default function DeliveryPreferencesScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.iconWrap}>
-              <Feather name="home" size={16} color={foodColors.primary} />
+              <Feather name="home" size={ms(16)} color={foodColors.primary} />
             </View>
             <View style={styles.textBlock}>
               <Text style={styles.title}>Home</Text>
               <Text style={styles.subtitle}>14 Adekunle Fajuyi Road, GRA, Lokoja</Text>
             </View>
             {defaultAddress === 'home' && (
-              <Feather name="check-circle" size={18} color={foodColors.primary} />
+              <Feather name="check-circle" size={ms(18)} color={foodColors.primary} />
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -63,14 +66,14 @@ export default function DeliveryPreferencesScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.iconWrap}>
-              <Feather name="briefcase" size={16} color={foodColors.primary} />
+              <Feather name="briefcase" size={ms(16)} color={foodColors.primary} />
             </View>
             <View style={styles.textBlock}>
               <Text style={styles.title}>Work</Text>
               <Text style={styles.subtitle}>Suite 4B, Zenith Plaza, Murtala Way</Text>
             </View>
             {defaultAddress === 'work' && (
-              <Feather name="check-circle" size={18} color={foodColors.primary} />
+              <Feather name="check-circle" size={ms(18)} color={foodColors.primary} />
             )}
           </TouchableOpacity>
         </View>
@@ -86,7 +89,7 @@ export default function DeliveryPreferencesScreen() {
             >
               <Text style={styles.title}>{item}</Text>
               {slot === item && (
-                <Feather name="check" size={16} color={foodColors.primary} />
+                <Feather name="check" size={ms(16)} color={foodColors.primary} />
               )}
             </TouchableOpacity>
           ))}
@@ -104,7 +107,7 @@ export default function DeliveryPreferencesScreen() {
 
         <View style={styles.toggleRow}>
           <View style={styles.iconWrap}>
-            <Feather name="shield" size={16} color={foodColors.primary} />
+            <Feather name="shield" size={ms(16)} color={foodColors.primary} />
           </View>
           <View style={styles.textBlock}>
             <Text style={styles.title}>Contactless Delivery</Text>
@@ -121,7 +124,7 @@ export default function DeliveryPreferencesScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         <TouchableOpacity style={styles.saveButton} activeOpacity={0.85}>
           <Text style={styles.saveButtonText}>Save Preferences</Text>
         </TouchableOpacity>
@@ -133,19 +136,19 @@ export default function DeliveryPreferencesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: '5.5%', paddingBottom: 16 },
+  content: { paddingHorizontal: '5.5%', paddingBottom: ms(16) },
 
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.5,
     color: foodColors.textMuted,
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: ms(8),
+    marginTop: ms(16),
   },
   group: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.03,
@@ -156,9 +159,9 @@ const styles = StyleSheet.create({
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    gap: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(13),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
@@ -166,73 +169,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(14),
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   rowLast: { borderBottomWidth: 0 },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(10),
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   textBlock: { flex: 1, minWidth: 0 },
   title: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   subtitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
   instructionsInput: {
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 13,
+    borderRadius: ms(14),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(12),
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
-    minHeight: 70,
+    minHeight: ms(70),
     textAlignVertical: 'top',
   },
 
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 16,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginTop: ms(16),
   },
 
-  bottomSpacer: { height: 90 },
+  bottomSpacer: { height: ms(90) },
 
   footer: {
     backgroundColor: foodColors.surface,
     paddingHorizontal: '5.5%',
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   saveButton: {
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     alignItems: 'center',
   },
   saveButtonText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

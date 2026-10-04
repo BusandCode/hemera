@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const ACCENT_BLUE = '#1E3FEA';
 const GREEN = '#1E9E55';
@@ -139,11 +140,11 @@ export default function EPlanTransactionScreen() {
         <StatusBar style="dark" />
         <View style={styles.titleRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={styles.centered}>
-          <Feather name="alert-circle" size={32} color={foodColors.textMuted} />
+          <Feather name="alert-circle" size={ms(32)} color={foodColors.textMuted} />
           <Text style={styles.errorTitle}>Transaction not found</Text>
           <Text style={styles.errorSub}>
             This transaction may have been removed or you don't have access to it.
@@ -169,7 +170,7 @@ export default function EPlanTransactionScreen() {
 
       <View style={styles.titleRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Transaction</Text>
         <View style={styles.titleSpacer} />
@@ -190,7 +191,7 @@ export default function EPlanTransactionScreen() {
           >
             <Feather
               name={refund ? 'rotate-ccw' : 'gift'}
-              size={28}
+              size={ms(28)}
               color={accent}
             />
           </View>
@@ -276,7 +277,7 @@ export default function EPlanTransactionScreen() {
               onPress={() => router.push('/my-plan' as any)}
             >
               <View style={styles.planIconWrap}>
-                <Feather name="gift" size={20} color="#fff" />
+                <Feather name="gift" size={ms(20)} color="#fff" />
               </View>
               <View style={styles.planInfo}>
                 <Text style={styles.planName}>{plan.plan_name}</Text>
@@ -285,7 +286,7 @@ export default function EPlanTransactionScreen() {
                   Locked {formatNaira(Math.round(plan.locked_amount_kobo / 100))}
                 </Text>
               </View>
-              <Feather name="chevron-right" size={18} color={foodColors.textMuted} />
+              <Feather name="chevron-right" size={ms(18)} color={foodColors.textMuted} />
             </TouchableOpacity>
           </>
         )}
@@ -296,12 +297,12 @@ export default function EPlanTransactionScreen() {
           activeOpacity={0.85}
           onPress={() => router.push('/contact-support' as any)}
         >
-          <Feather name="help-circle" size={18} color={ACCENT_BLUE} />
+          <Feather name="help-circle" size={ms(18)} color={ACCENT_BLUE} />
           <View style={styles.helpText}>
             <Text style={styles.helpTitle}>Something wrong with this payment?</Text>
             <Text style={styles.helpSub}>Contact support and we'll look into it.</Text>
           </View>
-          <Feather name="arrow-right" size={16} color={ACCENT_BLUE} />
+          <Feather name="arrow-right" size={ms(16)} color={ACCENT_BLUE} />
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -322,7 +323,7 @@ function DetailRow({
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailIconWrap}>
-        <Feather name={icon} size={14} color={ACCENT_BLUE} />
+        <Feather name={icon} size={ms(14)} color={ACCENT_BLUE} />
       </View>
       <Text style={styles.detailLabel}>{label}</Text>
       <Text
@@ -338,114 +339,114 @@ function DetailRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 30 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: ms(10), paddingHorizontal: ms(30) },
 
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 22 },
+  content: { paddingHorizontal: ms(22) },
 
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 22,
-    marginBottom: 8,
+    paddingHorizontal: ms(22),
+    marginBottom: ms(8),
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     flex: 1,
-    fontSize: 18,
+    fontSize: ms(18),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
-  titleSpacer: { width: 38 },
+  titleSpacer: { width: ms(38) },
 
-  heroWrap: { alignItems: 'center', marginTop: 12, marginBottom: 30 },
+  heroWrap: { alignItems: 'center', marginTop: ms(12), marginBottom: ms(30) },
   heroIconWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: ms(76),
+    height: ms(76),
+    borderRadius: ms(38),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: ms(16),
   },
   heroAmount: {
-    fontSize: 30,
+    fontSize: ms(30),
     fontFamily: fonts.poppins.bold,
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   heroTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
-    marginBottom: 12,
+    marginBottom: ms(12),
     textAlign: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: ms(12),
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
+    gap: ms(6),
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(5),
+    borderRadius: ms(14),
   },
   statusSuccess: { backgroundColor: 'rgba(30,158,85,0.10)' },
   statusPending: { backgroundColor: 'rgba(245,165,36,0.14)' },
   statusFailed: { backgroundColor: 'rgba(255,59,48,0.10)' },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusDot: { width: 6, height: 6, borderRadius: ms(3) },
   statusDotSuccess: { backgroundColor: GREEN },
   statusDotPending: { backgroundColor: '#D98A00' },
   statusDotFailed: { backgroundColor: '#FF3B30' },
-  statusText: { fontSize: 11.5, fontFamily: fonts.poppins.bold },
+  statusText: { fontSize: ms(11.5), fontFamily: fonts.poppins.bold },
   statusTextSuccess: { color: GREEN },
   statusTextPending: { color: '#D98A00' },
   statusTextFailed: { color: '#FF3B30' },
 
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.6,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
-  sectionSpacing: { marginTop: 24 },
+  sectionSpacing: { marginTop: ms(24) },
 
   detailCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     borderWidth: 1,
     borderColor: foodColors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: ms(14),
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
+    gap: ms(10),
+    paddingVertical: ms(14),
   },
   detailIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
+    width: ms(26),
+    height: ms(26),
+    borderRadius: ms(7),
     backgroundColor: 'rgba(30,63,234,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   detailLabel: {
     flex: 1,
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
   detailValue: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
     maxWidth: '55%',
@@ -460,10 +461,10 @@ const styles = StyleSheet.create({
   planCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: ms(16),
+    padding: ms(14),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -471,70 +472,70 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   planIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: ms(44),
+    height: ms(44),
+    borderRadius: ms(14),
     backgroundColor: ACCENT_BLUE,
     justifyContent: 'center',
     alignItems: 'center',
   },
   planInfo: { flex: 1, minWidth: 0 },
   planName: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   planSub: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
   helpCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: 'rgba(30,63,234,0.06)',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 26,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginTop: ms(26),
   },
   helpText: { flex: 1, minWidth: 0 },
   helpTitle: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   helpSub: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
 
   errorTitle: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 8,
+    marginTop: ms(8),
   },
   errorSub: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: ms(18),
   },
   errorBtn: {
     backgroundColor: ACCENT_BLUE,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 22,
-    marginTop: 12,
+    paddingHorizontal: ms(22),
+    paddingVertical: ms(12),
+    borderRadius: ms(22),
+    marginTop: ms(12),
   },
   errorBtnText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

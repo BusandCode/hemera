@@ -1,6 +1,7 @@
 // src/components/SplashScreenView.tsx
 import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Platform } from 'react-native';
+import { ms } from '../utils/responsive';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 
@@ -70,7 +71,7 @@ const styles = StyleSheet.create({
   logo: {
     fontFamily: serif,
     fontWeight: '700',
-    fontSize: 44,
+    fontSize: ms(44),
     color: '#fff',
   },
   logoAccent: {
@@ -78,21 +79,21 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   tagline: {
-    marginTop: 10,
-    fontSize: 13,
+    marginTop: ms(10),
+    fontSize: ms(13),
     color: 'rgba(255,255,255,0.6)',
     letterSpacing: 0.5,
   },
   dotsRow: {
     position: 'absolute',
-    bottom: 70,
+    bottom: ms(70),
     flexDirection: 'row',
-    gap: 8,
+    gap: ms(8),
   },
   dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: ms(7),
+    height: ms(7),
+    borderRadius: ms(3.5),
     backgroundColor: '#E23A2E',
   },
 });

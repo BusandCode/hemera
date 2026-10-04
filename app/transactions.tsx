@@ -16,6 +16,7 @@ import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { useAuth } from '../src/context/AuthContext';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const PAGE_SIZE = 20;
 
@@ -219,11 +220,12 @@ export default function TransactionsScreen() {
     const icon = ICON_STYLE[item.service];
     const status = STATUS_STYLE[item.status];
     const muted = item.status === 'failed';
+    const sign = item.type === 'credit' ? '+' : '-';
 
     return (
       <View style={styles.row}>
         <View style={[styles.iconWrap, { backgroundColor: icon.bg }]}>
-          <Feather name={icon.name} size={18} color={icon.color} />
+          <Feather name={icon.name} size={ms(18)} color={icon.color} />
         </View>
 
         <View style={styles.rowInfo}>
@@ -237,7 +239,8 @@ export default function TransactionsScreen() {
 
         <View style={styles.rowRight}>
           <Text style={[styles.rowAmount, muted && styles.rowAmountMuted]}>
-            -{formatNaira(item.amount)}
+            {sign}
+            {formatNaira(item.amount)}
           </Text>
           <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
             <Text style={[styles.statusText, { color: status.color }]}>
@@ -280,7 +283,7 @@ export default function TransactionsScreen() {
           activeOpacity={0.85}
           onPress={() => loadFirstPage('initial')}
         >
-          <Feather name="refresh-cw" size={16} color={foodColors.badgeBlue} />
+          <Feather name="refresh-cw" size={ms(16)} color={foodColors.badgeBlue} />
           <Text style={styles.stateRetryText}>
             Couldn't load your transactions. Tap to retry
           </Text>
@@ -308,14 +311,14 @@ export default function TransactionsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Feather name="file-text" size={28} color={foodColors.textMuted} />
+              <Feather name="file-text" size={ms(28)} color={foodColors.textMuted} />
               <Text style={styles.emptyTitle}>No transactions yet</Text>
               <Text style={styles.emptySub}>
                 {filter === 'all'
-                  ? 'Your E-Chop orders and E-Wash pickups will show up here.'
+                  ? 'Your E-Chop and E-Wash transactions will show up here.'
                   : filter === 'echop'
-                  ? 'Your E-Chop orders will show up here.'
-                  : 'Your E-Wash pickups will show up here.'}
+                  ? 'Your E-Chop transactions will show up here.'
+                  : 'Your E-Wash transactions will show up here.'}
               </Text>
             </View>
           }
@@ -339,48 +342,48 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: ms(8),
     paddingHorizontal: '5.5%',
-    marginBottom: 6,
+    marginBottom: ms(6),
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(8),
+    borderRadius: ms(20),
     borderWidth: 1.5,
     borderColor: foodColors.border,
     backgroundColor: foodColors.surface,
   },
   filterPillActive: { backgroundColor: '#0B1020', borderColor: '#0B1020' },
   filterText: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
   },
   filterTextActive: { color: '#fff' },
 
-  loader: { marginTop: 40 },
-  listContent: { paddingHorizontal: '5.5%', paddingBottom: 30, flexGrow: 1 },
-  footerLoader: { marginVertical: 16 },
+  loader: { marginTop: ms(40) },
+  listContent: { paddingHorizontal: '5.5%', paddingBottom: ms(30), flexGrow: 1 },
+  footerLoader: { marginVertical: ms(16) },
 
   sectionHeader: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: ms(18),
+    marginBottom: ms(8),
   },
 
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
+    borderRadius: ms(14),
+    padding: ms(14),
+    marginBottom: ms(8),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -388,27 +391,27 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(12),
     justifyContent: 'center',
     alignItems: 'center',
   },
   rowInfo: { flex: 1, minWidth: 0 },
   rowTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   rowSub: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: 2,
+    marginTop: ms(2),
   },
-  rowRight: { alignItems: 'flex-end', gap: 5 },
+  rowRight: { alignItems: 'flex-end', gap: ms(5) },
   rowAmount: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
@@ -416,43 +419,43 @@ const styles = StyleSheet.create({
     color: foodColors.textMuted,
     textDecorationLine: 'line-through',
   },
-  statusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  statusText: { fontSize: 10, fontFamily: fonts.poppins.bold },
+  statusPill: { paddingHorizontal: ms(8), paddingVertical: ms(2), borderRadius: ms(8) },
+  statusText: { fontSize: ms(10), fontFamily: fonts.poppins.bold },
 
   stateCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: ms(10),
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 20,
+    borderRadius: ms(16),
+    padding: ms(16),
+    marginTop: ms(20),
     marginHorizontal: '5.5%',
   },
   stateRetryText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.badgeBlue,
   },
 
   emptyWrap: {
     alignItems: 'center',
-    paddingTop: 70,
-    paddingHorizontal: 30,
-    gap: 8,
+    paddingTop: ms(70),
+    paddingHorizontal: ms(30),
+    gap: ms(8),
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 6,
+    marginTop: ms(6),
   },
   emptySub: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: ms(18),
   },
 });

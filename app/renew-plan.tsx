@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
+import { ms } from '../src/utils/responsive';
 
 type Duration = {
   key: string;
@@ -48,7 +49,7 @@ export default function RenewPlanScreen() {
 
       <View style={styles.titleRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <Feather name="arrow-left" size={18} color={washColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Renew Plan</Text>
       </View>
@@ -66,7 +67,7 @@ export default function RenewPlanScreen() {
         >
           <Text style={styles.planTitle}>Standard Plan</Text>
           <View style={styles.expiredBadge}>
-            <Feather name="clock" size={12} color="#fff" />
+            <Feather name="clock" size={ms(12)} color="#fff" />
             <Text style={styles.expiredText}>Expired July 6, 2026</Text>
           </View>
           <Text style={styles.planDescription}>
@@ -112,7 +113,7 @@ export default function RenewPlanScreen() {
           {FEATURES.map((f, i) => (
             <View key={f.label} style={[styles.featureRow, i !== FEATURES.length - 1 && styles.featureRowDivider]}>
               <View style={styles.featureIconWrap}>
-                <MaterialCommunityIcons name={f.icon} size={18} color={washColors.navySolid} />
+                <MaterialCommunityIcons name={f.icon} size={ms(18)} color={washColors.navySolid} />
               </View>
               <Text style={styles.featureLabel}>{f.label}</Text>
             </View>
@@ -133,7 +134,7 @@ export default function RenewPlanScreen() {
           onPress={() => router.back()}
         >
           <Text style={styles.renewButtonText}>Renew Now</Text>
-          <Feather name="arrow-right" size={16} color="#fff" />
+          <Feather name="arrow-right" size={ms(16)} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -143,131 +144,131 @@ export default function RenewPlanScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: washColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 20 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(20) },
 
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    gap: ms(12),
+    paddingHorizontal: ms(20),
+    marginBottom: ms(16),
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: washColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: { fontSize: 20, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  title: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
 
   planCard: {
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: ms(24),
+    padding: ms(20),
+    marginBottom: ms(24),
   },
-  planTitle: { fontSize: 20, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 12 },
+  planTitle: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: ms(12) },
   expiredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     alignSelf: 'flex-start',
     backgroundColor: washColors.overlay,
     borderWidth: 1,
     borderColor: washColors.overlayBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginBottom: 14,
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(6),
+    borderRadius: ms(14),
+    marginBottom: ms(14),
   },
-  expiredText: { fontSize: 12, fontFamily: fonts.poppins.bold, color: '#fff' },
+  expiredText: { fontSize: ms(12), fontFamily: fonts.poppins.bold, color: '#fff' },
   planDescription: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 19,
+    lineHeight: ms(19),
     color: washColors.whiteText85,
   },
 
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: washColors.textMuted,
     letterSpacing: 0.6,
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
-  sectionSpacing: { marginTop: 26 },
+  sectionSpacing: { marginTop: ms(26) },
 
-  durationList: { gap: 10 },
+  durationList: { gap: ms(10) },
   durationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: ms(12),
     backgroundColor: washColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     borderWidth: 1.5,
     borderColor: washColors.grayBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: ms(14),
+    paddingHorizontal: ms(14),
   },
   durationCardSelected: {
     borderColor: washColors.navySolid,
     backgroundColor: washColors.coveredBg,
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(10),
     borderWidth: 2,
     borderColor: washColors.grayBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: ms(10),
+    height: ms(10),
+    borderRadius: ms(5),
     backgroundColor: washColors.navySolid,
   },
   durationInfo: { flex: 1 },
-  durationLabel: { fontSize: 14.5, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
-  durationSub: { fontSize: 12, fontFamily: fonts.poppins.regular, color: washColors.textSecondary, marginTop: 2 },
-  durationRight: { alignItems: 'flex-end', gap: 4 },
+  durationLabel: { fontSize: ms(14.5), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  durationSub: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: washColors.textSecondary, marginTop: ms(2) },
+  durationRight: { alignItems: 'flex-end', gap: ms(4) },
   saveBadge: {
     backgroundColor: washColors.red,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(3),
+    borderRadius: ms(10),
   },
-  saveBadgeText: { fontSize: 9.5, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.3 },
-  durationPrice: { fontSize: 14, fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  saveBadgeText: { fontSize: ms(9.5), fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.3 },
+  durationPrice: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
 
   featuresCard: {
     backgroundColor: washColors.surface,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    borderRadius: ms(18),
+    paddingHorizontal: ms(16),
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
+    gap: ms(12),
+    paddingVertical: ms(14),
   },
   featureRowDivider: {
     borderBottomWidth: 1,
     borderBottomColor: washColors.divider,
   },
   featureIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(17),
     backgroundColor: washColors.coveredBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  featureLabel: { flex: 1, fontSize: 13, fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
+  featureLabel: { flex: 1, fontSize: ms(13), fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
 
-  bottomSpacer: { height: 100 },
+  bottomSpacer: { height: ms(100) },
 
   footer: {
     position: 'absolute',
@@ -276,24 +277,24 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: ms(14),
     backgroundColor: washColors.background,
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: ms(20),
+    paddingTop: ms(14),
     borderTopWidth: 1,
     borderTopColor: washColors.divider,
   },
   footerSummary: { flex: 1 },
-  footerSummaryLabel: { fontSize: 12, fontFamily: fonts.poppins.regular, color: washColors.textSecondary },
-  footerSummaryPrice: { fontSize: 20, fontFamily: fonts.poppins.bold, color: washColors.textPrimary, marginTop: 2 },
+  footerSummaryLabel: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: washColors.textSecondary },
+  footerSummaryPrice: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.textPrimary, marginTop: ms(2) },
   renewButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: ms(8),
     backgroundColor: washColors.red,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 26,
+    paddingHorizontal: ms(24),
+    paddingVertical: ms(16),
+    borderRadius: ms(26),
   },
-  renewButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  renewButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
+import { ms } from '../../utils/responsive';
 import { LegalBlock, LegalDoc } from '../../constants/legalContent';
 
 type Props = {
@@ -73,13 +74,13 @@ export function LegalModal({ visible, doc, requireRead = false, alreadyRead = fa
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 54 : 30) }]}>
+        <View style={[styles.header, { paddingTop: insets.top + ms(10) }]}>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={onClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Feather name="x" size={22} color={foodColors.textPrimary} />
+            <Feather name="x" size={ms(22)} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{doc.title}</Text>
           <View style={styles.closeButton} />
@@ -133,7 +134,7 @@ export function LegalModal({ visible, doc, requireRead = false, alreadyRead = fa
             <>
               {!reachedEnd && (
                 <View style={styles.hintRow}>
-                  <Feather name="arrow-down" size={13} color={foodColors.textSecondary} />
+                  <Feather name="arrow-down" size={ms(13)} color={foodColors.textSecondary} />
                   <Text style={styles.hintText}>Scroll to the end to continue</Text>
                 </View>
               )}
@@ -163,13 +164,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 14,
+    paddingHorizontal: ms(20),
+    paddingBottom: ms(14),
   },
   closeButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: {
     flex: 1,
-    fontSize: 17,
+    fontSize: ms(17),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
@@ -178,13 +179,13 @@ const styles = StyleSheet.create({
   progressFill: { height: 3, backgroundColor: foodColors.primary },
 
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
+  content: { paddingHorizontal: ms(20), paddingTop: ms(16), paddingBottom: 24 },
 
   introCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: ms(16),
+    padding: ms(16),
+    marginBottom: ms(20),
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -192,31 +193,31 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   brand: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.primary,
     letterSpacing: 0.4,
   },
   updated: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
-    marginTop: 2,
-    marginBottom: 10,
+    marginTop: ms(2),
+    marginBottom: ms(10),
   },
 
   section: { marginBottom: 20 },
   sectionTitle: {
-    fontSize: 11.5,
+    fontSize: ms(11.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
   sectionCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: ms(14),
+    padding: ms(16),
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -225,51 +226,51 @@ const styles = StyleSheet.create({
   },
 
   subTitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: 6,
-    marginBottom: 6,
+    marginTop: ms(6),
+    marginBottom: ms(6),
   },
   paragraph: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 20,
+    lineHeight: ms(20),
     color: foodColors.textSecondary,
-    marginBottom: 8,
+    marginBottom: ms(8),
   },
-  list: { marginBottom: 8, gap: 5 },
-  listRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingRight: 8 },
+  list: { marginBottom: ms(8), gap: 5 },
+  listRow: { flexDirection: 'row', alignItems: 'flex-start', gap: ms(10), paddingRight: 8 },
   bullet: {
     width: 5,
     height: 5,
-    borderRadius: 3,
+    borderRadius: ms(3),
     backgroundColor: foodColors.primary,
-    marginTop: 8,
+    marginTop: ms(8),
   },
   listText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
-    lineHeight: 20,
+    lineHeight: ms(20),
     color: foodColors.textSecondary,
   },
 
   closingCard: {
     backgroundColor: foodColors.primaryLight,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: ms(14),
+    padding: ms(16),
   },
   closingText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
-    lineHeight: 20,
+    lineHeight: ms(20),
     color: foodColors.textPrimary,
   },
 
   footer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: ms(20),
+    paddingTop: ms(12),
     backgroundColor: foodColors.background,
     borderTopWidth: 1,
     borderTopColor: foodColors.border,
@@ -278,20 +279,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginBottom: 10,
+    gap: ms(6),
+    marginBottom: ms(10),
   },
   hintText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textSecondary,
   },
   primaryButton: {
     backgroundColor: foodColors.primary,
-    paddingVertical: 15,
-    borderRadius: 26,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
     alignItems: 'center',
   },
   primaryButtonDisabled: { opacity: 0.4 },
-  primaryButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  primaryButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

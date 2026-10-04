@@ -16,6 +16,7 @@ import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const serif = Platform.select({
   ios: 'Georgia',
@@ -129,7 +130,7 @@ export default function EPlanSuccessScreen() {
             <View style={[styles.confetti, styles.confetti4]} />
 
             <View style={styles.successIconCircle}>
-              <Feather name="check" size={40} color="#10B981" />
+              <Feather name="check" size={ms(40)} color="#10B981" />
             </View>
           </View>
 
@@ -221,7 +222,7 @@ export default function EPlanSuccessScreen() {
           <Text style={styles.primaryBtnText}>Go to My Plan</Text>
           <Feather
             name="arrow-right"
-            size={18}
+            size={ms(18)}
             color="#fff"
             style={styles.btnIcon}
           />
@@ -245,7 +246,7 @@ function InfoRow({
       <View style={styles.infoIconWrapper}>
         <MaterialCommunityIcons
           name={icon}
-          size={22}
+          size={ms(22)}
           color={ACCENT_BLUE}
         />
       </View>
@@ -282,7 +283,7 @@ function SummaryRow({
         <View style={styles.summaryIconWrapper}>
           <Feather
             name={icon}
-            size={14}
+            size={ms(14)}
             color={ACCENT_BLUE}
           />
         </View>
@@ -309,31 +310,31 @@ const styles = StyleSheet.create({
     backgroundColor: foodColors.background,
   },
   header: {
-    paddingHorizontal: 26,
-    paddingBottom: 8,
+    paddingHorizontal: ms(26),
+    paddingBottom: ms(8),
   },
   scroll: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 26,
+    paddingHorizontal: ms(26),
   },
   heroSection: {
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 32,
+    marginTop: ms(10),
+    marginBottom: ms(32),
   },
   successIconWrapper: {
-    width: 120,
-    height: 120,
+    width: ms(120),
+    height: ms(120),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: ms(16),
   },
   successIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: ms(90),
+    height: ms(90),
+    borderRadius: ms(45),
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -343,7 +344,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: ms(3),
   },
   confetti1: {
     backgroundColor: '#1E3FEA',
@@ -355,9 +356,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B',
     bottom: 15,
     left: 20,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: ms(8),
+    height: ms(8),
+    borderRadius: ms(4),
   },
   confetti3: {
     backgroundColor: '#10B981',
@@ -372,83 +373,83 @@ const styles = StyleSheet.create({
     right: 10,
   },
   heroTitle: {
-    fontSize: 28,
+    fontSize: ms(28),
     fontFamily: serif,
     fontWeight: '700',
     color: foodColors.textPrimary,
-    marginBottom: 10,
+    marginBottom: ms(10),
   },
   heroSubtitle: {
-    fontSize: 13.5,
+    fontSize: ms(13.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 10,
+    lineHeight: ms(20),
+    paddingHorizontal: ms(10),
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textMuted,
     letterSpacing: 0.6,
-    marginBottom: 12,
+    marginBottom: ms(12),
   },
   sectionSpacing: {
-    marginTop: 26,
+    marginTop: ms(26),
   },
   infoCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     borderWidth: 1,
     borderColor: foodColors.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: ms(16),
   },
   infoRow: {
     flexDirection: 'row',
-    paddingVertical: 16,
+    paddingVertical: ms(16),
   },
   infoDivider: {
     height: 1,
     backgroundColor: foodColors.border,
   },
   infoIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(12),
     backgroundColor: 'rgba(30,63,234,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: ms(14),
   },
   infoTextContainer: {
     flex: 1,
     justifyContent: 'center',
   },
   infoTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: 4,
+    marginBottom: ms(4),
   },
   infoDescription: {
-    fontSize: 12.5,
+    fontSize: ms(12.5),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    lineHeight: 18,
+    lineHeight: ms(18),
   },
   summaryCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     borderWidth: 1,
     borderColor: foodColors.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: ms(16),
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    gap: 10,
+    paddingVertical: ms(14),
+    gap: ms(10),
   },
   summaryRowBorder: {
     borderBottomWidth: 1,
@@ -457,25 +458,25 @@ const styles = StyleSheet.create({
   summaryRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
   },
   summaryIconWrapper: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: ms(24),
+    height: ms(24),
+    borderRadius: ms(6),
     backgroundColor: 'rgba(30,63,234,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   summaryLabel: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
   summaryValue: {
     flex: 1,
     textAlign: 'right',
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textPrimary,
   },
@@ -488,15 +489,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#161311',
-    borderRadius: 26,
-    paddingVertical: 16,
-    marginTop: 30,
+    borderRadius: ms(26),
+    paddingVertical: ms(16),
+    marginTop: ms(30),
   },
   btnIcon: {
-    marginLeft: 8,
+    marginLeft: ms(8),
   },
   primaryBtnText: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

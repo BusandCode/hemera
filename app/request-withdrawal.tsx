@@ -19,6 +19,7 @@ import { fonts } from '../src/constants/typography';
 import { useAuth } from '../src/context/AuthContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { supabase } from '../src/lib/supabase';
+import { ms } from '../src/utils/responsive';
 
 const WALLET_BLUE = '#0032C1';
 const QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
@@ -117,7 +118,7 @@ export default function RequestWithdrawalScreen() {
 
         <View style={styles.titleRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -181,7 +182,7 @@ export default function RequestWithdrawalScreen() {
               activeOpacity={0.85}
               onPress={() => setReloadKey((k) => k + 1)}
             >
-              <Feather name="refresh-cw" size={16} color={WALLET_BLUE} />
+              <Feather name="refresh-cw" size={ms(16)} color={WALLET_BLUE} />
               <Text style={styles.addBankText}>Couldn't load your bank account. Tap to retry</Text>
             </TouchableOpacity>
           ) : bankAccount ? (
@@ -191,7 +192,7 @@ export default function RequestWithdrawalScreen() {
               onPress={() => router.push('/add-bank-account' as any)}
             >
               <View style={styles.bankLogo}>
-                <Feather name="credit-card" size={18} color="#fff" />
+                <Feather name="credit-card" size={ms(18)} color="#fff" />
               </View>
               <View style={styles.bankInfo}>
                 <Text style={styles.bankName}>{bankAccount.bank_name}</Text>
@@ -199,7 +200,7 @@ export default function RequestWithdrawalScreen() {
                 <Text style={styles.bankSub}>{maskAccount(bankAccount.account_number)}</Text>
               </View>
               <Text style={styles.changeLink}>Change</Text>
-              <Feather name="chevron-right" size={16} color={foodColors.textMuted} />
+              <Feather name="chevron-right" size={ms(16)} color={foodColors.textMuted} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -207,13 +208,13 @@ export default function RequestWithdrawalScreen() {
               activeOpacity={0.85}
               onPress={() => router.push('/add-bank-account' as any)}
             >
-              <Feather name="plus-circle" size={18} color={WALLET_BLUE} />
+              <Feather name="plus-circle" size={ms(18)} color={WALLET_BLUE} />
               <Text style={styles.addBankText}>Add a bank account to withdraw</Text>
             </TouchableOpacity>
           )}
 
           <View style={styles.infoCard}>
-            <Feather name="info" size={18} color={WALLET_BLUE} />
+            <Feather name="info" size={ms(18)} color={WALLET_BLUE} />
             <View style={styles.infoTextBlock}>
               <Text style={styles.infoTitle}>Withdrawal Information</Text>
               <Text style={styles.infoSubtitle}>Withdrawals are usually processed within 24 hours on business days.</Text>
@@ -252,7 +253,7 @@ export default function RequestWithdrawalScreen() {
             }}
           >
             <Text style={styles.continueButtonText}>Request Withdrawal</Text>
-            <Feather name="arrow-right" size={16} color="#fff" />
+            <Feather name="arrow-right" size={ms(16)} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -263,83 +264,83 @@ export default function RequestWithdrawalScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: foodColors.background },
-  content: { paddingHorizontal: 20, paddingBottom: 24 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(24) },
 
-  titleRow: { paddingHorizontal: 20, marginBottom: 4 },
+  titleRow: { paddingHorizontal: ms(20), marginBottom: ms(4) },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: ms(38), height: ms(38), borderRadius: ms(19),
     backgroundColor: foodColors.surface, justifyContent: 'center', alignItems: 'center',
   },
 
-  title: { fontSize: 28, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginTop: 10, marginBottom: 6 },
-  subtitle: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 18, marginBottom: 18 },
+  title: { fontSize: ms(28), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginTop: ms(10), marginBottom: ms(6) },
+  subtitle: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: ms(18), marginBottom: ms(18) },
 
-  balanceCard: { backgroundColor: WALLET_BLUE, borderRadius: 20, padding: 18, marginBottom: 20 },
-  balanceLabel: { fontSize: 10.5, fontFamily: fonts.poppins.bold, letterSpacing: 0.8, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
-  balanceValue: { fontSize: 28, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 6 },
-  balanceHint: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.85)' },
+  balanceCard: { backgroundColor: WALLET_BLUE, borderRadius: ms(20), padding: ms(18), marginBottom: ms(20) },
+  balanceLabel: { fontSize: ms(10.5), fontFamily: fonts.poppins.bold, letterSpacing: 0.8, color: 'rgba(255,255,255,0.7)', marginBottom: ms(8) },
+  balanceValue: { fontSize: ms(28), fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: ms(6) },
+  balanceHint: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.85)' },
 
-  sectionLabel: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 10 },
-  sectionSpacing: { marginTop: 22 },
+  sectionLabel: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(10) },
+  sectionSpacing: { marginTop: ms(22) },
 
   amountInputRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', gap: ms(6),
     backgroundColor: foodColors.surface, borderWidth: 1.5, borderColor: foodColors.border,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: ms(14), paddingHorizontal: ms(14), paddingVertical: ms(10),
   },
-  currencySign: { fontSize: 24, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  amountInput: { flex: 1, fontSize: 24, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, padding: 0 },
-  amountHint: { fontSize: 11, fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: 6, marginBottom: 12 },
+  currencySign: { fontSize: ms(24), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  amountInput: { flex: 1, fontSize: ms(24), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, padding: 0 },
+  amountHint: { fontSize: ms(11), fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: ms(6), marginBottom: ms(12) },
 
-  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  quickPill: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, borderWidth: 1.5, borderColor: foodColors.border },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ms(8) },
+  quickPill: { paddingHorizontal: ms(14), paddingVertical: ms(9), borderRadius: ms(12), borderWidth: 1.5, borderColor: foodColors.border },
   quickPillActive: { borderColor: WALLET_BLUE, backgroundColor: 'rgba(0,50,193,0.06)' },
-  quickPillText: { fontSize: 12.5, fontFamily: fonts.poppins.semiBold, color: foodColors.textSecondary },
+  quickPillText: { fontSize: ms(12.5), fontFamily: fonts.poppins.semiBold, color: foodColors.textSecondary },
   quickPillTextActive: { color: WALLET_BLUE },
 
   bankCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: foodColors.surface,
-    borderRadius: 16, padding: 14,
+    flexDirection: 'row', alignItems: 'center', gap: ms(12), backgroundColor: foodColors.surface,
+    borderRadius: ms(16), padding: ms(14),
     shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  bankLogo: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#E4342D', justifyContent: 'center', alignItems: 'center' },
+  bankLogo: { width: ms(38), height: ms(38), borderRadius: ms(10), backgroundColor: '#E4342D', justifyContent: 'center', alignItems: 'center' },
   bankInfo: { flex: 1, minWidth: 0 },
-  bankName: { fontSize: 14, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  bankSub: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: 1 },
-  changeLink: { fontSize: 12.5, fontFamily: fonts.poppins.bold, color: WALLET_BLUE },
+  bankName: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  bankSub: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(1) },
+  changeLink: { fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: WALLET_BLUE },
 
   addBankCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,50,193,0.06)',
-    borderRadius: 16, padding: 16, justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: 'rgba(0,50,193,0.06)',
+    borderRadius: ms(16), padding: ms(16), justifyContent: 'center',
   },
-  addBankText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: WALLET_BLUE },
+  addBankText: { fontSize: ms(13), fontFamily: fonts.poppins.semiBold, color: WALLET_BLUE },
 
   infoCard: {
-    flexDirection: 'row', gap: 12, backgroundColor: 'rgba(0,50,193,0.06)',
-    borderRadius: 16, padding: 14, marginTop: 18, marginBottom: 18,
+    flexDirection: 'row', gap: ms(12), backgroundColor: 'rgba(0,50,193,0.06)',
+    borderRadius: ms(16), padding: ms(14), marginTop: ms(18), marginBottom: ms(18),
   },
   infoTextBlock: { flex: 1 },
-  infoTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 3 },
-  infoSubtitle: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: 16 },
+  infoTitle: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(3) },
+  infoSubtitle: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: ms(16) },
 
   summaryCard: {
-    backgroundColor: foodColors.surface, borderRadius: 16, padding: 16,
+    backgroundColor: foodColors.surface, borderRadius: ms(16), padding: ms(16),
     shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  summaryTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 10 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-  summaryLabel: { fontSize: 12.5, fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
-  summaryValue: { fontSize: 12.5, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  summaryFree: { fontSize: 12.5, fontFamily: fonts.poppins.bold, color: foodColors.success },
-  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: 8 },
-  summaryLabelBold: { fontSize: 13.5, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  summaryValueBold: { fontSize: 13.5, fontFamily: fonts.poppins.bold, color: WALLET_BLUE },
+  summaryTitle: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(10) },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: ms(6) },
+  summaryLabel: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  summaryValue: { fontSize: ms(12.5), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  summaryFree: { fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: foodColors.success },
+  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: ms(8) },
+  summaryLabelBold: { fontSize: ms(13.5), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  summaryValueBold: { fontSize: ms(13.5), fontFamily: fonts.poppins.bold, color: WALLET_BLUE },
 
-  footer: { paddingHorizontal: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: foodColors.border },
+  footer: { paddingHorizontal: ms(20), paddingTop: ms(14), borderTopWidth: 1, borderTopColor: foodColors.border },
   continueButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#0B1020', paddingVertical: 16, borderRadius: 26,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ms(8),
+    backgroundColor: '#0B1020', paddingVertical: ms(16), borderRadius: ms(26),
   },
   continueButtonDisabled: { opacity: 0.5 },
-  continueButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  continueButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

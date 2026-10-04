@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
+import { ms } from '../../utils/responsive';
 
 const serif = Platform.select({
   ios: 'Georgia',
@@ -31,7 +32,7 @@ export function EPlanHeader({
             activeOpacity={0.85}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
+            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
           </TouchableOpacity>
         )}
 
@@ -47,7 +48,7 @@ export function EPlanHeader({
             onPress={onPressWallet}
             activeOpacity={0.85}
           >
-            <Feather name="credit-card" size={13} color={foodColors.primary} />
+            <Feather name="credit-card" size={ms(13)} color={foodColors.primary} />
             <Text style={styles.walletText}>{wallet}</Text>
           </TouchableOpacity>
         )}
@@ -75,17 +76,17 @@ const styles = StyleSheet.create({
   left: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
   },
   right: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: ms(10),
   },
   backBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: ms(32),
+    height: ms(32),
+    borderRadius: ms(16),
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
   logo: {
     fontFamily: serif,
     fontWeight: '700',
-    fontSize: 20,
+    fontSize: ms(20),
     color: foodColors.textPrimary,
   },
   logoAccent: {
@@ -103,29 +104,29 @@ const styles = StyleSheet.create({
   walletPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: ms(6),
     backgroundColor: foodColors.surface,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    borderRadius: ms(20),
+    paddingHorizontal: ms(12),
+    paddingVertical: ms(7),
     borderWidth: 1,
     borderColor: foodColors.border,
   },
   walletText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontWeight: '600',
     color: foodColors.textPrimary,
   },
   avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: ms(34),
+    height: ms(34),
+    borderRadius: ms(17),
     backgroundColor: foodColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontWeight: '700',
     color: '#fff',
   },
