@@ -39,6 +39,10 @@ const accountItems: MenuItem[] = [
   { id: 'security', icon: 'shield', title: 'Security', route: '/security' },
 ];
 
+const subscriptionItems: MenuItem[] = [
+  { id: 'subscriptions', icon: 'repeat', title: 'Subscriptions', route: '/subscriptions' },
+];
+
 const orderItems: MenuItem[] = [
   { id: 'my-orders', icon: 'package', title: 'My Orders', route: '/my-orders' },
   { id: 'echop-orders', icon: 'coffee', title: 'E-Chop Orders', route: '/echop-orders' },
@@ -239,6 +243,7 @@ export default function FoodProfileScreen() {
         </TouchableOpacity>
 
         <MenuSection title="ACCOUNT" items={accountItems} onPressItem={handleItemPress} />
+        <MenuSection title="SUBSCRIPTIONS" items={subscriptionItems} onPressItem={handleItemPress} />
         <MenuSection title="ORDERS" items={orderItems} onPressItem={handleItemPress} />
         <MenuSection title="REFERRAL" items={referralItems} onPressItem={handleItemPress} />
         <MenuSection
@@ -262,9 +267,6 @@ export default function FoodProfileScreen() {
           >
             <Feather name="refresh-cw" size={15} color={foodColors.primary} />
             <Text style={styles.resetButtonText}>Reset Onboarding</Text>
-            {/* <View style={styles.devBadge}>
-              <Text style={styles.devBadgeText}>DEV</Text>
-            </View> */}
           </TouchableOpacity>
         )}
 

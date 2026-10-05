@@ -8,6 +8,7 @@ import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
+import { orderNumber, normalizeStatus, isCancelledStatus } from '../src/lib/orderStatus';
 
 type StepIcon = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -87,27 +88,6 @@ function formatNaira(amount: number) {
   return `₦${Math.round(amount).toLocaleString()}`;
 }
 
-function normalizeStatus(raw: string, orderType: string) {
-  const status = raw.toLowerCase().replace(/\s+/g, '-');
-  const aliases: Record<string, string> = {
-    'in-progress': orderType === 'ewash' ? 'processing' : 'preparing',
-    picked_up: 'picked-up',
-    out_for_delivery: 'out-for-delivery',
-    'on-the-way': 'out-for-delivery',
-    completed: 'delivered',
-    placed: orderType === 'ewash' ? 'scheduled' : 'received',
-    confirmed: orderType === 'ewash' ? 'scheduled' : 'received',
-    active: orderType === 'ewash' ? 'processing' : 'preparing',
-  };
-  return aliases[status] ?? status;
-}
-
-const CANCELLED_STATUSES = ['cancel', 'cancelled', 'canceled', 'failed', 'rejected', 'refunded'];
-
-function isCancelledStatus(raw: string) {
-  return CANCELLED_STATUSES.includes(raw.toLowerCase().trim());
-}
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function parseOrder(raw: any): DetailedOrder {
@@ -127,7 +107,7 @@ function parseOrder(raw: any): DetailedOrder {
 
   return {
     id: raw.id,
-    ref: meta.ref ?? raw.id,
+    ref: meta.ref ? String(meta.ref) : '',
     title: baseTitle,
     status: raw.status ?? 'placed',
     created_at: raw.created_at ?? new Date().toISOString(),
@@ -248,7 +228,8 @@ export default function OrderDetailsScreen() {
     );
   }
 
-  const statusLabel = cancelled ? 'Cancelled' : steps[currentStep]?.title ?? steps[0].title;
+  const statusStep = steps[currentStep] ?? steps[0];
+  const statusLabel = cancelled ? 'Cancelled' : statusStep.title;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}> 
@@ -272,9 +253,13 @@ export default function OrderDetailsScreen() {
       >
         <View style={styles.card}>
           <View style={styles.summaryTop}>
-            <Text style={styles.orderNumber}>Order #{order.ref}</Text>
+            <Text style={styles.orderNumber}>Order #{orderNumber(order.ref, order.id)}</Text>
             <View style={styles.statusPill}>
-              <Feather name={cancelled ? 'x-circle' : 'calendar'} size={ms(15)} color={ui.slate} />
+              {cancelled ? (
+                <Feather name="x-circle" size={ms(15)} color={ui.slate} />
+              ) : (
+                <MaterialCommunityIcons name={statusStep.icon} size={ms(15)} color={ui.slate} />
+              )}
               <Text style={styles.statusPillText}>{statusLabel}</Text>
             </View>
           </View>
@@ -282,7 +267,7 @@ export default function OrderDetailsScreen() {
           <Text style={styles.placed}>Placed {formatDate(order.created_at)}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Timeline</Text>
+        <Text style={styles.sectionTitle}>Status</Text>
         <View style={[styles.card, styles.timelineCard]}>
           {steps.map((step, index) => {
             const reached = index <= currentStep;

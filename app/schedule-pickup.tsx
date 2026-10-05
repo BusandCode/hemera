@@ -335,7 +335,9 @@ export default function SchedulePickupScreen() {
             disabled={!canContinue}
             activeOpacity={0.85}
           >
-            <Text style={styles.continueButtonText}>Continue to pay</Text>
+            <Text style={styles.continueButtonText}>
+              {params.covered === '1' ? 'Continue' : 'Continue to pay'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}

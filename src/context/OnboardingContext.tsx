@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ensureFreshInstallHandled } from '../lib/freshInstall';
 
 const STORAGE_KEY = 'echop-ewash:onboarded';
 
@@ -26,6 +27,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
+        // Same first-launch check as auth, so both agree it's a fresh install.
+        await ensureFreshInstallHandled();
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         setHasOnboarded(stored === 'true');
       } catch {

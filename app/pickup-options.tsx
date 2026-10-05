@@ -5,10 +5,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { usePlanStatus } from '../src/hooks/usePlanStatus';
 import { ms } from '../src/utils/responsive';
-
-// TODO: replace with the user's real plan status (same source as planStatus on the wash screen).
-const HAS_ACTIVE_PLAN = false;
 
 const ui = {
   heading: foodColors.badgeBlue,
@@ -25,6 +23,9 @@ const ui = {
 export default function PickupOptionsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { status: planStatus } = usePlanStatus();
+
+  const hasActivePlan = planStatus === 'active';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -46,15 +47,29 @@ export default function PickupOptionsScreen() {
         <TouchableOpacity
           activeOpacity={0.9}
           style={[styles.optionCard, styles.subscriberCard]}
-          onPress={() => router.push((HAS_ACTIVE_PLAN ? '/request-pickup' : '/choose-plan') as any)}
+          onPress={() =>
+            router.push(
+              (hasActivePlan ? '/request-pickup' : '/choose-plan') as any
+            )
+          }
         >
           <View style={[styles.iconTile, { backgroundColor: ui.subscriberTile }]}>
             <MaterialCommunityIcons name="washing-machine" size={ms(34)} color={ui.onCard} />
           </View>
           <View style={styles.optionText}>
-            <Text style={styles.optionTitle}>REQUEST A PICKUP</Text>
-            <Text style={styles.optionSubtitle}>(Subscribers, get a plan first)</Text>
-            <Text style={styles.optionDescription}>Tap to choose a subscription plan.</Text>
+            <Text style={styles.optionTitle}>
+              {hasActivePlan ? 'USE YOUR PLAN' : 'REQUEST A PICKUP'}
+            </Text>
+            <Text style={styles.optionSubtitle}>
+              {hasActivePlan
+                ? '(Covered by your subscription)'
+                : '(Subscribers, get a plan first)'}
+            </Text>
+            <Text style={styles.optionDescription}>
+              {hasActivePlan
+                ? 'Tap to send laundry with your plan.'
+                : 'Tap to choose a subscription plan.'}
+            </Text>
           </View>
         </TouchableOpacity>
 

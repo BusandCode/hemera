@@ -27,7 +27,7 @@ export default function FoodScreen() {
   const [category, setCategory] = useState<FoodCategory>('All');
 
   // Same side padding rule as Home: tighter on small phones, roomier on tablets.
-  const hPad = width < 360 ? 12 : width >= 600 ? 28 : 16;
+  const hPad = ms(width < 360 ? 12 : width >= 600 ? 28 : 16);
   const padded = { paddingHorizontal: hPad };
 
   return (
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     backgroundColor: foodColors.background,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.025)',
-    paddingTop: 4,
+    paddingTop: ms(4),
   },
-  orderBarContainer: { paddingBottom: 4 },
+  orderBarContainer: { paddingBottom: ms(4) },
 });

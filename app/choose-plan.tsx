@@ -13,12 +13,11 @@ import {
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
-import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/context/AuthContext';
 import { useReferral } from '../src/context/ReferralContext';
 import { REFERRAL_LAUNDRY_PERCENT } from '../src/constants/referral';
@@ -147,14 +146,15 @@ function durationTotal(monthly: number, d: Duration) {
 export default function ChoosePlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const isSwitch = mode === 'switch';
   const { session } = useAuth();
-  const { rewards, refresh: refreshReferrals } = useReferral();
+  const { rewards } = useReferral();
   const [step, setStep] = useState<Step>('plans');
   const [selectedId, setSelectedId] = useState<PlanId>('standard');
   const [method, setMethod] = useState<PaymentMethod>('transfer');
   const [durationKey, setDurationKey] = useState<DurationKey>('3m');
   const [agreed, setAgreed] = useState(false);
-  const [paying, setPaying] = useState(false);
 
   const selectedPlan = plans.find((p) => p.id === selectedId)!;
   const selectedDuration = durations.find((d) => d.key === durationKey)!;
@@ -177,23 +177,22 @@ export default function ChoosePlanScreen() {
 
   const selectMethod = (m: { id: PaymentMethod; label: string; comingSoon?: boolean }) => {
     if (m.comingSoon) {
-      Alert.alert('Coming soon', `${m.label} payments are coming soon. Please use Transfer for now.`);
+      Alert.alert(
+        'Coming soon',
+        `${m.label} payments are coming soon. Please use Transfer for now.`
+      );
       return;
     }
     setMethod(m.id);
   };
 
-  const handlePay = async () => {
-    if (!agreed || paying) return;
-    setPaying(true);
+  const handlePay = () => {
+    if (!agreed) return;
 
     const ref = `WSH-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const { error } = await supabase.from('orders').insert({
-      user_id: session?.user.id,
-      order_type: 'ewash',
-      status: 'placed',
-      total_kobo: total * 100,
+    const draft = {
+      kind: 'subscription',
       metadata: {
         ref,
         kind: 'subscription',
@@ -204,23 +203,22 @@ export default function ChoosePlanScreen() {
         total,
         payment_method: method,
         customer_email: session?.user.email ?? '',
+        ...(isSwitch && { switch: true }),
         ...(laundryReward && {
           referral_reward_id: laundryReward.id,
           referral_discount: referralDiscount,
         }),
       },
-    });
+    };
 
-    setPaying(false);
-
-    if (error) {
-      if (laundryReward) refreshReferrals();
-      Alert.alert('Subscription failed', error.message);
-      return;
-    }
-
-    refreshReferrals();
-    router.back();
+    router.push({
+      pathname: '/fund-wallet-account',
+      params: {
+        amount: String(total),
+        service: 'ewash',
+        order: JSON.stringify(draft),
+      },
+    } as any);
   };
 
   if (step === 'duration') {
@@ -229,10 +227,16 @@ export default function ChoosePlanScreen() {
         <StatusBar style="dark" />
 
         <View style={styles.dTitleRow}>
-          <TouchableOpacity style={styles.dBackBtn} onPress={() => setStep('plans')} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.dBackBtn}
+            onPress={() => setStep('plans')}
+            activeOpacity={0.8}
+          >
             <Feather name="arrow-left" size={ms(18)} color={washColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.dTitle}>Choose Duration</Text>
+          <Text style={styles.dTitle}>
+            {isSwitch ? 'Switch Plan' : 'Choose Duration'}
+          </Text>
         </View>
 
         <ScrollView
@@ -252,7 +256,9 @@ export default function ChoosePlanScreen() {
               <Text style={styles.dBadgeText}>{formatNaira(selectedPlan.price)} / month</Text>
             </View>
             <Text style={styles.dPlanDescription}>
-              Pick a duration below to start your plan. Longer plans save you more.
+              {isSwitch
+                ? 'Pick a duration for your new plan. Your old plan will be replaced and unused items will roll over.'
+                : 'Pick a duration below to start your plan. Longer plans save you more.'}
             </Text>
           </LinearGradient>
 
@@ -296,7 +302,10 @@ export default function ChoosePlanScreen() {
             {selectedPlan.features.map((feature, i) => (
               <View
                 key={feature}
-                style={[styles.includedRow, i !== selectedPlan.features.length - 1 && styles.includedRowDivider]}
+                style={[
+                  styles.includedRow,
+                  i !== selectedPlan.features.length - 1 && styles.includedRowDivider,
+                ]}
               >
                 <View style={styles.includedIconWrap}>
                   <Feather name="check" size={ms(16)} color={washColors.navySolid} />
@@ -322,7 +331,8 @@ export default function ChoosePlanScreen() {
                 suppressHighlighting
               >
                 Terms & Conditions
-              </Text>.
+              </Text>
+              .
             </Text>
           </TouchableOpacity>
 
@@ -338,13 +348,19 @@ export default function ChoosePlanScreen() {
             <Text style={styles.dFooterPrice}>{formatNaira(total)}</Text>
           </View>
           <TouchableOpacity
-            style={[styles.dPayButton, (!agreed || paying) && styles.dPayButtonDisabled]}
+            style={[styles.dPayButton, !agreed && styles.dPayButtonDisabled]}
             activeOpacity={0.85}
             onPress={handlePay}
-            disabled={!agreed || paying}
+            disabled={!agreed}
           >
-            <Text style={[styles.dPayButtonText, !agreed && styles.dPayButtonTextDisabled]}>Subscribe Now</Text>
-            <Feather name="arrow-right" size={ms(16)} color={agreed ? '#fff' : washColors.textMuted} />
+            <Text style={[styles.dPayButtonText, !agreed && styles.dPayButtonTextDisabled]}>
+              {isSwitch ? 'Switch Plan' : 'Subscribe Now'}
+            </Text>
+            <Feather
+              name="arrow-right"
+              size={ms(16)}
+              color={agreed ? '#fff' : washColors.textMuted}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -363,7 +379,9 @@ export default function ChoosePlanScreen() {
         >
           <Feather name="x" size={ms(24)} color={foodColors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Choose your plan</Text>
+        <Text style={styles.headerTitle}>
+          {isSwitch ? 'Switch your plan' : 'Choose your plan'}
+        </Text>
       </View>
 
       <ScrollView
@@ -411,7 +429,9 @@ export default function ChoosePlanScreen() {
                 <View style={styles.planImageFooter}>
                   <Text style={styles.planName}>{plan.name}</Text>
                   <View style={[styles.radio, selected && styles.radioSelected]}>
-                    {selected && <Feather name="check" size={ms(15)} color={foodColors.textPrimary} />}
+                    {selected && (
+                      <Feather name="check" size={ms(15)} color={foodColors.textPrimary} />
+                    )}
                   </View>
                 </View>
               </ImageBackground>
@@ -419,7 +439,9 @@ export default function ChoosePlanScreen() {
               <View style={styles.planBody}>
                 <Text style={styles.planTagline}>{plan.tagline}</Text>
                 <View style={styles.priceRow}>
-                  <Text style={[styles.price, { color: plan.accent }]}>{formatNaira(plan.price)}</Text>
+                  <Text style={[styles.price, { color: plan.accent }]}>
+                    {formatNaira(plan.price)}
+                  </Text>
                   <Text style={styles.perMonth}> / month</Text>
                 </View>
                 {plan.features.map((feature) => (
@@ -486,7 +508,9 @@ export default function ChoosePlanScreen() {
           onPress={() => setStep('duration')}
           activeOpacity={0.9}
         >
-          <Text style={styles.confirmText}>Confirm subscription</Text>
+          <Text style={styles.confirmText}>
+            {isSwitch ? 'Switch Plan' : 'Confirm subscription'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -729,14 +753,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dTitle: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
-
-  dPlanCard: {
-    borderRadius: ms(24),
-    padding: ms(20),
-    marginBottom: ms(24),
+  dTitle: {
+    fontSize: ms(20),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textPrimary,
   },
-  dPlanTitle: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: ms(12) },
+
+  dPlanCard: { borderRadius: ms(24), padding: ms(20), marginBottom: ms(24) },
+  dPlanTitle: {
+    fontSize: ms(20),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+    marginBottom: ms(12),
+  },
   dBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -750,7 +779,11 @@ const styles = StyleSheet.create({
     borderRadius: ms(14),
     marginBottom: ms(14),
   },
-  dBadgeText: { fontSize: ms(12), fontFamily: fonts.poppins.bold, color: '#fff' },
+  dBadgeText: {
+    fontSize: ms(12),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
   dPlanDescription: {
     fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
@@ -799,8 +832,17 @@ const styles = StyleSheet.create({
     backgroundColor: washColors.navySolid,
   },
   durationInfo: { flex: 1 },
-  durationLabel: { fontSize: ms(14.5), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
-  durationSub: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: washColors.textSecondary, marginTop: ms(2) },
+  durationLabel: {
+    fontSize: ms(14.5),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textPrimary,
+  },
+  durationSub: {
+    fontSize: ms(12),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textSecondary,
+    marginTop: ms(2),
+  },
   durationRight: { alignItems: 'flex-end', gap: ms(4) },
   saveBadge: {
     backgroundColor: washColors.red,
@@ -808,8 +850,17 @@ const styles = StyleSheet.create({
     paddingVertical: ms(3),
     borderRadius: ms(10),
   },
-  saveBadgeText: { fontSize: ms(9.5), fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.3 },
-  durationPrice: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: washColors.textPrimary },
+  saveBadgeText: {
+    fontSize: ms(9.5),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  durationPrice: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textPrimary,
+  },
 
   includedCard: {
     backgroundColor: washColors.surface,
@@ -834,7 +885,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  includedLabel: { flex: 1, fontSize: ms(13), fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
+  includedLabel: {
+    flex: 1,
+    fontSize: ms(13),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textPrimary,
+  },
 
   termsBox: {
     flexDirection: 'row',
@@ -889,8 +945,17 @@ const styles = StyleSheet.create({
     borderTopColor: washColors.divider,
   },
   dFooterSummary: { flex: 1 },
-  dFooterLabel: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: washColors.textSecondary },
-  dFooterPrice: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.textPrimary, marginTop: ms(2) },
+  dFooterLabel: {
+    fontSize: ms(12),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textSecondary,
+  },
+  dFooterPrice: {
+    fontSize: ms(20),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textPrimary,
+    marginTop: ms(2),
+  },
   dPayButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -901,6 +966,10 @@ const styles = StyleSheet.create({
     borderRadius: ms(26),
   },
   dPayButtonDisabled: { backgroundColor: washColors.grayBorder },
-  dPayButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
+  dPayButtonText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
   dPayButtonTextDisabled: { color: washColors.textMuted },
 });

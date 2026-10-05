@@ -17,6 +17,7 @@ import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
 import { usePlanStatus } from '../src/hooks/usePlanStatus';
 import { PlanRequiredState } from '../src/components/wash/PlanRequiredState';
+import { LARGE_ITEM_IDS } from '../src/lib/planLimits';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ms } from '../src/utils/responsive';
 
@@ -67,10 +68,14 @@ function ItemRow({
   item,
   qty,
   onChange,
+  canAdd,
+  onBlocked,
 }: {
   item: LaundryItem;
   qty: number;
   onChange: (id: string, qty: number) => void;
+  canAdd: boolean;
+  onBlocked: (id: string) => void;
 }) {
   return (
     <View style={[styles.itemRow, qty > 0 && styles.itemRowActive]}>
@@ -86,7 +91,10 @@ function ItemRow({
           <Feather name="minus" size={ms(14)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.stepValue}>{qty}</Text>
-        <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(item.id, qty + 1)}>
+        <TouchableOpacity
+          style={[styles.stepBtn, !canAdd && styles.stepBtnDisabled]}
+          onPress={() => (canAdd ? onChange(item.id, qty + 1) : onBlocked(item.id))}
+        >
           <Feather name="plus" size={ms(14)} color={washColors.textPrimary} />
         </TouchableOpacity>
       </View>
@@ -97,7 +105,7 @@ function ItemRow({
 export default function RequestPickupScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { status: planStatus, planName, expiredOn, isLoading } = usePlanStatus();
+  const { status: planStatus, planName, expiredOn, allowance, isLoading } = usePlanStatus();
 
   const [gender, setGender] = useState<Gender>('men');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -105,6 +113,7 @@ export default function RequestPickupScreen() {
   const [express, setExpress] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [notes, setNotes] = useState('');
+  const [blockedId, setBlockedId] = useState<string | null>(null);
 
   const visibleCoreItems = coreItems.filter((i) => i.gender === gender);
 
@@ -119,11 +128,48 @@ export default function RequestPickupScreen() {
     );
   }, [quantities]);
 
-  const canSubmit = totalItems > 0 && agreed;
+  const largeItems = useMemo(
+    () => LARGE_ITEM_IDS.reduce((count, id) => count + (quantities[id] ?? 0), 0),
+    [quantities]
+  );
+
+  // Plan limits. The subscription only covers what fits inside the monthly allowance;
+  // anything beyond that has to go through Pay Per Order.
+  const pickupsLeft = allowance ? allowance.pickupsRemaining : null;
+  const itemsLeft = allowance ? allowance.itemsRemaining - totalItems : null;
+  const largeLeft = allowance ? allowance.largeRemaining - largeItems : null;
+  const noPickupsLeft = pickupsLeft !== null && pickupsLeft <= 0;
+
+  const canAddItem = (id: string) => {
+    if (!allowance || noPickupsLeft) return !noPickupsLeft;
+    if (itemsLeft !== null && itemsLeft <= 0) return false;
+    if (LARGE_ITEM_IDS.includes(id) && largeLeft !== null && largeLeft <= 0) return false;
+    return true;
+  };
+
+  const blockedReason = (() => {
+    if (!blockedId) return null;
+    if (itemsLeft !== null && itemsLeft <= 0)
+      return `You've reached your plan's ${allowance?.itemsLimit}-item limit for this month.`;
+    return `You've reached your plan's limit of ${allowance?.largeLimit} large items (blankets, duvets, curtains).`;
+  })();
+
+  const canSubmit = totalItems > 0 && agreed && !noPickupsLeft;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    router.back();
+    const lines = [...coreItems, ...sharedItems, ...extraItems]
+      .filter((item) => (quantities[item.id] ?? 0) > 0)
+      .map((item) => ({ id: item.id, name: item.name, qty: quantities[item.id], price: 0 }));
+    router.push({
+      pathname: '/schedule-pickup',
+      params: {
+        items: JSON.stringify(lines),
+        express: express ? '1' : '0',
+        covered: '1',
+        notes: notes.trim(),
+      },
+    } as any);
   };
 
   // All hooks above this line — early returns below.
@@ -172,6 +218,61 @@ export default function RequestPickupScreen() {
           </Text>
         </View>
 
+        {allowance && (
+          <View style={styles.allowanceCard}>
+            <Text style={styles.allowanceTitle}>Left this month</Text>
+            <View style={styles.allowanceRow}>
+              <View style={styles.allowanceCell}>
+                <Text style={styles.allowanceValue}>{Math.max(0, itemsLeft ?? 0)}</Text>
+                <Text style={styles.allowanceLabel}>of {allowance.itemsLimit} items</Text>
+              </View>
+              <View style={styles.allowanceCell}>
+                <Text style={styles.allowanceValue}>{Math.max(0, largeLeft ?? 0)}</Text>
+                <Text style={styles.allowanceLabel}>of {allowance.largeLimit} large</Text>
+              </View>
+              <View style={styles.allowanceCell}>
+                <Text style={styles.allowanceValue}>{Math.max(0, pickupsLeft ?? 0)}</Text>
+                <Text style={styles.allowanceLabel}>
+                  {allowance.rolloverPickups > 0
+                    ? `pickups (${allowance.rolloverPickups} rolled over)`
+                    : `of ${allowance.pickupsLimit} pickups`}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {noPickupsLeft && (
+          <View style={styles.limitCard}>
+            <Text style={styles.limitText}>
+              You've used all your pickups for this month. You can still send more laundry with Pay Per
+              Order, or wait for your allowance to reset.
+            </Text>
+            <TouchableOpacity
+              style={styles.limitButton}
+              activeOpacity={0.85}
+              onPress={() => router.replace('/pay-per-pickup' as any)}
+            >
+              <Text style={styles.limitButtonText}>Pay per order instead</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!!blockedReason && !noPickupsLeft && (
+          <View style={styles.limitCard}>
+            <Text style={styles.limitText}>
+              {blockedReason} Remove an item to swap it, or pay for the extra item with Pay Per Order.
+            </Text>
+            <TouchableOpacity
+              style={styles.limitButton}
+              activeOpacity={0.85}
+              onPress={() => router.push('/pay-per-pickup' as any)}
+            >
+              <Text style={styles.limitButtonText}>Pay per order instead</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <Text style={styles.sectionTitle}>What are we picking up?</Text>
         <Text style={styles.sectionSubtitle}>Tap to add items covered by your plan.</Text>
 
@@ -196,10 +297,24 @@ export default function RequestPickupScreen() {
 
         <View style={styles.itemsList}>
           {visibleCoreItems.map((item) => (
-            <ItemRow key={item.id} item={item} qty={quantities[item.id] ?? 0} onChange={setQty} />
+            <ItemRow
+                key={item.id}
+                item={item}
+                qty={quantities[item.id] ?? 0}
+                onChange={setQty}
+                canAdd={canAddItem(item.id)}
+                onBlocked={setBlockedId}
+              />
           ))}
           {sharedItems.map((item) => (
-            <ItemRow key={item.id} item={item} qty={quantities[item.id] ?? 0} onChange={setQty} />
+            <ItemRow
+                key={item.id}
+                item={item}
+                qty={quantities[item.id] ?? 0}
+                onChange={setQty}
+                canAdd={canAddItem(item.id)}
+                onBlocked={setBlockedId}
+              />
           ))}
         </View>
 
@@ -212,7 +327,14 @@ export default function RequestPickupScreen() {
         {showExtras && (
           <View style={styles.itemsList}>
             {extraItems.map((item) => (
-              <ItemRow key={item.id} item={item} qty={quantities[item.id] ?? 0} onChange={setQty} />
+              <ItemRow
+                key={item.id}
+                item={item}
+                qty={quantities[item.id] ?? 0}
+                onChange={setQty}
+                canAdd={canAddItem(item.id)}
+                onBlocked={setBlockedId}
+              />
             ))}
           </View>
         )}
@@ -284,7 +406,7 @@ export default function RequestPickupScreen() {
           activeOpacity={0.85}
         >
           <Text style={[styles.continueButtonText, !canSubmit && styles.continueButtonTextDisabled]}>
-            Confirm Pickup
+            Continue
           </Text>
         </TouchableOpacity>
       </View>
@@ -398,6 +520,50 @@ const styles = StyleSheet.create({
     width: ms(94),
   },
   stepBtn: { width: ms(22), height: ms(22), justifyContent: 'center', alignItems: 'center' },
+  stepBtnDisabled: { opacity: 0.3 },
+  allowanceCard: {
+    backgroundColor: washColors.surface,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(18),
+  },
+  allowanceTitle: {
+    fontSize: ms(11),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: ms(10),
+  },
+  allowanceRow: { flexDirection: 'row', gap: ms(8) },
+  allowanceCell: { flex: 1, alignItems: 'center' },
+  allowanceValue: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.navySolid },
+  allowanceLabel: {
+    fontSize: ms(10.5),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textSecondary,
+    textAlign: 'center',
+  },
+  limitCard: {
+    backgroundColor: '#FBF3D9',
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(18),
+  },
+  limitText: {
+    fontSize: ms(12.5),
+    lineHeight: ms(18),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textPrimary,
+  },
+  limitButton: {
+    alignSelf: 'flex-start',
+    marginTop: ms(10),
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(8),
+    borderRadius: ms(16),
+    backgroundColor: washColors.navySolid,
+  },
+  limitButtonText: { fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: '#fff' },
   stepValue: {
     fontSize: ms(13),
     fontFamily: fonts.poppins.bold,

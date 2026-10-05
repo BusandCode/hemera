@@ -16,6 +16,10 @@ export type Order = {
   date: string;
   amount: number;
   status: OrderStatus;
+  /** Customer-facing order number from metadata.ref (e.g. "WSH-482913"), if the order has one. */
+  ref?: string;
+  /** Exact status saved in the database (e.g. "picked_up"), for step-by-step progress. */
+  rawStatus?: string;
 };
 
 const statusStyles: Record<OrderStatus, { bg: string; text: string }> = {

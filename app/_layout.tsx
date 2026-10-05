@@ -142,10 +142,11 @@
 //   );
 // }
 
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Stack } from 'expo-router';
+
+import { View, StyleSheet } from 'react-native';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -195,7 +196,11 @@ import { capturePendingReferral } from '../src/lib/referralLink';
 
 import { SplashScreenView } from '../src/components/SplashScreenView';
 
-SplashScreen.preventAutoHideAsync();
+// How long your own splash (SplashScreenView) stays on screen at every launch.
+const SPLASH_DURATION_MS = 3500;
+
+// Keep the plain white native launch screen up only until React is ready to draw.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -207,137 +212,139 @@ export default function RootLayout() {
     PlayfairDisplay_500Medium,
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      SplashScreen.hideAsync();
-    }, 1000);
+  const [splashDone, setSplashDone] = useState(false);
 
+  useEffect(() => {
+    // Swap the white native screen for your splash immediately…
+    SplashScreen.hideAsync().catch(() => {});
+    // …and keep your splash up for 3.5 seconds.
+    const timer = setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     Linking.getInitialURL().then(capturePendingReferral);
 
-    const sub = Linking.addEventListener('url', ({ url }) =>
-      capturePendingReferral(url)
-    );
+    const sub = Linking.addEventListener('url', ({ url }) => capturePendingReferral(url));
 
     return () => sub.remove();
   }, []);
 
-  if (!fontsLoaded && !fontError) {
-    return <SplashScreenView />;
-  }
+  const fontsReady = fontsLoaded || !!fontError;
 
+  // The app loads underneath (auth, profile, etc.) while your splash sits on top
+  // for the full 3.5s, so it opens straight onto the right screen afterwards.
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <OnboardingProvider>
-          <AuthProvider>
-            <LocationProvider>
-              <CartProvider>
-                <AppDataProvider>
-                  <ProfileProvider>
-                    <ReferralProvider>
-                      <EPlanDraftProvider>
-                        <FavoritesProvider>
-                          <StatusBar style="dark" />
+    <View style={styles.root}>
+      {fontsReady && (
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <OnboardingProvider>
+              <AuthProvider>
+                <LocationProvider>
+                  <CartProvider>
+                    <AppDataProvider>
+                      <ProfileProvider>
+                        <ReferralProvider>
+                          <EPlanDraftProvider>
+                            <FavoritesProvider>
+                              <StatusBar style="dark" />
 
-                          <Stack
-                            screenOptions={{
-                              headerShown: false,
-                              presentation: 'card',
-                              animation: 'slide_from_right',
-                            }}
-                          >
-                            <Stack.Screen name="onboarding" />
-                            <Stack.Screen name="auth" />
+                              <Stack
+                                screenOptions={{
+                                  headerShown: false,
+                                  presentation: 'card',
+                                  animation: 'slide_from_right',
+                                }}
+                              >
+                                <Stack.Screen name="onboarding" />
+                                <Stack.Screen name="auth" />
 
-                            <Stack.Screen
-                              name="forgot-password"
-                              options={{
-                                presentation: 'card',
-                                animation: 'slide_from_right',
-                              }}
-                            />
+                                <Stack.Screen
+                                  name="forgot-password"
+                                  options={{
+                                    presentation: 'card',
+                                    animation: 'slide_from_right',
+                                  }}
+                                />
 
-                            <Stack.Screen name="(tabs)" />
+                                <Stack.Screen name="(tabs)" />
 
-                            {/* Modal — a temporary picker that should slide over the current screen */}
-                            <Stack.Screen
-                              name="location-picker"
-                              options={{ presentation: 'modal' }}
-                            />
+                                {/* Modal — a temporary picker that should slide over the current screen */}
+                                <Stack.Screen
+                                  name="location-picker"
+                                  options={{ presentation: 'modal' }}
+                                />
 
-                            <Stack.Screen name="checkout" />
+                                <Stack.Screen name="checkout" />
 
-                            <Stack.Screen
-                              name="order-success"
-                              options={{ gestureEnabled: false }}
-                            />
+                                <Stack.Screen
+                                  name="order-success"
+                                  options={{ gestureEnabled: false }}
+                                />
 
-                            {/* Wallet home — plain push */}
-                            <Stack.Screen name="wallet" />
+                                {/* Wallet home — plain push */}
+                                <Stack.Screen name="wallet" />
 
-                            {/* Wallet funding flow — full-screen pushes, not modals */}
-                            <Stack.Screen name="fund-wallet-amount" />
+                                {/* Wallet funding flow — full-screen pushes, not modals */}
+                                <Stack.Screen name="fund-wallet-amount" />
 
-                            <Stack.Screen
-                              name="fund-wallet-account"
-                              options={{ gestureEnabled: false }}
-                            />
+                                <Stack.Screen
+                                  name="fund-wallet-account"
+                                  options={{ gestureEnabled: false }}
+                                />
 
-                            {/* Withdrawal flow — full-screen pushes */}
-                            <Stack.Screen name="request-withdrawal" />
-                            <Stack.Screen name="confirm-withdrawal" />
+                                {/* Withdrawal flow — full-screen pushes */}
+                                <Stack.Screen name="request-withdrawal" />
+                                <Stack.Screen name="confirm-withdrawal" />
 
-                            {/* E-Plan flow — full-screen pushes */}
-                            <Stack.Screen
-                              name="e-plan"
-                              options={{ animation: 'none' }}
-                            />
+                                {/* E-Plan flow — full-screen pushes */}
+                                <Stack.Screen name="e-plan" options={{ animation: 'none' }} />
 
-                            <Stack.Screen
-                              name="e-plan-setup"
-                              options={{ animation: 'none' }}
-                            />
+                                <Stack.Screen name="e-plan-setup" options={{ animation: 'none' }} />
 
-                            <Stack.Screen name="e-plan-exclusions" />
-                            <Stack.Screen name="e-plan-review" />
+                                <Stack.Screen name="e-plan-exclusions" />
+                                <Stack.Screen name="e-plan-review" />
 
-                            <Stack.Screen
-                              name="e-plan-success"
-                              options={{ gestureEnabled: false }}
-                            />
+                                <Stack.Screen
+                                  name="e-plan-success"
+                                  options={{ gestureEnabled: false }}
+                                />
 
-                            <Stack.Screen
-                              name="my-plan"
-                              options={{ animation: 'none' }}
-                            />
+                                <Stack.Screen name="my-plan" options={{ animation: 'none' }} />
 
-                            <Stack.Screen
-                              name="payments"
-                              options={{ animation: 'none' }}
-                            />
+                                <Stack.Screen name="payments" options={{ animation: 'none' }} />
 
-                            <Stack.Screen name="eplan-transaction" />
-                            <Stack.Screen name="quality-promise" />
-                            <Stack.Screen name="offers" />
-                            <Stack.Screen name="track-order" />
-                            <Stack.Screen name="confirm-schedule" />
-                          </Stack>
+                                <Stack.Screen name="eplan-transaction" />
+                                <Stack.Screen name="quality-promise" />
+                                <Stack.Screen name="offers" />
+                                <Stack.Screen name="track-order" />
+                                <Stack.Screen name="confirm-schedule" />
+                              </Stack>
 
-                          <ReferralRewardPrompt />
-                        </FavoritesProvider>
-                      </EPlanDraftProvider>
-                    </ReferralProvider>
-                  </ProfileProvider>
-                </AppDataProvider>
-              </CartProvider>
-            </LocationProvider>
-          </AuthProvider>
-        </OnboardingProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+                              <ReferralRewardPrompt />
+                            </FavoritesProvider>
+                          </EPlanDraftProvider>
+                        </ReferralProvider>
+                      </ProfileProvider>
+                    </AppDataProvider>
+                  </CartProvider>
+                </LocationProvider>
+              </AuthProvider>
+            </OnboardingProvider>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      )}
+
+      {(!splashDone || !fontsReady) && (
+        <View style={StyleSheet.absoluteFill}>
+          <SplashScreenView />
+        </View>
+      )}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#0B1020' },
+});

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,8 @@ import { supabase } from '../src/lib/supabase';
 import { useProfile } from '../src/context/ProfileContext';
 import { useCart } from '../src/context/CartContext';
 import { useReferral } from '../src/context/ReferralContext';
-import { ms } from '../src/utils/responsive';
+import { planErrorMessage } from '../src/lib/planLimits';
+import { AppDialog } from '../src/components/AppDialog';
 
 const ui = {
   background: '#F7F8FC',
@@ -47,6 +48,12 @@ type AccountDetails = {
   reference: string;
   amount: number;
   expiresInSeconds: number;
+};
+
+type SuccessPayload = {
+  title: string;
+  message: string;
+  redirect: () => void;
 };
 
 function formatNaira(value: number) {
@@ -97,6 +104,14 @@ export default function FundWalletAccountScreen() {
   const isEwash = service === 'ewash';
   const isEchop = service === 'echop';
   const isOrder = isEwash || isEchop;
+  const parsedDraft = useMemo(() => {
+    try {
+      return JSON.parse(order ?? '{}');
+    } catch {
+      return {};
+    }
+  }, [order]);
+  const isSubscription = isEwash && parsedDraft.kind === 'subscription';
   const { clear: clearCart } = useCart();
   const { refresh: refreshReferrals } = useReferral();
 
@@ -105,7 +120,10 @@ export default function FundWalletAccountScreen() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [checking, setChecking] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [success, setSuccess] = useState<SuccessPayload | null>(null);
   const orderPlacedRef = useRef(false);
+  const handledRef = useRef(false);
+  const confirmLockedRef = useRef(false);
   const idempotencyKeyRef = useRef(`fund-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
@@ -121,7 +139,11 @@ export default function FundWalletAccountScreen() {
               Authorization: `Bearer ${session?.access_token}`,
               'Idempotency-Key': idempotencyKeyRef.current,
             },
-            body: JSON.stringify(isOrder ? { amount: Number(amount), purpose: service } : { amount: Number(amount) }),
+            body: JSON.stringify(
+              isOrder
+                ? { amount: Number(amount), purpose: isSubscription ? 'ewash' : service }
+                : { amount: Number(amount) }
+            ),
           }
         );
         const data = await res.json();
@@ -170,6 +192,41 @@ export default function FundWalletAccountScreen() {
     };
   }, [details, confirmed]);
 
+ const createSubscription = async () => {
+  if (orderPlacedRef.current) return true;
+  orderPlacedRef.current = true;
+
+  let draft: any = {};
+  try {
+    draft = JSON.parse(order ?? '{}');
+  } catch {}
+
+  const planId = String(draft.metadata?.plan_id ?? '').trim();
+  const durationMonths = Number(draft.metadata?.duration_months ?? 0);
+  const amountKobo = Math.round(Number(amount) * 100);
+
+  if (!planId || !durationMonths) {
+    orderPlacedRef.current = false;
+    Alert.alert('Subscription failed', 'Plan details are missing. Please try again.');
+    return false;
+  }
+
+  const { error: rpcError } = await supabase.rpc('activate_plan_direct', {
+    p_plan_id: planId,
+    p_duration_months: durationMonths,
+    p_amount_kobo: amountKobo,
+    p_tx_ref: details?.reference ?? null,
+  });
+
+  if (rpcError) {
+    orderPlacedRef.current = false;
+    Alert.alert('Subscription failed', rpcError.message);
+    return false;
+  }
+
+  return true;
+};
+
   const placeOrder = async (reference: string) => {
     if (orderPlacedRef.current) return true;
     orderPlacedRef.current = true;
@@ -178,6 +235,28 @@ export default function FundWalletAccountScreen() {
     try {
       draft = JSON.parse(order ?? '{}');
     } catch {}
+
+    if (isEwash && draft.covered) {
+      const coveredLines: { id?: string; name: string; qty: number }[] = draft.lines ?? [];
+      const { error: planError } = await supabase.rpc('schedule_plan_pickup', {
+        p_items: coveredLines.map((l) => ({ id: l.id, name: l.name, qty: l.qty })),
+        p_express: !!draft.express,
+        p_pickup_date_id: draft.pickupDateId ?? '',
+        p_pickup_time: draft.pickupTime ?? '',
+        p_address: draft.pickupAddress ?? '',
+        p_notes: draft.notes || null,
+        p_tx_ref: reference,
+      });
+      if (planError) {
+        orderPlacedRef.current = false;
+        Alert.alert(
+          'Pickup not scheduled',
+          `${planErrorMessage(planError.message)}\n\nYour payment reference is ${reference}.`
+        );
+        return false;
+      }
+      return true;
+    }
 
     const { data: { session } } = await supabase.auth.getSession();
     const total = Number(amount);
@@ -227,9 +306,33 @@ export default function FundWalletAccountScreen() {
   };
 
   const handlePaid = async (reference: string) => {
+    if (handledRef.current) return;
+    handledRef.current = true;
+
+    if (isSubscription) {
+      const ok = await createSubscription();
+      if (!ok) {
+        handledRef.current = false;
+        setConfirmed(false);
+        return;
+      }
+      refreshReferrals();
+      const title = String(parsedDraft.metadata?.title ?? 'subscription');
+      setSuccess({
+        title: 'Subscription activated',
+        message: `Your payment for the ${title} was received and your plan is now active.`,
+        redirect: () => router.replace('/wash' as any),
+      });
+      return;
+    }
+
     if (isOrder) {
       const placed = await placeOrder(reference);
-      if (!placed) return;
+      if (!placed) {
+        handledRef.current = false;
+        setConfirmed(false);
+        return;
+      }
 
       if (isEchop) {
         let draft: any = {};
@@ -238,27 +341,42 @@ export default function FundWalletAccountScreen() {
         } catch {}
         clearCart();
         refreshReferrals();
-        router.replace({
-          pathname: '/order-success',
-          params: {
-            orderId: draft.ref,
-            total: String(amount),
-            items: String(draft.itemCount ?? ''),
-            slot: draft.slot ?? '',
-            paymentMethod: 'transfer',
+        const ref = draft.ref;
+        const totalAmt = String(amount);
+        const items = String(draft.itemCount ?? '');
+        const slot = draft.slot ?? '';
+        setSuccess({
+          title: 'Order placed',
+          message: `Your E-Chop order #${ref} is confirmed and being prepared.`,
+          redirect: () => {
+            router.replace({
+              pathname: '/order-success',
+              params: {
+                orderId: ref,
+                total: totalAmt,
+                items,
+                slot,
+                paymentMethod: 'transfer',
+              },
+            } as any);
           },
-        } as any);
+        });
         return;
       }
 
-      Alert.alert('Payment Received', 'Your pickup has been scheduled.', [
-        { text: 'OK', onPress: () => router.replace('/order' as any) },
-      ]);
+      setSuccess({
+        title: 'Pickup scheduled',
+        message: 'Your payment has been confirmed and your laundry pickup is scheduled.',
+        redirect: () => router.replace('/order' as any),
+      });
       return;
     }
-    Alert.alert('Wallet Funded', 'Your payment has been confirmed.', [
-      { text: 'OK', onPress: () => router.replace('/wallet' as any) },
-    ]);
+
+    setSuccess({
+      title: 'Wallet funded',
+      message: 'Your payment has been confirmed and your wallet has been updated.',
+      redirect: () => router.replace('/wallet' as any),
+    });
   };
 
   const copy = async (value: string) => {
@@ -266,7 +384,8 @@ export default function FundWalletAccountScreen() {
   };
 
   const handleConfirm = async () => {
-    if (checking || !details || confirmed) return;
+    if (checking || !details || confirmed || confirmLockedRef.current) return;
+    confirmLockedRef.current = true;
     setChecking(true);
     const { data: txn } = await supabase
       .from('wallet_transactions')
@@ -290,7 +409,7 @@ export default function FundWalletAccountScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <StatusBar style="dark" />
-        <Feather name="alert-circle" size={ms(32)} color="#FF3B30" />
+        <Feather name="alert-circle" size={32} color="#FF3B30" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => router.back()}>
           <Text style={styles.retryBtnText}>Go Back</Text>
@@ -314,6 +433,7 @@ export default function FundWalletAccountScreen() {
     : 'Hemera';
   const accountName = details.accountName ?? derivedName;
   const fraction = details.expiresInSeconds > 0 ? secondsLeft / details.expiresInSeconds : 0;
+  const confirmDisabled = checking || confirmLockedRef.current;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -327,12 +447,12 @@ export default function FundWalletAccountScreen() {
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-              <Feather name="arrow-left" size={ms(18)} color={ui.textPrimary} />
+              <Feather name="arrow-left" size={18} color={ui.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.title}>{isEwash ? 'E-Wash' : isEchop ? 'E-Chop' : 'Fund Wallet'}</Text>
+            <Text style={styles.title}>{isSubscription ? 'Subscription' : isEwash ? 'E-Wash' : isEchop ? 'E-Chop' : 'Fund Wallet'}</Text>
             <Text style={styles.subtitle}>
               Transfer <Text style={styles.subtitleBlue}>exactly {formatNaira(details.amount)}</Text> to the account
-              below to {isEwash ? 'pay for your pickup' : isEchop ? 'pay for your order' : 'fund your wallet'}.
+              below to {isSubscription ? 'pay for your subscription' : isEwash ? 'pay for your pickup' : isEchop ? 'pay for your order' : 'fund your wallet'}.
             </Text>
           </View>
 
@@ -349,7 +469,7 @@ export default function FundWalletAccountScreen() {
 
         <View style={styles.infoCard}>
           <View style={styles.infoIconCircle}>
-            <Feather name="shield" size={ms(20)} color={ui.blue} />
+            <Feather name="shield" size={18} color={ui.blue} />
           </View>
           <View style={styles.infoTextBlock}>
             <Text style={styles.infoTitle}>One-time Virtual Account</Text>
@@ -358,9 +478,9 @@ export default function FundWalletAccountScreen() {
             </Text>
           </View>
           <View style={styles.illustration}>
-            <MaterialCommunityIcons name="bank" size={ms(46)} color={ui.blue} />
+            <MaterialCommunityIcons name="bank" size={40} color={ui.blue} />
             <View style={styles.illustrationBadge}>
-              <MaterialCommunityIcons name="shield-check" size={ms(14)} color={ui.green} />
+              <MaterialCommunityIcons name="shield-check" size={12} color={ui.green} />
             </View>
           </View>
         </View>
@@ -368,13 +488,13 @@ export default function FundWalletAccountScreen() {
         <View style={styles.detailsCard}>
           <View style={styles.detailRow}>
             <View style={styles.iconTile}>
-              <MaterialCommunityIcons name="bank-outline" size={ms(22)} color={ui.blue} />
+              <MaterialCommunityIcons name="bank-outline" size={20} color={ui.blue} />
             </View>
             <View style={styles.detailBody}>
               <Text style={styles.detailLabel}>BANK</Text>
               <Text style={styles.detailValue}>{details.bankName}</Text>
               <View style={styles.licensedRow}>
-                <MaterialCommunityIcons name="shield-check" size={ms(13)} color={ui.green} />
+                <MaterialCommunityIcons name="shield-check" size={12} color={ui.green} />
                 <Text style={styles.licensedText}>Licensed by CBN</Text>
               </View>
             </View>
@@ -384,7 +504,7 @@ export default function FundWalletAccountScreen() {
 
           <View style={styles.detailRow}>
             <View style={styles.iconTile}>
-              <MaterialCommunityIcons name="wallet-outline" size={ms(22)} color={ui.blue} />
+              <MaterialCommunityIcons name="wallet-outline" size={20} color={ui.blue} />
             </View>
             <View style={styles.detailBody}>
               <Text style={styles.detailLabel}>ACCOUNT NUMBER</Text>
@@ -395,7 +515,7 @@ export default function FundWalletAccountScreen() {
               onPress={() => copy(details.accountNumber)}
               activeOpacity={0.8}
             >
-              <Feather name="copy" size={ms(14)} color={ui.blue} />
+              <Feather name="copy" size={13} color={ui.blue} />
               <Text style={styles.copyBtnText}>Copy</Text>
             </TouchableOpacity>
           </View>
@@ -404,7 +524,7 @@ export default function FundWalletAccountScreen() {
 
           <View style={styles.detailRow}>
             <View style={styles.iconTile}>
-              <Feather name="user" size={ms(20)} color={ui.blue} />
+              <Feather name="user" size={18} color={ui.blue} />
             </View>
             <View style={styles.detailBody}>
               <Text style={styles.detailLabel}>ACCOUNT NAME</Text>
@@ -416,7 +536,7 @@ export default function FundWalletAccountScreen() {
 
           <View style={styles.detailRow}>
             <View style={styles.iconTile}>
-              <Feather name="file-text" size={ms(20)} color={ui.blue} />
+              <Feather name="file-text" size={18} color={ui.blue} />
             </View>
             <View style={styles.detailBody}>
               <Text style={styles.detailLabel}>REFERENCE</Text>
@@ -427,7 +547,7 @@ export default function FundWalletAccountScreen() {
               onPress={() => copy(details.reference)}
               activeOpacity={0.8}
             >
-              <Feather name="copy" size={ms(14)} color={ui.blue} />
+              <Feather name="copy" size={13} color={ui.blue} />
               <Text style={styles.copyBtnText}>Copy</Text>
             </TouchableOpacity>
           </View>
@@ -444,7 +564,7 @@ export default function FundWalletAccountScreen() {
         </View>
 
         <View style={styles.warningBanner}>
-          <Feather name="alert-circle" size={ms(28)} color={ui.orange} />
+          <Feather name="alert-circle" size={24} color={ui.orange} />
           <View style={styles.warningTextBlock}>
             <Text style={styles.warningTitle}>Important</Text>
             <Text style={styles.warningText}>
@@ -455,9 +575,9 @@ export default function FundWalletAccountScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.confirmButton, checking && styles.confirmButtonDisabled]}
+          style={[styles.confirmButton, confirmDisabled && styles.confirmButtonDisabled]}
           activeOpacity={0.85}
-          disabled={checking}
+          disabled={confirmDisabled}
           onPress={handleConfirm}
         >
           {checking ? (
@@ -465,7 +585,7 @@ export default function FundWalletAccountScreen() {
           ) : (
             <>
               <Text style={styles.confirmButtonText}>I've Made the Transfer</Text>
-              <Feather name="arrow-right" size={ms(20)} color="#fff" style={styles.confirmArrow} />
+              <Feather name="arrow-right" size={18} color="#fff" style={styles.confirmArrow} />
             </>
           )}
         </TouchableOpacity>
@@ -479,10 +599,25 @@ export default function FundWalletAccountScreen() {
         </TouchableOpacity>
 
         <View style={styles.securedRow}>
-          <Feather name="lock" size={ms(14)} color={ui.green} />
+          <Feather name="lock" size={13} color={ui.green} />
           <Text style={styles.securedText}>Secured by Flutterwave</Text>
         </View>
       </ScrollView>
+
+      {success && (
+        <AppDialog
+          visible
+          tone="success"
+          title={success.title}
+          message={success.message}
+          primaryLabel="OK"
+          onPrimary={() => {
+            const go = success.redirect;
+            setSuccess(null);
+            go();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -531,99 +666,99 @@ const ringStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  time: { fontSize: 16, fontFamily: fonts.poppins.bold, color: '#fff', lineHeight: 20 },
-  unit: { fontSize: 10.5, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.7)' },
+  time: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff', lineHeight: 18 },
+  unit: { fontSize: 10, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.7)' },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: ui.background },
-  centered: { justifyContent: 'center', alignItems: 'center', gap: ms(14), paddingHorizontal: ms(30) },
-  errorText: { fontSize: ms(13.5), fontFamily: fonts.poppins.medium, color: ui.textSecondary, textAlign: 'center' },
-  retryBtn: { backgroundColor: ui.blue, paddingHorizontal: ms(20), paddingVertical: ms(12), borderRadius: ms(20) },
-  retryBtnText: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: '#fff' },
+  centered: { justifyContent: 'center', alignItems: 'center', gap: 14, paddingHorizontal: 30 },
+  errorText: { fontSize: 13, fontFamily: fonts.poppins.medium, color: ui.textSecondary, textAlign: 'center' },
+  retryBtn: { backgroundColor: ui.blue, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20 },
+  retryBtnText: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
 
   scroll: { flex: 1 },
-  content: { paddingHorizontal: ms(20), paddingTop: ms(4) },
+  content: { paddingHorizontal: 20, paddingTop: 4 },
 
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: ms(12),
-    marginBottom: ms(18),
+    gap: 12,
+    marginBottom: 16,
   },
   headerLeft: { flex: 1 },
   backBtn: {
-    width: ms(40),
-    height: ms(40),
-    borderRadius: ms(20),
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: ui.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: ms(14),
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  title: { fontSize: ms(30), lineHeight: ms(38), fontFamily: fonts.poppins.bold, color: ui.textPrimary },
+  title: { fontSize: 22, lineHeight: 28, fontFamily: fonts.poppins.bold, color: ui.textPrimary },
   subtitle: {
-    fontSize: ms(13),
-    lineHeight: ms(20),
+    fontSize: 11.5,
+    lineHeight: 17,
     fontFamily: fonts.poppins.regular,
     color: ui.textSecondary,
-    marginTop: ms(4),
+    marginTop: 4,
   },
   subtitleBlue: { fontFamily: fonts.poppins.semiBold, color: ui.blue },
 
   amountBadge: {
     backgroundColor: ui.surface,
-    borderRadius: ms(18),
-    paddingHorizontal: ms(16),
-    paddingVertical: ms(14),
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    marginTop: ms(54),
+    marginTop: 50,
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  amountBadgeLabel: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: ui.textSecondary },
-  amountBadgeValue: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: ui.blue, marginVertical: ms(2) },
-  changeText: { fontSize: ms(12.5), fontFamily: fonts.poppins.semiBold, color: ui.blue, marginTop: ms(4) },
+  amountBadgeLabel: { fontSize: 10.5, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  amountBadgeValue: { fontSize: 16, fontFamily: fonts.poppins.bold, color: ui.blue, marginVertical: 2 },
+  changeText: { fontSize: 11.5, fontFamily: fonts.poppins.semiBold, color: ui.blue, marginTop: 3 },
 
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(12),
+    gap: 10,
     backgroundColor: '#EFF3FF',
     borderWidth: 1,
     borderColor: '#E1E8FB',
-    borderRadius: ms(18),
-    padding: ms(14),
-    marginBottom: ms(14),
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
   },
   infoIconCircle: {
-    width: ms(48),
-    height: ms(48),
-    borderRadius: ms(24),
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#E1E8FB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   infoTextBlock: { flex: 1 },
-  infoTitle: { fontSize: ms(13.5), fontFamily: fonts.poppins.bold, color: ui.textPrimary, marginBottom: ms(3) },
-  infoSubtitle: { fontSize: ms(11.5), lineHeight: ms(17), fontFamily: fonts.poppins.regular, color: ui.textSecondary },
-  illustration: { width: ms(56), height: ms(56), alignItems: 'center', justifyContent: 'center' },
+  infoTitle: { fontSize: 12, fontFamily: fonts.poppins.bold, color: ui.textPrimary, marginBottom: 2 },
+  infoSubtitle: { fontSize: 10.5, lineHeight: 15, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  illustration: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   illustrationBadge: {
     position: 'absolute',
     right: 0,
-    bottom: 2,
-    width: ms(20),
-    height: ms(20),
-    borderRadius: ms(10),
+    bottom: 0,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -631,84 +766,84 @@ const styles = StyleSheet.create({
 
   detailsCard: {
     backgroundColor: ui.surface,
-    borderRadius: ms(20),
-    paddingHorizontal: ms(16),
-    marginBottom: ms(14),
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: ms(14), paddingVertical: ms(16) },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   detailDivider: { height: 1, backgroundColor: ui.border },
   iconTile: {
-    width: ms(46),
-    height: ms(46),
-    borderRadius: ms(14),
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: ui.blueSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   detailBody: { flex: 1 },
   detailLabel: {
-    fontSize: ms(11),
+    fontSize: 10,
     fontFamily: fonts.poppins.medium,
     letterSpacing: 0.6,
     color: ui.textSecondary,
-    marginBottom: ms(2),
+    marginBottom: 2,
   },
-  detailValue: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: ui.textPrimary },
-  detailValueLarge: { fontSize: ms(24), fontFamily: fonts.poppins.bold, color: ui.textPrimary, letterSpacing: 0.5 },
-  detailValueSmall: { fontSize: ms(14.5), fontFamily: fonts.poppins.semiBold, color: ui.textPrimary },
-  licensedRow: { flexDirection: 'row', alignItems: 'center', gap: ms(5), marginTop: ms(4) },
-  licensedText: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  detailValue: { fontSize: 14, fontFamily: fonts.poppins.bold, color: ui.textPrimary },
+  detailValueLarge: { fontSize: 16, fontFamily: fonts.poppins.bold, color: ui.textPrimary, letterSpacing: 0.3 },
+  detailValueSmall: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: ui.textPrimary },
+  licensedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  licensedText: { fontSize: 10.5, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(6),
+    gap: 5,
     borderWidth: 1.2,
     borderColor: ui.blue,
-    borderRadius: ms(12),
-    paddingHorizontal: ms(16),
-    paddingVertical: ms(10),
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  copyBtnText: { fontSize: ms(13), fontFamily: fonts.poppins.semiBold, color: ui.blue },
+  copyBtnText: { fontSize: 12, fontFamily: fonts.poppins.semiBold, color: ui.blue },
 
   expiryBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(16),
+    gap: 14,
     backgroundColor: ui.navy,
-    borderRadius: ms(18),
-    paddingHorizontal: ms(16),
-    paddingVertical: ms(16),
-    marginBottom: ms(14),
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
   },
   expiryTextBlock: { flex: 1 },
-  expiryTitle: { fontSize: ms(14.5), fontFamily: fonts.poppins.bold, color: '#fff' },
+  expiryTitle: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
   expirySubtitle: {
-    fontSize: ms(11.5),
-    lineHeight: ms(18),
+    fontSize: 10.5,
+    lineHeight: 15,
     fontFamily: fonts.poppins.regular,
     color: 'rgba(255,255,255,0.7)',
-    marginTop: ms(4),
+    marginTop: 3,
   },
 
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(14),
+    gap: 12,
     backgroundColor: ui.warningBg,
     borderWidth: 1,
     borderColor: ui.warningBorder,
-    borderRadius: ms(18),
-    padding: ms(16),
-    marginBottom: ms(16),
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 14,
   },
   warningTextBlock: { flex: 1 },
-  warningTitle: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: ui.textPrimary, marginBottom: ms(2) },
-  warningText: { fontSize: ms(12), lineHeight: ms(18), fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  warningTitle: { fontSize: 12, fontFamily: fonts.poppins.bold, color: ui.textPrimary, marginBottom: 2 },
+  warningText: { fontSize: 11, lineHeight: 15, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
   warningAmount: { fontFamily: fonts.poppins.bold, color: ui.orange },
 
   confirmButton: {
@@ -716,16 +851,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: ui.blue,
-    height: ms(58),
-    borderRadius: ms(16),
+    height: 50,
+    borderRadius: 14,
   },
   confirmButtonDisabled: { opacity: 0.7 },
-  confirmButtonText: { fontSize: ms(16), fontFamily: fonts.poppins.semiBold, color: '#fff' },
-  confirmArrow: { position: 'absolute', right: 20 },
+  confirmButtonText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: '#fff' },
+  confirmArrow: { position: 'absolute', right: 18 },
 
-  helpLink: { alignItems: 'center', paddingVertical: ms(16) },
-  helpText: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: ui.blue },
+  helpLink: { alignItems: 'center', paddingVertical: 14 },
+  helpText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: ui.blue },
 
-  securedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ms(8) },
-  securedText: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+  securedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  securedText: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
 });

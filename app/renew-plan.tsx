@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -7,30 +14,10 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
+import { WASH_DURATIONS, durationTotal, planFromName } from '../src/constants/washPlans';
+import { useAuth } from '../src/context/AuthContext';
+import { usePlanStatus } from '../src/hooks/usePlanStatus';
 import { ms } from '../src/utils/responsive';
-
-type Duration = {
-  key: string;
-  label: string;
-  months: number;
-  price: number;
-  perMonth: number;
-  savePct?: number;
-};
-
-const DURATIONS: Duration[] = [
-  { key: '1m', label: '1 Month', months: 1, price: 12000, perMonth: 12000 },
-  { key: '3m', label: '3 Months', months: 3, price: 32000, perMonth: 10667, savePct: 11 },
-  { key: '6m', label: '6 Months', months: 6, price: 58000, perMonth: 9667, savePct: 19 },
-  { key: '12m', label: '12 Months', months: 12, price: 104000, perMonth: 8667, savePct: 28 },
-];
-
-const FEATURES = [
-  { icon: 'basket-outline', label: 'Unlimited pickup requests' },
-  { icon: 'truck-fast-outline', label: 'Free delivery on every order' },
-  { icon: 'flash-outline', label: 'Priority processing (24hr turnaround)' },
-  { icon: 'shield-check-outline', label: 'Damage protection on all items' },
-] as const;
 
 function formatNaira(value: number) {
   return `₦${value.toLocaleString()}`;
@@ -39,9 +26,76 @@ function formatNaira(value: number) {
 export default function RenewPlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
+  const { status, planName, renewsOn, expiredOn, allowance, isLoading } = usePlanStatus();
   const [selected, setSelected] = useState<string>('3m');
 
-  const activeDuration = DURATIONS.find((d) => d.key === selected) ?? DURATIONS[0];
+  const plan = planFromName(planName);
+  const duration = WASH_DURATIONS.find((d) => d.key === selected) ?? WASH_DURATIONS[0];
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color={washColors.navySolid} />
+      </View>
+    );
+  }
+
+  // Nothing to renew (no plan on file, or a plan we don't recognise)
+  if (status === 'none' || !plan) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <StatusBar style="dark" />
+        <Text style={styles.emptyTitle}>No plan to renew</Text>
+        <Text style={styles.emptyText}>Choose a laundry plan to get started with pickups.</Text>
+        <TouchableOpacity
+          style={styles.renewButton}
+          activeOpacity={0.85}
+          onPress={() => router.replace('/choose-plan' as any)}
+        >
+          <Text style={styles.renewButtonText}>Choose a Plan</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const isActive = status === 'active';
+  const total = durationTotal(plan.price, duration);
+  const unusedPickups = isActive ? allowance?.pickupsRemaining ?? 0 : 0;
+
+  // Renew Now opens the Flutterwave transfer screen. The renewal order is only created
+  // there once payment is confirmed, followed by the success pop-up and order details.
+  const handleRenew = () => {
+    if (!session?.user.id) return;
+
+    const ref = `WSH-${Math.floor(100000 + Math.random() * 900000)}`;
+    const draft = {
+      kind: 'subscription',
+      metadata: {
+        ref,
+        kind: 'subscription',
+        renewal: true,
+        title: `${plan.name} Plan · ${duration.label} renewal`,
+        plan_id: plan.id,
+        duration_months: duration.months,
+        subtotal: total,
+        total,
+        payment_method: 'transfer',
+        customer_email: session.user.email ?? '',
+        unused_pickups: unusedPickups,
+      },
+    };
+
+    router.push({
+      pathname: '/fund-wallet-account',
+      params: {
+        amount: String(total),
+        service: 'ewash',
+        order: JSON.stringify(draft),
+      },
+    } as any);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -65,20 +119,43 @@ export default function RenewPlanScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.planCard}
         >
-          <Text style={styles.planTitle}>Standard Plan</Text>
+          <Text style={styles.planTitle}>{plan.name} Plan</Text>
           <View style={styles.expiredBadge}>
-            <Feather name="clock" size={ms(12)} color="#fff" />
-            <Text style={styles.expiredText}>Expired July 6, 2026</Text>
+            <Feather name={isActive ? 'check-circle' : 'clock'} size={ms(12)} color="#fff" />
+            <Text style={styles.expiredText}>
+              {isActive ? `Active · renews ${renewsOn}` : `Expired ${expiredOn}`}
+            </Text>
           </View>
           <Text style={styles.planDescription}>
-            Pick a duration below to renew and keep enjoying unlimited pickups and free delivery.
+            Pick a duration below to renew and keep your {formatNaira(plan.price)} / month plan going.
           </Text>
         </LinearGradient>
 
+        {isActive && unusedPickups > 0 && (
+          <View style={styles.rolloverCard}>
+            <Feather name="repeat" size={ms(16)} color={washColors.textPrimary} style={{ marginTop: ms(2) }} />
+            <Text style={styles.rolloverText}>
+              You have {unusedPickups} unused pickup{unusedPickups === 1 ? '' : 's'}. Renew before{' '}
+              {renewsOn} and {unusedPickups === 1 ? 'it rolls' : 'they roll'} over to your new plan. Once
+              your plan expires, unused pickups are lost.
+            </Text>
+          </View>
+        )}
+
+        {!isActive && (
+          <View style={styles.rolloverCard}>
+            <Feather name="info" size={ms(16)} color={washColors.textPrimary} style={{ marginTop: ms(2) }} />
+            <Text style={styles.rolloverText}>
+              Your plan has expired, so any unused pickups from it can no longer roll over.
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.sectionLabel}>CHOOSE DURATION</Text>
         <View style={styles.durationList}>
-          {DURATIONS.map((d) => {
+          {WASH_DURATIONS.map((d) => {
             const isSelected = d.key === selected;
+            const dTotal = durationTotal(plan.price, d);
             return (
               <TouchableOpacity
                 key={d.key}
@@ -92,16 +169,16 @@ export default function RenewPlanScreen() {
 
                 <View style={styles.durationInfo}>
                   <Text style={styles.durationLabel}>{d.label}</Text>
-                  <Text style={styles.durationSub}>{formatNaira(d.perMonth)} / month</Text>
+                  <Text style={styles.durationSub}>{formatNaira(Math.round(dTotal / d.months))} / month</Text>
                 </View>
 
                 <View style={styles.durationRight}>
-                  {d.savePct ? (
+                  {d.savePct > 0 ? (
                     <View style={styles.saveBadge}>
                       <Text style={styles.saveBadgeText}>SAVE {d.savePct}%</Text>
                     </View>
                   ) : null}
-                  <Text style={styles.durationPrice}>{formatNaira(d.price)}</Text>
+                  <Text style={styles.durationPrice}>{formatNaira(dTotal)}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -110,12 +187,12 @@ export default function RenewPlanScreen() {
 
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>WHAT'S INCLUDED</Text>
         <View style={styles.featuresCard}>
-          {FEATURES.map((f, i) => (
-            <View key={f.label} style={[styles.featureRow, i !== FEATURES.length - 1 && styles.featureRowDivider]}>
+          {plan.features.map((label, i) => (
+            <View key={label} style={[styles.featureRow, i !== plan.features.length - 1 && styles.featureRowDivider]}>
               <View style={styles.featureIconWrap}>
-                <MaterialCommunityIcons name={f.icon} size={ms(18)} color={washColors.navySolid} />
+                <MaterialCommunityIcons name="check" size={ms(18)} color={washColors.navySolid} />
               </View>
-              <Text style={styles.featureLabel}>{f.label}</Text>
+              <Text style={styles.featureLabel}>{label}</Text>
             </View>
           ))}
         </View>
@@ -126,12 +203,12 @@ export default function RenewPlanScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.footerSummary}>
           <Text style={styles.footerSummaryLabel}>Total</Text>
-          <Text style={styles.footerSummaryPrice}>{formatNaira(activeDuration.price)}</Text>
+          <Text style={styles.footerSummaryPrice}>{formatNaira(total)}</Text>
         </View>
         <TouchableOpacity
           style={styles.renewButton}
           activeOpacity={0.85}
-          onPress={() => router.back()}
+          onPress={handleRenew}
         >
           <Text style={styles.renewButtonText}>Renew Now</Text>
           <Feather name="arrow-right" size={ms(16)} color="#fff" />
@@ -269,6 +346,40 @@ const styles = StyleSheet.create({
   featureLabel: { flex: 1, fontSize: ms(13), fontFamily: fonts.poppins.regular, color: washColors.textPrimary },
 
   bottomSpacer: { height: ms(100) },
+
+  centered: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: ms(32) },
+  emptyTitle: {
+    fontSize: ms(18),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: ms(8),
+  },
+  emptyText: {
+    fontSize: ms(13),
+    lineHeight: ms(20),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: ms(20),
+  },
+  rolloverCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: ms(10),
+    backgroundColor: '#FBF3D9',
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(24),
+  },
+  rolloverText: {
+    flex: 1,
+    fontSize: ms(12.5),
+    lineHeight: ms(18),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textPrimary,
+  },
+  renewButtonDisabled: { opacity: 0.7 },
 
   footer: {
     position: 'absolute',

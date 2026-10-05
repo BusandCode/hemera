@@ -26,18 +26,15 @@ import { useReferral } from '../src/context/ReferralContext';
 import { useLocation } from '../src/context/LocationContext';
 import { REFERRAL_FOOD_DISCOUNT } from '../src/constants/referral';
 import { findPromo, type PromoCode } from '../src/constants/promoCodes';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ms, clamp } from '../src/utils/responsive';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HORIZONTAL_PADDING = clamp(SCREEN_WIDTH * 0.055, 14, 32);
-// Proportional to screen width, but capped so tablets don't get giant thumbnails.
-const ITEM_IMAGE_SIZE = clamp(SCREEN_WIDTH * 0.18, 60, 110);
-const SUGGESTION_IMAGE_SIZE = clamp(SCREEN_WIDTH * 0.24, 80, 140);
+const HORIZONTAL_PADDING = SCREEN_WIDTH * 0.055;
+const ITEM_IMAGE_SIZE = SCREEN_WIDTH * 0.18;
+const SUGGESTION_IMAGE_SIZE = SCREEN_WIDTH * 0.24;
 
 const DELIVERY_FEE = 500;
 const SERVICE_FEE = 200;
@@ -107,7 +104,6 @@ function animateLayout() {
 }
 
 export default function CartScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     lines,
@@ -271,13 +267,13 @@ export default function CartScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <View style={[styles.header, { paddingTop: insets.top + ms(10) }]}>
+      <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-left" size={ms(22)} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={22} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Cart</Text>
         {!isEmpty ? (
@@ -292,7 +288,7 @@ export default function CartScreen() {
       {isEmpty ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconWrap}>
-            <Feather name="shopping-cart" size={ms(34)} color={foodColors.textMuted} />
+            <Feather name="shopping-cart" size={34} color={foodColors.textMuted} />
           </View>
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySubtitle}>
@@ -303,7 +299,7 @@ export default function CartScreen() {
             onPress={() => router.push('/echop')}
           >
             <Text style={styles.browseButtonText}>Browse Menu</Text>
-            <Feather name="arrow-right" size={ms(16)} color="#fff" />
+            <Feather name="arrow-right" size={16} color="#fff" />
           </TouchableOpacity>
         </View>
       ) : (
@@ -342,7 +338,7 @@ export default function CartScreen() {
                         >
                           <Feather
                             name={qty === 1 ? 'trash-2' : 'minus'}
-                            size={ms(13)}
+                            size={13}
                             color={foodColors.textPrimary}
                           />
                         </TouchableOpacity>
@@ -351,7 +347,7 @@ export default function CartScreen() {
                           style={[styles.stepperButton, styles.stepperButtonPrimary]}
                           onPress={() => handleSetQty(item.id, qty + 1)}
                         >
-                          <Feather name="plus" size={ms(13)} color="#fff" />
+                          <Feather name="plus" size={13} color="#fff" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -362,7 +358,7 @@ export default function CartScreen() {
                     onPress={() => handleRemove(item.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Feather name="x" size={ms(14)} color={foodColors.textMuted} />
+                    <Feather name="x" size={14} color={foodColors.textMuted} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -372,7 +368,7 @@ export default function CartScreen() {
               <Text style={styles.sectionLabel}>Promo Code</Text>
               <View style={styles.promoRow}>
                 <View style={[styles.promoInputWrap, !!promoError && styles.promoInputWrapError]}>
-                  <Feather name="tag" size={ms(15)} color={foodColors.textMuted} />
+                  <Feather name="tag" size={15} color={foodColors.textMuted} />
                   <TextInput
                     style={styles.promoInput}
                     placeholder="Enter promo code"
@@ -477,7 +473,7 @@ export default function CartScreen() {
                         >
                           <Feather
                             name={inCart ? 'check' : 'plus'}
-                            size={ms(13)}
+                            size={13}
                             color="#fff"
                           />
                           <Text style={styles.suggestionAddText}>
@@ -494,7 +490,7 @@ export default function CartScreen() {
             <View style={styles.bottomSpacer} />
           </ScrollView>
 
-          <View style={[styles.checkoutBar, { paddingBottom: insets.bottom + ms(14) }]}>
+          <View style={styles.checkoutBar}>
             <View style={styles.checkoutTotalBlock}>
               <Text style={styles.checkoutTotalLabel}>Total</Text>
               <Text style={styles.checkoutTotalValue}>{formatNaira(total)}</Text>
@@ -514,12 +510,12 @@ export default function CartScreen() {
               }
             >
               <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
-              <Feather name="arrow-right" size={ms(16)} color="#fff" />
+              <Feather name="arrow-right" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
 
           {promoNotice && (
-            <View style={[styles.noticeOverlay, { bottom: insets.bottom + ms(88) }]} pointerEvents="box-none">
+            <View style={styles.noticeOverlay} pointerEvents="box-none">
               <View
                 style={[
                   styles.noticeCard,
@@ -530,7 +526,7 @@ export default function CartScreen() {
                   <View style={styles.noticeTitleWrap}>
                     <Feather
                       name={promoNotice.type === 'success' ? 'check-circle' : 'alert-circle'}
-                      size={ms(18)}
+                      size={18}
                       color={promoNotice.type === 'success' ? foodColors.success : foodColors.primary}
                     />
                     <Text style={styles.noticeTitle}>{promoNotice.title}</Text>
@@ -540,7 +536,7 @@ export default function CartScreen() {
                     onPress={dismissPromoNotice}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Feather name="x" size={ms(16)} color={foodColors.textPrimary} />
+                    <Feather name="x" size={16} color={foodColors.textPrimary} />
                   </TouchableOpacity>
                 </View>
 
@@ -565,31 +561,32 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: ms(16) },
+  content: { paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 16 },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingBottom: ms(14),
+    paddingTop: Platform.OS === 'ios' ? 54 : 42,
+    paddingBottom: 14,
   },
-  backButton: { width: ms(40), height: ms(40), justifyContent: 'center', alignItems: 'flex-start' },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: {
     flex: 1,
-    fontSize: ms(18),
+    fontSize: 18,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
   headerCount: {
-    minWidth: ms(40),
+    minWidth: 40,
     textAlign: 'right',
-    fontSize: ms(12),
+    fontSize: 12,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
   },
-  headerSpacer: { minWidth: ms(40) },
+  headerSpacer: { minWidth: 40 },
 
   emptyState: {
     flex: 1,
@@ -598,130 +595,130 @@ const styles = StyleSheet.create({
     paddingHorizontal: HORIZONTAL_PADDING * 1.5,
   },
   emptyIconWrap: {
-    width: ms(84),
-    height: ms(84),
-    borderRadius: ms(42),
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: ms(18),
+    marginBottom: 18,
   },
   emptyTitle: {
-    fontSize: ms(17),
+    fontSize: 17,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: ms(6),
+    marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: ms(13),
+    fontSize: 13,
     fontFamily: fonts.poppins.regular,
-    lineHeight: ms(19),
+    lineHeight: 19,
     color: foodColors.textSecondary,
     textAlign: 'center',
-    marginBottom: ms(22),
+    marginBottom: 22,
   },
   browseButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(8),
+    gap: 8,
     backgroundColor: foodColors.primary,
-    paddingHorizontal: ms(22),
-    paddingVertical: ms(13),
-    borderRadius: ms(24),
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 24,
   },
-  browseButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
+  browseButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
 
-  itemsSection: { gap: ms(12), marginBottom: ms(22) },
+  itemsSection: { gap: 12, marginBottom: 22 },
   itemCard: {
     flexDirection: 'row',
     backgroundColor: foodColors.surface,
-    borderRadius: ms(16),
-    padding: ms(12),
-    gap: ms(12),
+    borderRadius: 16,
+    padding: 12,
+    gap: 12,
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  itemImage: { width: ITEM_IMAGE_SIZE, height: ITEM_IMAGE_SIZE, borderRadius: ms(12) },
+  itemImage: { width: ITEM_IMAGE_SIZE, height: ITEM_IMAGE_SIZE, borderRadius: 12 },
   itemInfo: { flex: 1, minWidth: 0 },
   itemPartner: {
-    fontSize: ms(10),
+    fontSize: 10,
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.3,
     color: foodColors.badgeBlue,
-    marginBottom: ms(2),
+    marginBottom: 2,
   },
   itemName: {
-    fontSize: ms(14),
+    fontSize: 14,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: ms(3),
+    marginBottom: 3,
   },
   itemDescription: {
-    fontSize: ms(11),
+    fontSize: 11,
     fontFamily: fonts.poppins.regular,
-    lineHeight: ms(15),
+    lineHeight: 15,
     color: foodColors.textSecondary,
-    marginBottom: ms(10),
+    marginBottom: 10,
   },
   itemBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: ms(8),
+    gap: 8,
   },
   itemPrice: {
-    fontSize: ms(14),
+    fontSize: 14,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     flexShrink: 1,
   },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: ms(8) },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepperButton: {
-    width: ms(26),
-    height: ms(26),
-    borderRadius: ms(8),
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepperButtonPrimary: { backgroundColor: foodColors.primary },
   stepperValue: {
-    minWidth: ms(16),
+    minWidth: 16,
     textAlign: 'center',
-    fontSize: ms(13),
+    fontSize: 13,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   removeButton: {
-    width: ms(22),
-    height: ms(22),
-    borderRadius: ms(11),
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: foodColors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   sectionLabel: {
-    fontSize: ms(13),
+    fontSize: 13,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginBottom: ms(10),
+    marginBottom: 10,
   },
 
-  promoSection: { marginBottom: ms(22) },
-  promoRow: { flexDirection: 'row', gap: ms(10) },
+  promoSection: { marginBottom: 22 },
+  promoRow: { flexDirection: 'row', gap: 10 },
   promoInputWrap: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(8),
+    gap: 8,
     backgroundColor: foodColors.surface,
-    borderRadius: ms(12),
-    paddingHorizontal: ms(14),
-    paddingVertical: Platform.OS === 'ios' ? ms(12) : ms(4),
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 4,
     minWidth: 0,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -729,34 +726,34 @@ const styles = StyleSheet.create({
   promoInputWrapError: { borderColor: foodColors.primary },
   promoInput: {
     flex: 1,
-    fontSize: ms(13),
+    fontSize: 13,
     fontFamily: fonts.poppins.regular,
     color: foodColors.textPrimary,
     padding: 0,
   },
   promoApplyButton: {
     backgroundColor: foodColors.primaryDark,
-    paddingHorizontal: ms(18),
-    borderRadius: ms(12),
+    paddingHorizontal: 18,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  promoApplyText: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: '#fff' },
-  promoAppliedRow: { flexDirection: 'row', alignItems: 'center', gap: ms(6), marginTop: ms(8) },
+  promoApplyText: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
+  promoAppliedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   promoAppliedText: {
-    fontSize: ms(12),
+    fontSize: 12,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.success,
     flexShrink: 1,
   },
   promoErrorText: {
-    fontSize: ms(12),
+    fontSize: 12,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
     flexShrink: 1,
   },
 
-  summarySection: { marginBottom: ms(22) },
+  summarySection: { marginBottom: 22 },
   noticeOverlay: {
     position: 'absolute',
     left: 16,
@@ -765,8 +762,8 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   noticeCard: {
-    borderRadius: ms(16),
-    padding: ms(16),
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 12,
@@ -786,50 +783,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: ms(6),
+    marginBottom: 6,
   },
   noticeTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(8),
+    gap: 8,
     flex: 1,
   },
   noticeTitle: {
-    fontSize: ms(14),
+    fontSize: 14,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
   noticeCloseButton: {
-    width: ms(28),
-    height: ms(28),
-    borderRadius: ms(14),
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.04)',
   },
   noticeMessage: {
-    fontSize: ms(12.5),
+    fontSize: 12.5,
     fontFamily: fonts.poppins.regular,
-    lineHeight: ms(18),
+    lineHeight: 18,
     color: foodColors.textSecondary,
-    marginBottom: ms(12),
+    marginBottom: 12,
   },
   noticeButton: {
     alignSelf: 'flex-end',
     backgroundColor: foodColors.primary,
-    paddingHorizontal: ms(16),
-    paddingVertical: ms(9),
-    borderRadius: ms(10),
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
   },
   noticeButtonText: {
-    fontSize: ms(12),
+    fontSize: 12,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
   summaryCard: {
     backgroundColor: foodColors.surface,
-    borderRadius: ms(16),
-    padding: ms(16),
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -840,37 +837,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: ms(10),
+    marginBottom: 10,
   },
   summaryLabel: {
-    fontSize: ms(13),
+    fontSize: 13,
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
   },
   summaryValue: {
-    fontSize: ms(13),
+    fontSize: 13,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary,
   },
   discountLabel: { color: foodColors.success },
-  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: ms(6) },
-  totalLabel: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  totalValue: { fontSize: ms(17), fontFamily: fonts.poppins.bold, color: foodColors.primary },
+  summaryDivider: { height: 1, backgroundColor: foodColors.border, marginVertical: 6 },
+  totalLabel: { fontSize: 15, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  totalValue: { fontSize: 17, fontFamily: fonts.poppins.bold, color: foodColors.primary },
 
-  suggestionsSection: { marginBottom: ms(8), marginHorizontal: -HORIZONTAL_PADDING },
+  suggestionsSection: { marginBottom: 8, marginHorizontal: -HORIZONTAL_PADDING },
   suggestionsHeader: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    marginBottom: ms(10),
+    marginBottom: 10,
   },
   suggestionsRow: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    gap: ms(12),
+    gap: 12,
   },
   suggestionCard: {
     width: SUGGESTION_IMAGE_SIZE + 40,
     backgroundColor: foodColors.surface,
-    borderRadius: ms(16),
-    padding: ms(10),
+    borderRadius: 16,
+    padding: 10,
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -880,66 +877,67 @@ const styles = StyleSheet.create({
   suggestionImage: {
     width: '100%',
     height: SUGGESTION_IMAGE_SIZE,
-    borderRadius: ms(12),
-    marginBottom: ms(8),
+    borderRadius: 12,
+    marginBottom: 8,
   },
   suggestionPartner: {
-    fontSize: ms(9.5),
+    fontSize: 9.5,
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.3,
     color: foodColors.badgeBlue,
   },
   suggestionName: {
-    fontSize: ms(13),
+    fontSize: 13,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
-    marginTop: ms(1),
+    marginTop: 1,
   },
   suggestionPrice: {
-    fontSize: ms(12.5),
+    fontSize: 12.5,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginTop: ms(3),
-    marginBottom: ms(8),
+    marginTop: 3,
+    marginBottom: 8,
   },
   suggestionAdd: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: ms(5),
+    gap: 5,
     backgroundColor: foodColors.primaryDark,
-    paddingVertical: ms(8),
-    borderRadius: ms(18),
+    paddingVertical: 8,
+    borderRadius: 18,
   },
   suggestionAddActive: { backgroundColor: foodColors.success },
   suggestionAddText: {
-    fontSize: ms(11.5),
+    fontSize: 11.5,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },
 
-  bottomSpacer: { height: ms(100) },
+  bottomSpacer: { height: 100 },
 
   checkoutBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: ms(14),
+    gap: 14,
     backgroundColor: foodColors.surface,
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: ms(14),
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
   checkoutTotalBlock: { flexShrink: 0 },
   checkoutTotalLabel: {
-    fontSize: ms(11),
+    fontSize: 11,
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginBottom: ms(2),
+    marginBottom: 2,
   },
   checkoutTotalValue: {
-    fontSize: ms(17),
+    fontSize: 17,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
@@ -948,11 +946,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: ms(8),
+    gap: 8,
     backgroundColor: foodColors.primary,
-    paddingVertical: ms(15),
-    borderRadius: ms(26),
+    paddingVertical: 15,
+    borderRadius: 26,
     maxWidth: '68%',
   },
-  checkoutButtonText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
+  checkoutButtonText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
 });

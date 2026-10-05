@@ -23,7 +23,7 @@ import { ms } from '../src/utils/responsive';
 
 type StatusFilter = 'All' | OrderStatus;
 
-const statusFilters: StatusFilter[] = ['All', 'Delivered', 'In Progress', 'Scheduled', 'Cancelled'];
+const statusFilters: StatusFilter[] = ['All', 'Delivered', 'In Progress', 'Cancelled'];
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
@@ -31,12 +31,13 @@ export default function OrderHistoryScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Every order the user has placed, whatever its status, newest first.
   const { orders, loading, error, refetch } = useOrders();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return orders.filter((o) => {
+      // Orders still in Schedule are hidden from history.
+      if (o.status === 'Scheduled') return false;
       if (statusFilter !== 'All' && o.status !== statusFilter) return false;
       if (!q) return true;
       return (

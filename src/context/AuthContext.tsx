@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getPendingReferral, clearPendingReferral } from '../lib/referralLink';
+import { ensureFreshInstallHandled } from '../lib/freshInstall';
 
 type SignUpDetails = {
   fullName: string;
@@ -30,16 +31,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+
+    (async () => {
+      // On a fresh install, clear any login left over from before the app was deleted.
+      await ensureFreshInstallHandled();
+      if (!active) return;
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!active) return;
       setSession(session);
       setLoading(false);
-    });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+      const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+        setSession(next);
+      });
+      unsubscribe = () => listener.subscription.unsubscribe();
+    })();
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

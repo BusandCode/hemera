@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -18,71 +17,29 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/context/AuthContext';
-import { ms } from '../src/utils/responsive';
-
-type PickupStatus = 'scheduled' | 'picked-up' | 'processing' | 'ready' | 'out-for-delivery';
+import { AppDialog } from '../src/components/AppDialog';
 
 type Pickup = {
-  id: string; // the order's uuid, used for navigation and updates
-  ref: string; // short number shown to the customer
+  id: string;
+  ref: string;
   month: string;
   day: number;
   slot: string;
-  status: PickupStatus;
   sortTime: number;
 };
 
-type StatusIcon = keyof typeof MaterialCommunityIcons.glyphMap;
-
-const STATUS_STYLE: Record<
-  PickupStatus,
-  { label: string; icon: StatusIcon; bg: string; fg: string }
-> = {
-  scheduled: { label: 'Scheduled', icon: 'calendar', bg: '#EDEEF1', fg: '#5F6B77' },
-  'picked-up': { label: 'Picked Up', icon: 'truck', bg: '#DBEAFE', fg: '#1E3A9F' },
-  processing: { label: 'Processing', icon: 'washing-machine', bg: '#DBEAFE', fg: '#1E3A9F' },
-  ready: { label: 'Ready', icon: 'check-circle-outline', bg: '#E3F1E8', fg: '#1F7A4A' },
-  'out-for-delivery': { label: 'Out for Delivery', icon: 'moped', bg: '#E3F1E8', fg: '#1F7A4A' },
+const statusStyle = {
+  label: 'Scheduled',
+  icon: 'calendar' as keyof typeof MaterialCommunityIcons.glyphMap,
+  bg: '#EDEEF1',
+  fg: '#5F6B77',
 };
 
-// Statuses that mean the order is finished, so it isn't "upcoming" any more.
-const FINISHED = new Set([
-  'delivered',
-  'completed',
-  'complete',
-  'fulfilled',
-  'cancelled',
-  'canceled',
-  'failed',
-  'rejected',
-  'refunded',
-]);
-
-function toPickupStatus(raw: string | null): PickupStatus | null {
-  const s = (raw ?? '').toLowerCase().trim().replace(/[\s_]+/g, '-');
-  if (FINISHED.has(s)) return null;
-  switch (s) {
-    case 'scheduled':
-    case 'placed':
-    case 'confirmed':
-    case 'pending':
-      return 'scheduled';
-    case 'picked-up':
-      return 'picked-up';
-    case 'ready':
-      return 'ready';
-    case 'out-for-delivery':
-    case 'on-the-way':
-      return 'out-for-delivery';
-    default:
-      return 'processing'; // in-progress, active, processing...
-  }
-}
+// Only "scheduled" (before the rider picks up) belongs in this list.
+const SCHEDULED_STATUSES = new Set(['scheduled', 'placed', 'confirmed', 'pending']);
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
 
-// Uses the saved pickup date when it's stored as an ISO date; otherwise falls back
-// to when the order was placed.
 function pickupDateOf(meta: Record<string, any>, createdAt: string) {
   const candidates = [meta.pickup_date, meta.pickupDate, meta.pickup_at, meta.date];
   for (const c of candidates) {
@@ -95,10 +52,12 @@ function pickupDateOf(meta: Record<string, any>, createdAt: string) {
 }
 
 function toPickup(row: any): Pickup | null {
-  const status = toPickupStatus(row.status);
-  if (!status) return null;
+  const raw = (row.status ?? '').toLowerCase().trim().replace(/[\s_]+/g, '-');
+  if (!SCHEDULED_STATUSES.has(raw)) return null;
 
   const meta = (row.metadata ?? {}) as Record<string, any>;
+  if (meta.kind === 'subscription') return null;
+
   const when = pickupDateOf(meta, row.created_at);
   const ref = String(meta.ref ?? meta.order_number ?? String(row.id).slice(0, 8).toUpperCase());
 
@@ -108,7 +67,6 @@ function toPickup(row: any): Pickup | null {
     month: when.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
     day: when.getDate(),
     slot: meta.slot ?? meta.pickup_time ?? meta.pickupTime ?? '',
-    status,
     sortTime: when.getTime(),
   };
 }
@@ -118,7 +76,6 @@ const ui = {
   heading: '#1E3A9F',
   blue: '#2563EB',
   dateTile: '#DBEAFE',
-  slate: '#5F6B77',
   chevron: '#8A94A3',
   noticeBg: '#FBF1D5',
   noticeText: '#1E3A9F',
@@ -167,8 +124,6 @@ export default function ScheduleScreen() {
     setLoading(false);
   }, [userId]);
 
-  // Reload whenever the screen comes back into view, so a pickup that was just
-  // scheduled shows up straight away.
   useFocusEffect(
     useCallback(() => {
       load();
@@ -188,34 +143,50 @@ export default function ScheduleScreen() {
     router.push({ pathname: '/order-details', params: { id } } as any);
   };
 
-  const cancelPickup = (pickup: Pickup) => {
-    Alert.alert('Cancel pickup?', `Order #${pickup.ref} will be cancelled.`, [
-      { text: 'Keep pickup', style: 'cancel' },
-      {
-        text: 'Cancel pickup',
-        style: 'destructive',
-        onPress: async () => {
-          if (!userId) return;
-          setBusyId(pickup.id);
-          const { data, error: updateError } = await supabase
-            .from('orders')
-            .update({ status: 'cancelled' })
-            .eq('id', pickup.id)
-            .eq('user_id', userId)
-            .select('id');
-          setBusyId(null);
+  type CancelStep = 'confirm' | 'done' | 'error';
+  const [dialog, setDialog] = useState<{ step: CancelStep; pickup: Pickup; message?: string; notCancellable?: boolean } | null>(
+    null
+  );
+  const [cancelling, setCancelling] = useState(false);
 
-          if (updateError || !data || data.length === 0) {
-            Alert.alert(
-              "Couldn't cancel pickup",
-              updateError?.message ?? 'This pickup could not be cancelled. Please try again.'
-            );
-            return;
-          }
-          setPickups((current) => current.filter((p) => p.id !== pickup.id));
-        },
-      },
-    ]);
+  const cancelPickup = (pickup: Pickup) => {
+    setDialog({ step: 'confirm', pickup });
+  };
+
+  const closeDialog = () => {
+    if (cancelling) return;
+    setDialog(null);
+  };
+
+  const confirmCancel = async () => {
+    if (!dialog || !userId) return;
+    const { pickup } = dialog;
+    setCancelling(true);
+    setBusyId(pickup.id);
+
+    const { error: cancelError } = await supabase.rpc('cancel_order', {
+      p_order_id: pickup.id,
+    });
+
+    setCancelling(false);
+    setBusyId(null);
+
+    if (cancelError) {
+      const notCancellable = /processed|no longer|already|picked/i.test(cancelError.message ?? '');
+      setDialog({
+        step: 'error',
+        pickup,
+        notCancellable,
+        message: notCancellable
+          ? 'This pickup has already been picked up, so it can no longer be cancelled here. Message support and we will help you.'
+          : cancelError.message || 'This pickup could not be cancelled. Please try again.',
+      });
+      if (notCancellable) load();
+      return;
+    }
+
+    setPickups((current) => current.filter((p) => p.id !== pickup.id));
+    setDialog({ step: 'done', pickup });
   };
 
   const requestCancelViaSupport = () => {
@@ -235,7 +206,7 @@ export default function ScheduleScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
+          <Feather name="arrow-left" size={18} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Schedule</Text>
       </View>
@@ -245,11 +216,7 @@ export default function ScheduleScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={ui.heroMid}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ui.heroMid} />
         }
       >
         <LinearGradient
@@ -267,7 +234,7 @@ export default function ScheduleScreen() {
             onPress={() => router.push('/pickup-options' as any)}
             activeOpacity={0.85}
           >
-            <Feather name="plus" size={ms(30)} color="#fff" />
+            <Feather name="plus" size={30} color="#fff" />
           </TouchableOpacity>
         </LinearGradient>
 
@@ -285,15 +252,12 @@ export default function ScheduleScreen() {
           </View>
         ) : !hasPickups ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No upcoming orders</Text>
+            <Text style={styles.emptyTitle}>No upcoming pickups</Text>
             <Text style={styles.emptyText}>Schedule a pickup and it will show up here.</Text>
           </View>
         ) : (
           pickups.map((pickup) => {
-            const status = STATUS_STYLE[pickup.status];
-            const locked = pickup.status !== 'scheduled';
             const busy = busyId === pickup.id;
-
             return (
               <View key={pickup.id} style={[styles.card, busy && styles.cardBusy]}>
                 <TouchableOpacity
@@ -312,51 +276,85 @@ export default function ScheduleScreen() {
                     <View
                       style={[
                         styles.statusPill,
-                        { backgroundColor: status.bg },
+                        { backgroundColor: statusStyle.bg },
                         !pickup.slot && styles.statusPillNoSlot,
                       ]}
                     >
-                      <MaterialCommunityIcons name={status.icon} size={ms(15)} color={status.fg} />
-                      <Text style={[styles.statusText, { color: status.fg }]}>{status.label}</Text>
+                      <MaterialCommunityIcons
+                        name={statusStyle.icon}
+                        size={15}
+                        color={statusStyle.fg}
+                      />
+                      <Text style={[styles.statusText, { color: statusStyle.fg }]}>
+                        {statusStyle.label}
+                      </Text>
                     </View>
                   </View>
 
-                  <Feather name="chevron-right" size={ms(22)} color={ui.chevron} />
+                  <Feather name="chevron-right" size={22} color={ui.chevron} />
                 </TouchableOpacity>
 
-                {locked ? (
-                  <>
-                    <View style={styles.notice}>
-                      <Feather name="headphones" size={ms(18)} color={ui.noticeIcon} />
-                      <Text style={styles.noticeText}>
-                        Already with our team — message support to request a cancel.
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      style={[styles.actionButton, styles.supportButton]}
-                      onPress={requestCancelViaSupport}
-                    >
-                      <Feather name="message-square" size={ms(20)} color={ui.blue} />
-                      <Text style={[styles.actionText, { color: ui.blue }]}>Request cancel via support</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.actionButton, styles.cancelButton]}
-                    onPress={() => cancelPickup(pickup)}
-                    disabled={busy}
-                  >
-                    <Feather name="x-circle" size={ms(20)} color={foodColors.primary} />
-                    <Text style={[styles.actionText, { color: foodColors.primary }]}>Cancel pickup</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => cancelPickup(pickup)}
+                  disabled={busy}
+                >
+                  <Feather name="x-circle" size={20} color={foodColors.primary} />
+                  <Text style={[styles.actionText, { color: foodColors.primary }]}>
+                    Cancel pickup
+                  </Text>
+                </TouchableOpacity>
               </View>
             );
           })
         )}
       </ScrollView>
+
+      {dialog?.step === 'confirm' && (
+        <AppDialog
+          visible
+          tone="danger"
+          title="Cancel this pickup?"
+          message={`Order #${dialog.pickup.ref} will be cancelled.`}
+          primaryLabel="Yes, cancel pickup"
+          onPrimary={confirmCancel}
+          secondaryLabel="Keep pickup"
+          onSecondary={closeDialog}
+          loading={cancelling}
+        />
+      )}
+
+      {dialog?.step === 'done' && (
+        <AppDialog
+          visible
+          tone="success"
+          title="Pickup cancelled"
+          message={`Order #${dialog.pickup.ref} has been cancelled. You can schedule a new pickup anytime.`}
+          primaryLabel="Done"
+          onPrimary={closeDialog}
+        />
+      )}
+
+      {dialog?.step === 'error' && (
+        <AppDialog
+          visible
+          tone="error"
+          title={dialog.notCancellable ? 'Pickup already picked up' : "Couldn't cancel pickup"}
+          message={dialog.message}
+          primaryLabel={dialog.notCancellable ? 'Request cancel via support' : 'Try again'}
+          onPrimary={() => {
+            if (dialog.notCancellable) {
+              setDialog(null);
+              requestCancelViaSupport();
+            } else {
+              setDialog({ step: 'confirm', pickup: dialog.pickup });
+            }
+          }}
+          secondaryLabel="Close"
+          onSecondary={closeDialog}
+        />
+      )}
     </View>
   );
 }
@@ -364,24 +362,24 @@ export default function ScheduleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: ms(16), paddingTop: ms(16) },
+  content: { paddingHorizontal: 16, paddingTop: 16 },
 
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: ms(20),
-    gap: ms(10),
+    paddingHorizontal: 20,
+    gap: 10,
   },
   backButton: {
-    width: ms(32),
-    height: ms(32),
-    borderRadius: ms(16),
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   screenTitle: {
-    fontSize: ms(24),
+    fontSize: 24,
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
@@ -390,33 +388,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: ms(28),
-    paddingHorizontal: ms(24),
-    paddingVertical: ms(28),
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
     elevation: 8,
     shadowColor: ui.heroMid,
     shadowOpacity: 0.3,
     shadowRadius: 14,
-    shadowOffset: { width: 0, height: ms(8) },
+    shadowOffset: { width: 0, height: 8 },
   },
-  heroText: { flex: 1, paddingRight: ms(12) },
+  heroText: { flex: 1, paddingRight: 12 },
   heroTitle: {
-    fontSize: ms(26),
-    lineHeight: ms(34),
+    fontSize: 26,
+    lineHeight: 34,
     fontFamily: fonts.poppins.medium,
     color: '#fff',
   },
   heroSubtitle: {
-    fontSize: ms(15),
-    lineHeight: ms(22),
+    fontSize: 15,
+    lineHeight: 22,
     fontFamily: fonts.poppins.regular,
     color: 'rgba(255,255,255,0.85)',
-    marginTop: ms(4),
+    marginTop: 4,
   },
   heroPlus: {
-    width: ms(64),
-    height: ms(64),
-    borderRadius: ms(32),
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: foodColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,133 +426,114 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: ms(22),
+    fontSize: 22,
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
-    marginTop: ms(28),
-    marginBottom: ms(14),
-    marginLeft: ms(4),
+    marginTop: 28,
+    marginBottom: 14,
+    marginLeft: 4,
   },
-  loader: { marginTop: ms(32) },
+  loader: { marginTop: 32 },
 
   card: {
     backgroundColor: '#fff',
-    borderRadius: ms(26),
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: ui.border,
-    padding: ms(16),
-    marginBottom: ms(16),
+    padding: 16,
+    marginBottom: 16,
   },
   cardBusy: { opacity: 0.55 },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ms(14),
+    gap: 14,
   },
   dateTile: {
-    width: ms(78),
-    height: ms(78),
-    borderRadius: ms(20),
+    width: 78,
+    height: 78,
+    borderRadius: 20,
     backgroundColor: ui.dateTile,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dateMonth: {
-    fontSize: ms(15),
+    fontSize: 15,
     letterSpacing: 0.6,
     fontFamily: fonts.poppins.regular,
     color: ui.heading,
   },
   dateDay: {
-    fontSize: ms(30),
-    lineHeight: ms(36),
+    fontSize: 30,
+    lineHeight: 36,
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
   cardInfo: { flex: 1 },
   orderId: {
-    fontSize: ms(20),
+    fontSize: 20,
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
   slot: {
-    fontSize: ms(15),
+    fontSize: 15,
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: ms(2),
-    marginBottom: ms(8),
+    marginTop: 2,
+    marginBottom: 8,
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: ms(8),
-    paddingHorizontal: ms(14),
-    paddingVertical: ms(7),
-    borderRadius: ms(16),
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
   },
-  statusPillNoSlot: { marginTop: ms(8) },
+  statusPillNoSlot: { marginTop: 8 },
   statusText: {
-    fontSize: ms(14),
+    fontSize: 14,
     fontFamily: fonts.poppins.medium,
-  },
-
-  notice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ms(12),
-    backgroundColor: ui.noticeBg,
-    borderRadius: ms(16),
-    paddingHorizontal: ms(16),
-    paddingVertical: ms(14),
-    marginTop: ms(14),
-  },
-  noticeText: {
-    flex: 1,
-    fontSize: ms(15),
-    lineHeight: ms(22),
-    fontFamily: fonts.poppins.regular,
-    color: ui.noticeText,
   },
 
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: ms(10),
-    borderRadius: ms(24),
+    gap: 10,
+    borderRadius: 24,
     borderWidth: 1.5,
-    paddingVertical: ms(16),
-    marginTop: ms(14),
+    paddingVertical: 16,
+    marginTop: 14,
   },
   cancelButton: { borderColor: foodColors.primary },
-  supportButton: { borderColor: ui.blue },
   actionText: {
-    fontSize: ms(18),
+    fontSize: 18,
     fontFamily: fonts.poppins.medium,
   },
 
   emptyCard: {
     backgroundColor: '#fff',
-    borderRadius: ms(26),
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: ui.border,
-    padding: ms(24),
+    padding: 24,
     alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: ms(18),
+    fontSize: 18,
     fontFamily: fonts.poppins.medium,
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
   emptyText: {
-    fontSize: ms(14),
+    fontSize: 14,
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: ms(4),
+    marginTop: 4,
     textAlign: 'center',
   },
-  retryBtn: { marginTop: ms(14), paddingVertical: ms(8), paddingHorizontal: ms(12) },
-  retryText: { fontSize: ms(14), fontFamily: fonts.poppins.medium, color: ui.blue },
+  retryBtn: { marginTop: 14, paddingVertical: 8, paddingHorizontal: 12 },
+  retryText: { fontSize: 14, fontFamily: fonts.poppins.medium, color: ui.blue },
 });
