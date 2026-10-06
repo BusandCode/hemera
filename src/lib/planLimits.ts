@@ -1,7 +1,4 @@
 // src/lib/planLimits.ts
-// Subscription allowance types and helpers. Limits themselves live in the
-// plan_catalog table; the app only reads them through get_wash_plan_allowance().
-
 export const LARGE_ITEM_IDS = ['blanket', 'duvet', 'curtains'];
 
 export type WashAllowance = {

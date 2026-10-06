@@ -50,7 +50,6 @@ function nameTokens(name: string) {
 
 type DishGroup = 'rice' | 'swallow' | 'soup' | 'grill' | 'drink';
 
-// Checked in this order, so "pepper soup" lands in soup before grill.
 const GROUP_ORDER: DishGroup[] = ['rice', 'swallow', 'soup', 'grill', 'drink'];
 
 const GROUP_KEYWORDS: Record<DishGroup, string[]> = {
@@ -61,7 +60,6 @@ const GROUP_KEYWORDS: Record<DishGroup, string[]> = {
   drink: ['drink', 'juice', 'zobo', 'smoothie', 'water', 'malt', 'soda', 'chapman', 'tea', 'coffee'],
 };
 
-// What people usually order alongside each kind of dish.
 const COMPLEMENTS: Record<DishGroup, DishGroup[]> = {
   rice: ['grill', 'drink'],
   swallow: ['soup', 'drink'],
@@ -77,13 +75,10 @@ function findGroup(text: string): DishGroup | null {
   return null;
 }
 
-// Prefer the menu category; fall back to words in the dish name.
 function groupOf(item: MenuItem): DishGroup | null {
   return findGroup((item.category ?? '').toLowerCase()) ?? findGroup(item.name.toLowerCase());
 }
 
-// Orders can mix stores as long as they're all in the chosen state and LGA.
-// If a partner has no area saved yet, it isn't excluded.
 function inDeliveryArea(item: MenuItem, state: string, lga: string) {
   const same = (a?: string, b?: string) =>
     !a || !b || a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -131,8 +126,6 @@ export default function CartScreen() {
     message: string;
   } | null>(null);
 
-  // Items added from the "You might also like" row. They stay visible (as
-  // "Added") instead of vanishing, and don't re-trigger a re-rank of the row.
   const [addedFromSuggestions, setAddedFromSuggestions] = useState<string[]>([]);
 
   const hasFoodReward = !!rewards.food;
@@ -218,11 +211,6 @@ export default function CartScreen() {
     removeItem(id);
   };
 
-  // Suggestions come from any store in the chosen state and LGA, ranked by how
-  // they relate to the most recently added item (last line): dishes that go with
-  // it come first (rice -> grill/drinks, swallow -> soup), then similar dishes,
-  // then similar names, then popular items. Items added from the suggestion row
-  // are left out of the ranking so the row doesn't reshuffle under the user's finger.
   const suggestions = useMemo<MenuItem[]>(() => {
     if (allMenuItems.length === 0 || lines.length === 0) return [];
 
@@ -385,7 +373,6 @@ export default function CartScreen() {
                   <Text style={styles.promoApplyText}>Apply</Text>
                 </TouchableOpacity>
               </View>
-              {/* promo feedback is shown in a native alert popup for a cleaner cart experience */}
             </View>
 
             <View style={styles.summarySection}>
@@ -427,7 +414,6 @@ export default function CartScreen() {
               </View>
             </View>
 
-            {/* Suggestions */}
             {suggestions.length > 0 && (
               <View style={styles.suggestionsSection}>
                 <View style={styles.suggestionsHeader}>
@@ -864,10 +850,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   suggestionCard: {
-    width: SUGGESTION_IMAGE_SIZE + 40,
+    width: SUGGESTION_IMAGE_SIZE + 20,
     backgroundColor: foodColors.surface,
-    borderRadius: 16,
-    padding: 10,
+    borderRadius: 14,
+    padding: 8,
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 6,
@@ -876,28 +862,28 @@ const styles = StyleSheet.create({
   },
   suggestionImage: {
     width: '100%',
-    height: SUGGESTION_IMAGE_SIZE,
-    borderRadius: 12,
-    marginBottom: 8,
+    height: SUGGESTION_IMAGE_SIZE * 0.72,
+    borderRadius: 10,
+    marginBottom: 6,
   },
   suggestionPartner: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontFamily: fonts.poppins.bold,
     letterSpacing: 0.3,
     color: foodColors.badgeBlue,
   },
   suggestionName: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
     marginTop: 1,
   },
   suggestionPrice: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
-    marginTop: 3,
-    marginBottom: 8,
+    marginTop: 2,
+    marginBottom: 6,
   },
   suggestionAdd: {
     flexDirection: 'row',
@@ -905,12 +891,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
     backgroundColor: foodColors.primaryDark,
-    paddingVertical: 8,
-    borderRadius: 18,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   suggestionAddActive: { backgroundColor: foodColors.success },
   suggestionAddText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontFamily: fonts.poppins.bold,
     color: '#fff',
   },

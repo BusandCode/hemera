@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { washColors } from '../src/constants/washColors';
+import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { usePlanStatus } from '../src/hooks/usePlanStatus';
 import { ms } from '../src/utils/responsive';
@@ -19,7 +19,7 @@ export default function ManagePlanScreen() {
     return (
       <View style={[styles.container, styles.centered]}>
         <StatusBar style="dark" />
-        <ActivityIndicator size="large" color={washColors.navySolid} />
+        <ActivityIndicator size="large" color={foodColors.primary} />
       </View>
     );
   }
@@ -28,7 +28,7 @@ export default function ManagePlanScreen() {
     return (
       <View style={[styles.container, styles.centered]}>
         <StatusBar style="dark" />
-        <Feather name="alert-circle" size={ms(36)} color={washColors.textMuted} />
+        <Feather name="alert-circle" size={ms(36)} color={foodColors.textMuted} />
         <Text style={styles.emptyTitle}>No active plan</Text>
         <Text style={styles.emptyText}>Choose a plan to start using laundry pickups.</Text>
         <TouchableOpacity
@@ -57,7 +57,7 @@ export default function ManagePlanScreen() {
           onPress={() => router.back()}
           activeOpacity={0.8}
         >
-          <Feather name="arrow-left" size={ms(18)} color={washColors.textPrimary} />
+          <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Manage Plan</Text>
       </View>
@@ -68,7 +68,7 @@ export default function ManagePlanScreen() {
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={[washColors.navyStart, washColors.navyEnd]}
+          colors={[foodColors.primary, foodColors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
@@ -185,7 +185,7 @@ function BalanceRow({
           <Feather
             name={icon}
             size={ms(14)}
-            color={muted ? washColors.textMuted : washColors.navySolid}
+            color={muted ? foodColors.textMuted : foodColors.primary}
           />
         </View>
         <Text style={styles.balanceLabel}>{label}</Text>
@@ -198,7 +198,7 @@ function BalanceRow({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: washColors.background },
+  container: { flex: 1, backgroundColor: foodColors.background },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -208,12 +208,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: ms(18),
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
   },
   emptyText: {
     fontSize: ms(13),
     fontFamily: fonts.poppins.regular,
-    color: washColors.textSecondary,
+    color: foodColors.textSecondary,
     textAlign: 'center',
   },
 
@@ -231,14 +231,14 @@ const styles = StyleSheet.create({
     width: ms(38),
     height: ms(38),
     borderRadius: ms(19),
-    backgroundColor: washColors.surface,
+    backgroundColor: foodColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontSize: ms(20),
     fontFamily: fonts.poppins.bold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
   },
 
   heroCard: { borderRadius: ms(24), padding: ms(22), marginBottom: ms(24) },
@@ -273,19 +273,19 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
-    color: washColors.textMuted,
+    color: foodColors.textMuted,
     letterSpacing: 0.6,
     marginBottom: ms(10),
   },
   sectionSpacing: { marginTop: ms(20) },
 
   statsCard: {
-    backgroundColor: washColors.surface,
+    backgroundColor: foodColors.surface,
     borderRadius: ms(18),
     paddingHorizontal: ms(16),
     marginBottom: ms(4),
   },
-  divider: { height: 1, backgroundColor: washColors.divider },
+  divider: { height: 1, backgroundColor: foodColors.border },
 
   balanceRow: {
     flexDirection: 'row',
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     width: ms(28),
     height: ms(28),
     borderRadius: ms(14),
-    backgroundColor: 'rgba(11,36,114,0.08)',
+    backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -311,23 +311,23 @@ const styles = StyleSheet.create({
   balanceLabel: {
     fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
-    color: washColors.textPrimary,
+    color: foodColors.textPrimary,
   },
   balanceValue: {
     fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
-    color: washColors.navySolid,
+    color: foodColors.primary,
   },
   balanceSuffix: {
     fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
-    color: washColors.textSecondary,
+    color: foodColors.textSecondary,
   },
 
   primaryButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: washColors.red,
+    backgroundColor: foodColors.primary,
     paddingVertical: ms(16),
     borderRadius: ms(28),
     marginTop: ms(24),
@@ -343,12 +343,12 @@ const styles = StyleSheet.create({
     paddingVertical: ms(14),
     borderRadius: ms(28),
     borderWidth: 1.5,
-    borderColor: washColors.grayBorder,
+    borderColor: foodColors.border,
     marginTop: ms(24),
   },
   secondaryButtonText: {
     fontSize: ms(13.5),
     fontFamily: fonts.poppins.bold,
-    color: washColors.navySolid,
+    color: foodColors.primary,
   },
 });

@@ -318,6 +318,7 @@ export default function FundWalletAccountScreen() {
       }
       refreshReferrals();
       const title = String(parsedDraft.metadata?.title ?? 'subscription');
+      tagPayment(reference, 'subscription', `Subscription - ${title}`);
       setSuccess({
         title: 'Subscription activated',
         message: `Your payment for the ${title} was received and your plan is now active.`,
@@ -342,6 +343,7 @@ export default function FundWalletAccountScreen() {
         clearCart();
         refreshReferrals();
         const ref = draft.ref;
+        tagPayment(reference, 'echop', `E-Chop order #${ref}`);
         const totalAmt = String(amount);
         const items = String(draft.itemCount ?? '');
         const slot = draft.slot ?? '';
@@ -364,19 +366,32 @@ export default function FundWalletAccountScreen() {
         return;
       }
 
+      tagPayment(reference, 'ewash', parsedDraft.covered ? 'E-Wash plan pickup' : 'E-Wash pay-per-order pickup');
       setSuccess({
         title: 'Pickup scheduled',
         message: 'Your payment has been confirmed and your laundry pickup is scheduled.',
-        redirect: () => router.replace('/order' as any),
+        redirect: () => router.replace('/wash' as any),
       });
       return;
     }
 
+    tagPayment(reference, 'funding', 'Wallet funding');
     setSuccess({
       title: 'Wallet funded',
       message: 'Your payment has been confirmed and your wallet has been updated.',
       redirect: () => router.replace('/wallet' as any),
     });
+  };
+
+  // Labels this payment in the Transactions list. Best-effort: never blocks the success flow.
+  const tagPayment = async (reference: string, purpose: string, title: string) => {
+    try {
+      await supabase.rpc('tag_wallet_transaction', {
+        p_tx_ref: reference,
+        p_purpose: purpose,
+        p_title: title,
+      });
+    } catch {}
   };
 
   const copy = async (value: string) => {

@@ -69,13 +69,11 @@ function ItemRow({
   qty,
   onChange,
   canAdd,
-  onBlocked,
 }: {
   item: LaundryItem;
   qty: number;
   onChange: (id: string, qty: number) => void;
   canAdd: boolean;
-  onBlocked: (id: string) => void;
 }) {
   return (
     <View style={[styles.itemRow, qty > 0 && styles.itemRowActive]}>
@@ -87,15 +85,23 @@ function ItemRow({
         <Text style={styles.itemHint}>Included in your plan</Text>
       </View>
       <View style={styles.stepper}>
-        <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(item.id, Math.max(0, qty - 1))}>
+        <TouchableOpacity
+          style={styles.stepBtn}
+          onPress={() => onChange(item.id, Math.max(0, qty - 1))}
+        >
           <Feather name="minus" size={ms(14)} color={washColors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.stepValue}>{qty}</Text>
         <TouchableOpacity
           style={[styles.stepBtn, !canAdd && styles.stepBtnDisabled]}
-          onPress={() => (canAdd ? onChange(item.id, qty + 1) : onBlocked(item.id))}
+          onPress={() => canAdd && onChange(item.id, qty + 1)}
+          disabled={!canAdd}
         >
-          <Feather name="plus" size={ms(14)} color={washColors.textPrimary} />
+          <Feather
+            name="plus"
+            size={ms(14)}
+            color={canAdd ? washColors.textPrimary : washColors.textMuted}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -113,7 +119,6 @@ export default function RequestPickupScreen() {
   const [express, setExpress] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [notes, setNotes] = useState('');
-  const [blockedId, setBlockedId] = useState<string | null>(null);
 
   const visibleCoreItems = coreItems.filter((i) => i.gender === gender);
 
@@ -133,25 +138,29 @@ export default function RequestPickupScreen() {
     [quantities]
   );
 
-  // Plan limits. The subscription only covers what fits inside the monthly allowance;
-  // anything beyond that has to go through Pay Per Order.
   const pickupsLeft = allowance ? allowance.pickupsRemaining : null;
   const itemsLeft = allowance ? allowance.itemsRemaining - totalItems : null;
   const largeLeft = allowance ? allowance.largeRemaining - largeItems : null;
   const noPickupsLeft = pickupsLeft !== null && pickupsLeft <= 0;
 
   const canAddItem = (id: string) => {
-    if (!allowance || noPickupsLeft) return !noPickupsLeft;
+    if (!allowance || noPickupsLeft) return false;
     if (itemsLeft !== null && itemsLeft <= 0) return false;
     if (LARGE_ITEM_IDS.includes(id) && largeLeft !== null && largeLeft <= 0) return false;
     return true;
   };
 
   const blockedReason = (() => {
-    if (!blockedId) return null;
-    if (itemsLeft !== null && itemsLeft <= 0)
-      return `You've reached your plan's ${allowance?.itemsLimit}-item limit for this month.`;
-    return `You've reached your plan's limit of ${allowance?.largeLimit} large items (blankets, duvets, curtains).`;
+    if (noPickupsLeft) {
+      return "You've used all your pickups for this month. You can still send more laundry with Pay Per Order, or wait for your allowance to reset.";
+    }
+    if (itemsLeft !== null && itemsLeft <= 0) {
+      return `You've reached your plan's ${allowance?.itemsLimit}-item limit for this month. Remove an item to swap it, or pay for extras with Pay Per Order.`;
+    }
+    if (largeLeft !== null && largeLeft <= 0) {
+      return `You've reached your plan's limit of ${allowance?.largeLimit} large items (blankets, duvets, curtains). Remove one to swap it.`;
+    }
+    return null;
   })();
 
   const canSubmit = totalItems > 0 && agreed && !noPickupsLeft;
@@ -172,7 +181,6 @@ export default function RequestPickupScreen() {
     } as any);
   };
 
-  // All hooks above this line — early returns below.
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -191,6 +199,25 @@ export default function RequestPickupScreen() {
       />
     );
   }
+
+  // "Used so far" — confirmed usage + what's currently selected, live.
+  const itemsLimit = allowance?.itemsLimit ?? 0;
+  const itemsUsedConfirmed = allowance
+    ? Math.max(0, itemsLimit - allowance.itemsRemaining)
+    : 0;
+  const itemsUsed = itemsUsedConfirmed + totalItems;
+
+  const largeLimit = allowance?.largeLimit ?? 0;
+  const largeUsedConfirmed = allowance
+    ? Math.max(0, largeLimit - allowance.largeRemaining)
+    : 0;
+  const largeUsed = largeUsedConfirmed + largeItems;
+
+  const pickupsLimit = allowance?.pickupsLimit ?? 0;
+  const pickupsUsed = allowance
+    ? Math.max(0, pickupsLimit - allowance.pickupsRemaining)
+    : 0;
+  const rolloverPickups = allowance?.rolloverPickups ?? 0;
 
   return (
     <View style={styles.container}>
@@ -220,49 +247,47 @@ export default function RequestPickupScreen() {
 
         {allowance && (
           <View style={styles.allowanceCard}>
-            <Text style={styles.allowanceTitle}>Left this month</Text>
+            <Text style={styles.allowanceTitle}>Used so far</Text>
             <View style={styles.allowanceRow}>
               <View style={styles.allowanceCell}>
-                <Text style={styles.allowanceValue}>{Math.max(0, itemsLeft ?? 0)}</Text>
-                <Text style={styles.allowanceLabel}>of {allowance.itemsLimit} items</Text>
+                <Text style={styles.allowanceValue}>
+                  {itemsUsed}
+                  <Text style={styles.allowanceDivider}>/{itemsLimit}</Text>
+                </Text>
+                <Text style={styles.allowanceLabel}>items used</Text>
               </View>
               <View style={styles.allowanceCell}>
-                <Text style={styles.allowanceValue}>{Math.max(0, largeLeft ?? 0)}</Text>
-                <Text style={styles.allowanceLabel}>of {allowance.largeLimit} large</Text>
+                <Text style={styles.allowanceValue}>
+                  {largeUsed}
+                  <Text style={styles.allowanceDivider}>/{largeLimit}</Text>
+                </Text>
+                <Text style={styles.allowanceLabel}>large used</Text>
               </View>
               <View style={styles.allowanceCell}>
-                <Text style={styles.allowanceValue}>{Math.max(0, pickupsLeft ?? 0)}</Text>
+                <Text style={styles.allowanceValue}>
+                  {pickupsUsed}
+                  <Text style={styles.allowanceDivider}>/{pickupsLimit}</Text>
+                </Text>
                 <Text style={styles.allowanceLabel}>
-                  {allowance.rolloverPickups > 0
-                    ? `pickups (${allowance.rolloverPickups} rolled over)`
-                    : `of ${allowance.pickupsLimit} pickups`}
+                  {rolloverPickups > 0
+                    ? `pickups used (${rolloverPickups} rolled over)`
+                    : 'pickups used'}
                 </Text>
               </View>
             </View>
           </View>
         )}
 
-        {noPickupsLeft && (
-          <View style={styles.limitCard}>
-            <Text style={styles.limitText}>
-              You've used all your pickups for this month. You can still send more laundry with Pay Per
-              Order, or wait for your allowance to reset.
-            </Text>
-            <TouchableOpacity
-              style={styles.limitButton}
-              activeOpacity={0.85}
-              onPress={() => router.replace('/pay-per-pickup' as any)}
-            >
-              <Text style={styles.limitButtonText}>Pay per order instead</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <Text style={styles.sectionTitle}>What are we picking up?</Text>
+        <Text style={styles.sectionSubtitle}>Tap to add items covered by your plan.</Text>
 
-        {!!blockedReason && !noPickupsLeft && (
+        {!!blockedReason && (
           <View style={styles.limitCard}>
-            <Text style={styles.limitText}>
-              {blockedReason} Remove an item to swap it, or pay for the extra item with Pay Per Order.
-            </Text>
+            <View style={styles.limitHeader}>
+              <Feather name="alert-circle" size={ms(15)} color="#B26A00" />
+              <Text style={styles.limitTitle}>Plan limit reached</Text>
+            </View>
+            <Text style={styles.limitText}>{blockedReason}</Text>
             <TouchableOpacity
               style={styles.limitButton}
               activeOpacity={0.85}
@@ -273,55 +298,72 @@ export default function RequestPickupScreen() {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>What are we picking up?</Text>
-        <Text style={styles.sectionSubtitle}>Tap to add items covered by your plan.</Text>
-
         <View style={styles.genderToggle}>
           <TouchableOpacity
             style={[styles.genderPill, gender === 'men' && styles.genderPillActive]}
             onPress={() => setGender('men')}
             activeOpacity={0.85}
           >
-            <Feather name="user" size={ms(14)} color={gender === 'men' ? '#fff' : washColors.navySolid} />
-            <Text style={[styles.genderText, gender === 'men' && styles.genderTextActive]}>Men's</Text>
+            <Feather
+              name="user"
+              size={ms(14)}
+              color={gender === 'men' ? '#fff' : washColors.navySolid}
+            />
+            <Text style={[styles.genderText, gender === 'men' && styles.genderTextActive]}>
+              Men's
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.genderPill, gender === 'women' && styles.genderPillActive]}
             onPress={() => setGender('women')}
             activeOpacity={0.85}
           >
-            <Feather name="user" size={ms(14)} color={gender === 'women' ? '#fff' : washColors.navySolid} />
-            <Text style={[styles.genderText, gender === 'women' && styles.genderTextActive]}>Women's</Text>
+            <Feather
+              name="user"
+              size={ms(14)}
+              color={gender === 'women' ? '#fff' : washColors.navySolid}
+            />
+            <Text style={[styles.genderText, gender === 'women' && styles.genderTextActive]}>
+              Women's
+            </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.itemsList}>
           {visibleCoreItems.map((item) => (
             <ItemRow
-                key={item.id}
-                item={item}
-                qty={quantities[item.id] ?? 0}
-                onChange={setQty}
-                canAdd={canAddItem(item.id)}
-                onBlocked={setBlockedId}
-              />
+              key={item.id}
+              item={item}
+              qty={quantities[item.id] ?? 0}
+              onChange={setQty}
+              canAdd={canAddItem(item.id)}
+            />
           ))}
           {sharedItems.map((item) => (
             <ItemRow
-                key={item.id}
-                item={item}
-                qty={quantities[item.id] ?? 0}
-                onChange={setQty}
-                canAdd={canAddItem(item.id)}
-                onBlocked={setBlockedId}
-              />
+              key={item.id}
+              item={item}
+              qty={quantities[item.id] ?? 0}
+              onChange={setQty}
+              canAdd={canAddItem(item.id)}
+            />
           ))}
         </View>
 
-        <TouchableOpacity style={styles.expandRow} onPress={() => setShowExtras((v) => !v)} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.expandRow}
+          onPress={() => setShowExtras((v) => !v)}
+          activeOpacity={0.8}
+        >
           <Feather name="plus-circle" size={ms(16)} color={washColors.navySolid} />
-          <Text style={styles.expandText}>{showExtras ? 'Hide blankets, duvets & more' : 'Add more items'}</Text>
-          <Feather name={showExtras ? 'chevron-up' : 'chevron-down'} size={ms(16)} color={washColors.navySolid} />
+          <Text style={styles.expandText}>
+            {showExtras ? 'Hide blankets, duvets & more' : 'Add more items'}
+          </Text>
+          <Feather
+            name={showExtras ? 'chevron-up' : 'chevron-down'}
+            size={ms(16)}
+            color={washColors.navySolid}
+          />
         </TouchableOpacity>
 
         {showExtras && (
@@ -333,20 +375,24 @@ export default function RequestPickupScreen() {
                 qty={quantities[item.id] ?? 0}
                 onChange={setQty}
                 canAdd={canAddItem(item.id)}
-                onBlocked={setBlockedId}
               />
             ))}
           </View>
         )}
 
-        <TouchableOpacity style={styles.expressCard} onPress={() => setExpress((v) => !v)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={styles.expressCard}
+          onPress={() => setExpress((v) => !v)}
+          activeOpacity={0.85}
+        >
           <View style={styles.expressIconWrap}>
             <Feather name="zap" size={ms(18)} color="#fff" />
           </View>
           <View style={styles.expressTextBlock}>
             <Text style={styles.expressTitle}>Faster delivery (Express)</Text>
             <Text style={styles.expressSubtitle}>
-              We pick up sooner and deliver back within 24 hrs · +₦{EXPRESS_FEE.toLocaleString('en-US')}
+              We pick up sooner and deliver back within 24 hrs · +₦
+              {EXPRESS_FEE.toLocaleString('en-US')}
             </Text>
           </View>
           <View style={[styles.toggleTrack, express && styles.toggleTrackActive]}>
@@ -360,12 +406,21 @@ export default function RequestPickupScreen() {
             <Text style={styles.termsTitle}>Terms & conditions</Text>
           </View>
           <Text style={styles.termsBullet}>
-            • We inspect each item before processing. Irreparable stains or damage are reported back.
+            • We inspect each item before processing. Irreparable stains or damage are reported
+            back.
           </Text>
-          <Text style={styles.termsBullet}>• Missed pickups may be rescheduled once at no extra cost.</Text>
-          <Text style={styles.termsBullet}>• Delivery returns to the address on file unless updated.</Text>
+          <Text style={styles.termsBullet}>
+            • Missed pickups may be rescheduled once at no extra cost.
+          </Text>
+          <Text style={styles.termsBullet}>
+            • Delivery returns to the address on file unless updated.
+          </Text>
 
-          <TouchableOpacity style={styles.agreeRow} onPress={() => setAgreed((v) => !v)} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.agreeRow}
+            onPress={() => setAgreed((v) => !v)}
+            activeOpacity={0.8}
+          >
             <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
               {agreed && <Feather name="check" size={ms(13)} color="#fff" />}
             </View>
@@ -405,7 +460,9 @@ export default function RequestPickupScreen() {
           disabled={!canSubmit}
           activeOpacity={0.85}
         >
-          <Text style={[styles.continueButtonText, !canSubmit && styles.continueButtonTextDisabled]}>
+          <Text
+            style={[styles.continueButtonText, !canSubmit && styles.continueButtonTextDisabled]}
+          >
             Continue
           </Text>
         </TouchableOpacity>
@@ -457,6 +514,38 @@ const styles = StyleSheet.create({
     color: washColors.coveredText,
   },
 
+  allowanceCard: {
+    backgroundColor: washColors.surface,
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(18),
+  },
+  allowanceTitle: {
+    fontSize: ms(11),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: ms(10),
+  },
+  allowanceRow: { flexDirection: 'row', gap: ms(8) },
+  allowanceCell: { flex: 1, alignItems: 'center' },
+  allowanceValue: {
+    fontSize: ms(20),
+    fontFamily: fonts.poppins.bold,
+    color: washColors.navySolid,
+  },
+  allowanceDivider: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.semiBold,
+    color: washColors.textMuted,
+  },
+  allowanceLabel: {
+    fontSize: ms(10.5),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textSecondary,
+    textAlign: 'center',
+  },
+
   sectionTitle: {
     fontSize: ms(19),
     fontFamily: fonts.poppins.bold,
@@ -470,6 +559,45 @@ const styles = StyleSheet.create({
     marginBottom: ms(16),
   },
   sectionSpacing: { marginTop: ms(26) },
+
+  limitCard: {
+    backgroundColor: '#FBF3D9',
+    borderRadius: ms(16),
+    padding: ms(14),
+    marginBottom: ms(16),
+    borderWidth: 1,
+    borderColor: '#EFDBA8',
+  },
+  limitHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ms(8),
+    marginBottom: ms(6),
+  },
+  limitTitle: {
+    fontSize: ms(13.5),
+    fontFamily: fonts.poppins.bold,
+    color: '#8A5A00',
+  },
+  limitText: {
+    fontSize: ms(12.5),
+    lineHeight: ms(18),
+    fontFamily: fonts.poppins.regular,
+    color: washColors.textPrimary,
+  },
+  limitButton: {
+    alignSelf: 'flex-start',
+    marginTop: ms(10),
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(8),
+    borderRadius: ms(16),
+    backgroundColor: washColors.navySolid,
+  },
+  limitButtonText: {
+    fontSize: ms(12.5),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
 
   itemsList: { gap: ms(10), marginBottom: ms(10) },
   itemRow: {
@@ -520,50 +648,7 @@ const styles = StyleSheet.create({
     width: ms(94),
   },
   stepBtn: { width: ms(22), height: ms(22), justifyContent: 'center', alignItems: 'center' },
-  stepBtnDisabled: { opacity: 0.3 },
-  allowanceCard: {
-    backgroundColor: washColors.surface,
-    borderRadius: ms(16),
-    padding: ms(14),
-    marginBottom: ms(18),
-  },
-  allowanceTitle: {
-    fontSize: ms(11),
-    fontFamily: fonts.poppins.bold,
-    color: washColors.textMuted,
-    letterSpacing: 0.6,
-    marginBottom: ms(10),
-  },
-  allowanceRow: { flexDirection: 'row', gap: ms(8) },
-  allowanceCell: { flex: 1, alignItems: 'center' },
-  allowanceValue: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: washColors.navySolid },
-  allowanceLabel: {
-    fontSize: ms(10.5),
-    fontFamily: fonts.poppins.regular,
-    color: washColors.textSecondary,
-    textAlign: 'center',
-  },
-  limitCard: {
-    backgroundColor: '#FBF3D9',
-    borderRadius: ms(16),
-    padding: ms(14),
-    marginBottom: ms(18),
-  },
-  limitText: {
-    fontSize: ms(12.5),
-    lineHeight: ms(18),
-    fontFamily: fonts.poppins.regular,
-    color: washColors.textPrimary,
-  },
-  limitButton: {
-    alignSelf: 'flex-start',
-    marginTop: ms(10),
-    paddingHorizontal: ms(16),
-    paddingVertical: ms(8),
-    borderRadius: ms(16),
-    backgroundColor: washColors.navySolid,
-  },
-  limitButtonText: { fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: '#fff' },
+  stepBtnDisabled: { opacity: 0.35 },
   stepValue: {
     fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
@@ -688,7 +773,6 @@ const styles = StyleSheet.create({
     color: washColors.textSecondary,
     marginBottom: ms(6),
   },
-
   agreeRow: {
     flexDirection: 'row',
     alignItems: 'center',

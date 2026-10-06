@@ -80,31 +80,37 @@ export function useRecentOrders(type: 'ewash' | 'echop' = 'ewash', limit = 5) {
     if (queryError) {
       setError(queryError.message);
     } else {
-      const mapped = (data ?? []).map((r: any): RecentOrder => {
-        const meta = (r.metadata ?? {}) as Record<string, any>;
-        const raw = String(r.status ?? '');
-        const cancelled = isCancelledStatus(raw);
-        const stage = cancelled ? 'cancelled' : normalizeStatus(raw, type);
-        const at = r.status_updated_at ?? r.created_at;
-        const isSubscription = meta.kind === 'subscription';
-        return {
-          id: r.id,
-          ref: meta.ref ? String(meta.ref) : undefined,
-          rawStatus: raw,
-          stage,
-          stageLabel: isSubscription ? (cancelled ? 'Cancelled' : 'Paid') : labelFor(stage),
-          summary:
-            isSubscription && meta.title
-              ? String(meta.title)
-              : summaryOf(meta, type === 'ewash' ? 'E-Wash Order' : 'E-Chop Order'),
-          activityAt: at,
-          activityLabel: activityLabel(at),
-          isActive: !cancelled && stage !== 'delivered',
-          coveredByPlan: meta.covered_by_plan === true || meta.covered_by_plan === 'true',
-          isSubscription,
-        };
-      });
-      mapped.sort((a, b) => new Date(b.activityAt).getTime() - new Date(a.activityAt).getTime());
+      const mapped = (data ?? [])
+        .map((r: any): RecentOrder | null => {
+          const meta = (r.metadata ?? {}) as Record<string, any>;
+
+          // Subscription purchases are payments, not order activity.
+          if (meta.kind === 'subscription') return null;
+
+          const raw = String(r.status ?? '');
+          const cancelled = isCancelledStatus(raw);
+          const stage = cancelled ? 'cancelled' : normalizeStatus(raw, type);
+          const at = r.status_updated_at ?? r.created_at;
+
+          return {
+            id: r.id,
+            ref: meta.ref ? String(meta.ref) : undefined,
+            rawStatus: raw,
+            stage,
+            stageLabel: labelFor(stage),
+            summary: summaryOf(meta, type === 'ewash' ? 'E-Wash Order' : 'E-Chop Order'),
+            activityAt: at,
+            activityLabel: activityLabel(at),
+            isActive: !cancelled && stage !== 'delivered',
+            coveredByPlan: meta.covered_by_plan === true || meta.covered_by_plan === 'true',
+            isSubscription: false,
+          };
+        })
+        .filter((o): o is RecentOrder => o !== null);
+
+      mapped.sort(
+        (a, b) => new Date(b.activityAt).getTime() - new Date(a.activityAt).getTime()
+      );
       setRows(mapped);
       setError(null);
     }
@@ -118,7 +124,12 @@ export function useRecentOrders(type: 'ewash' | 'echop' = 'ewash', limit = 5) {
   );
 
   const orders = useMemo(() => rows.slice(0, limit), [rows, limit]);
-  const activeOrder = useMemo(() => rows.find((o) => o.isActive && !o.isSubscription) ?? null, [rows]);
 
-  return { orders, activeOrder, loading, error, refetch: load };
+  // All active orders, most recently updated first. Chevrons scroll through these.
+  const activeOrders = useMemo(() => rows.filter((o) => o.isActive), [rows]);
+
+  // Kept for existing screens that only want the single newest active order.
+  const activeOrder = activeOrders[0] ?? null;
+
+  return { orders, activeOrders, activeOrder, loading, error, refetch: load };
 }

@@ -20,13 +20,14 @@ import { ms } from '../src/utils/responsive';
 
 const PAGE_SIZE = 20;
 
-type Service = 'echop' | 'ewash';
-type Filter = 'all' | 'echop' | 'ewash';
+// Where the money went / came from.
+type Kind = 'echop' | 'ewash' | 'subscription';
+type Filter = 'all' | Kind;
 type Status = 'pending' | 'success' | 'failed';
 
 type Transaction = {
   id: string;
-  service: Service;
+  kind: Kind;
   title: string;
   reference: string | null;
   amount: number;
@@ -41,6 +42,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'echop', label: 'E-Chop' },
   { key: 'ewash', label: 'E-Wash' },
+  { key: 'subscription', label: 'Subscriptions' },
 ];
 
 const STATUS_STYLE: Record<Status, { label: string; color: string; bg: string }> = {
@@ -55,14 +57,22 @@ type IconMeta = {
   bg: string;
 };
 
-const ICON_STYLE: Record<Service, IconMeta> = {
+const ICON_STYLE: Record<Kind, IconMeta> = {
   echop: { name: 'coffee', color: '#FF6B35', bg: 'rgba(255,107,53,0.10)' },
   ewash: { name: 'droplet', color: '#0032C1', bg: 'rgba(0,50,193,0.08)' },
+  subscription: { name: 'repeat', color: '#7A3FF2', bg: 'rgba(122,63,242,0.10)' },
 };
 
-const SERVICE_LABEL: Record<Service, string> = {
+const KIND_LABEL: Record<Kind, string> = {
   echop: 'E-Chop',
   ewash: 'E-Wash',
+  subscription: 'Subscription',
+};
+
+const KIND_TITLE: Record<Kind, string> = {
+  echop: 'E-Chop order payment',
+  ewash: 'E-Wash payment',
+  subscription: 'Plan subscription',
 };
 
 function formatNaira(value: number) {
@@ -97,6 +107,34 @@ function timeLabel(iso: string) {
   });
 }
 
+function normalizeStatus(raw: unknown): Status {
+  const s = String(raw ?? '').toLowerCase();
+  if (['success', 'successful', 'completed', 'paid', 'confirmed'].includes(s)) return 'success';
+  if (['failed', 'failure', 'cancelled', 'canceled', 'expired', 'declined', 'error'].includes(s)) {
+    return 'failed';
+  }
+  return 'pending';
+}
+
+const KINDS: Kind[] = ['echop', 'ewash', 'subscription'];
+
+// Maps a wallet_transactions row to what the screen shows. `purpose` records what the payment
+// was for (echop, ewash, subscription).
+function toTransaction(r: any): Transaction {
+  const kind = String(r.purpose ?? '').toLowerCase() as Kind;
+
+  return {
+    id: String(r.id ?? r.tx_ref),
+    kind,
+    title: r.title || KIND_TITLE[kind],
+    reference: r.tx_ref ?? null,
+    amount: Number(r.amount_kobo ?? 0) / 100,
+    type: 'debit',
+    status: normalizeStatus(r.status),
+    created_at: r.created_at,
+  };
+}
+
 export default function TransactionsScreen() {
   const { session } = useAuth();
   const userId = session?.user.id;
@@ -113,25 +151,19 @@ export default function TransactionsScreen() {
 
   const fetchPage = useCallback(
     async (offset: number): Promise<Transaction[]> => {
-      let query = supabase
-        .from('transactions')
-        .select('id, service, title, reference, amount, type, status, created_at')
+      const { data, error: err } = await supabase
+        .from('wallet_transactions')
+        .select('id, amount_kobo, tx_ref, status, purpose, title, created_at')
         .eq('user_id', userId!)
-        .in('service', ['echop', 'ewash'])
+        .eq('status', 'success')
+        .in('purpose', KINDS)
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
-      if (filter === 'echop') {
-        query = query.eq('service', 'echop');
-      } else if (filter === 'ewash') {
-        query = query.eq('service', 'ewash');
-      }
-
-      const { data, error: err } = await query;
       if (err) throw err;
-      return (data ?? []) as Transaction[];
+      return (data ?? []).map(toTransaction);
     },
-    [userId, filter]
+    [userId]
   );
 
   const loadFirstPage = useCallback(
@@ -203,9 +235,11 @@ export default function TransactionsScreen() {
   };
 
   const sections = useMemo<Section[]>(() => {
+    const visible = rows.filter((r) => filter === 'all' || r.kind === filter);
+
     const out: Section[] = [];
     let currentKey = '';
-    for (const row of rows) {
+    for (const row of visible) {
       const key = dayKey(row.created_at);
       if (key !== currentKey) {
         out.push({ title: dayLabel(row.created_at), data: [] });
@@ -214,10 +248,10 @@ export default function TransactionsScreen() {
       out[out.length - 1].data.push(row);
     }
     return out;
-  }, [rows]);
+  }, [rows, filter]);
 
   const renderItem = ({ item }: { item: Transaction }) => {
-    const icon = ICON_STYLE[item.service];
+    const icon = ICON_STYLE[item.kind];
     const status = STATUS_STYLE[item.status];
     const muted = item.status === 'failed';
     const sign = item.type === 'credit' ? '+' : '-';
@@ -233,7 +267,7 @@ export default function TransactionsScreen() {
             {item.title}
           </Text>
           <Text style={styles.rowSub} numberOfLines={1}>
-            {SERVICE_LABEL[item.service]} • {timeLabel(item.created_at)}
+            {KIND_LABEL[item.kind]} • {timeLabel(item.created_at)}
           </Text>
         </View>
 
@@ -315,10 +349,8 @@ export default function TransactionsScreen() {
               <Text style={styles.emptyTitle}>No transactions yet</Text>
               <Text style={styles.emptySub}>
                 {filter === 'all'
-                  ? 'Your E-Chop and E-Wash transactions will show up here.'
-                  : filter === 'echop'
-                  ? 'Your E-Chop transactions will show up here.'
-                  : 'Your E-Wash transactions will show up here.'}
+                  ? 'Your successful payments will show up here.'
+                  : `Your successful ${KIND_LABEL[filter]} payments will show up here.`}
               </Text>
             </View>
           }

@@ -53,9 +53,9 @@ const quickServices: QuickService[] = [
   { id: 'echop',    icon: 'coffee',         title: 'E-Chop',          subtitle: 'Order food you love',      bgColor: foodColors.primary,     route: '/echop' },
   { id: 'ewash',    icon: 'droplet',        title: 'E-Wash',          subtitle: 'Laundry & dry cleaning',   bgColor: foodColors.badgeBlue,   route: '/wash' },
   { id: 'track',    icon: 'map-pin',        title: 'Track Order',     subtitle: 'Track your orders live',   bgColor: foodColors.forestGreen, route: '/track-order' },
-  { id: 'pickup',   icon: 'truck',          title: 'Request Pickup',  subtitle: 'Schedule a pickup',        bgColor: foodColors.primary,     route: '/request-pickup' },
+  { id: 'pickup',   icon: 'truck',          title: 'Pickup',  subtitle: 'Schedule a pickup',        bgColor: foodColors.primary,     route: '/request-pickup' },
   { id: 'support',  icon: 'message-circle', title: 'Support',         subtitle: 'Get help anytime',         bgColor: foodColors.badgeBlue,   route: '/contact-support' },
-  { id: 'quality',  icon: 'shield',         title: 'Quality Promise', subtitle: 'Top quality assurance',    bgColor: foodColors.primary,     route: '/quality-promise' },
+  { id: 'quality',  icon: 'shield',         title: 'Our Promise', subtitle: 'Top quality assurance',    bgColor: foodColors.primary,     route: '/quality-promise' },
   { id: 'eplan',    icon: 'calendar',       title: 'E-Plan',          subtitle: 'Plan meals ahead',         bgColor: foodColors.forestGreen, route: '/e-plan' },
   { id: 'offers',   icon: 'tag',            title: 'Offers',          subtitle: 'Exclusive deals for you',  bgColor: foodColors.badgeBlue,   route: '/offers' },
 ];

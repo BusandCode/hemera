@@ -1,6 +1,5 @@
-// src/components/profile/ChangeSecretForm.tsx
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
@@ -14,7 +13,8 @@ type Props = {
   keyboardType?: 'default' | 'number-pad';
   hint: string;
   submitLabel: string;
-  onSubmit: () => void;
+  /** Return nothing / resolve = success. Throw = error shown inline. */
+  onSubmit: (current: string, next: string) => Promise<void>;
 };
 
 export function ChangeSecretForm({
@@ -30,19 +30,30 @@ export function ChangeSecretForm({
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
 
   const matches = next.length > 0 && next === confirm;
   const longEnough = next.length >= minLength;
-  const canSubmit = current.length > 0 && matches && longEnough;
+  const canSubmit = current.length > 0 && matches && longEnough && !busy;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
-    setDone(true);
-    setCurrent('');
-    setNext('');
-    setConfirm('');
-    onSubmit();
+    setBusy(true);
+    setError('');
+    setDone(false);
+    try {
+      await onSubmit(current, next);
+      setDone(true);
+      setCurrent('');
+      setNext('');
+      setConfirm('');
+    } catch (e: any) {
+      setError(e?.message ?? 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -53,11 +64,13 @@ export function ChangeSecretForm({
         value={current}
         onChangeText={(t) => {
           setCurrent(t);
+          setError('');
           setDone(false);
         }}
         secureTextEntry
         keyboardType={keyboardType}
         placeholderTextColor={foodColors.textMuted}
+        editable={!busy}
       />
 
       <Text style={styles.fieldLabel}>{newLabel}</Text>
@@ -66,11 +79,13 @@ export function ChangeSecretForm({
         value={next}
         onChangeText={(t) => {
           setNext(t);
+          setError('');
           setDone(false);
         }}
         secureTextEntry
         keyboardType={keyboardType}
         placeholderTextColor={foodColors.textMuted}
+        editable={!busy}
       />
 
       <Text style={styles.fieldLabel}>{confirmLabel}</Text>
@@ -79,11 +94,13 @@ export function ChangeSecretForm({
         value={confirm}
         onChangeText={(t) => {
           setConfirm(t);
+          setError('');
           setDone(false);
         }}
         secureTextEntry
         keyboardType={keyboardType}
         placeholderTextColor={foodColors.textMuted}
+        editable={!busy}
       />
 
       {next.length > 0 && !longEnough && (
@@ -94,6 +111,13 @@ export function ChangeSecretForm({
       )}
 
       <Text style={styles.hint}>{hint}</Text>
+
+      {!!error && (
+        <View style={styles.errorBanner}>
+          <Feather name="alert-circle" size={ms(13)} color="#FF3B30" />
+          <Text style={styles.errorBannerText}>{error}</Text>
+        </View>
+      )}
 
       {done && (
         <View style={styles.doneBanner}>
@@ -108,7 +132,11 @@ export function ChangeSecretForm({
         disabled={!canSubmit}
         activeOpacity={0.85}
       >
-        <Text style={styles.submitButtonText}>{submitLabel}</Text>
+        {busy ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.submitButtonText}>{submitLabel}</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -127,6 +155,17 @@ const styles = StyleSheet.create({
   },
   warningText: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: '#FF3B30', marginTop: ms(6) },
   hint: { fontSize: ms(12), fontFamily: fonts.poppins.regular, lineHeight: ms(17), color: foodColors.textMuted, marginTop: ms(18) },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ms(6),
+    marginTop: ms(14),
+    backgroundColor: 'rgba(255,59,48,0.08)',
+    borderRadius: ms(10),
+    paddingVertical: ms(10),
+    paddingHorizontal: ms(12),
+  },
+  errorBannerText: { flex: 1, fontSize: ms(12), fontFamily: fonts.poppins.medium, color: '#FF3B30' },
   doneBanner: {
     flexDirection: 'row',
     alignItems: 'center',

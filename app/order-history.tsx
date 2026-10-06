@@ -23,7 +23,7 @@ import { ms } from '../src/utils/responsive';
 
 type StatusFilter = 'All' | OrderStatus;
 
-const statusFilters: StatusFilter[] = ['All', 'Delivered', 'In Progress', 'Cancelled'];
+const statusFilters: StatusFilter[] = ['All', 'Delivered', 'Cancelled'];
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
@@ -31,13 +31,12 @@ export default function OrderHistoryScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [refreshing, setRefreshing] = useState(false);
 
-  const { orders, loading, error, refetch } = useOrders();
+  // Delivered + Cancelled only — nothing in-progress shows here.
+  const { orders, loading, error, refetch } = useOrders(undefined, 'finished');
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return orders.filter((o) => {
-      // Orders still in Schedule are hidden from history.
-      if (o.status === 'Scheduled') return false;
       if (statusFilter !== 'All' && o.status !== statusFilter) return false;
       if (!q) return true;
       return (
@@ -95,7 +94,9 @@ export default function OrderHistoryScreen() {
                 onPress={() => setStatusFilter(s)}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
+                <Text
+                  style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}
+                >
                   {s}
                 </Text>
               </TouchableOpacity>
@@ -130,12 +131,12 @@ export default function OrderHistoryScreen() {
         ) : filtered.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>
-              {hasFilters ? 'No matching orders' : 'No orders yet'}
+              {hasFilters ? 'No matching orders' : 'No completed orders yet'}
             </Text>
             <Text style={styles.stateText}>
               {hasFilters
                 ? 'Try a different status or search term.'
-                : 'Your E-Chop and E-Wash orders will appear here.'}
+                : 'Delivered and cancelled orders will appear here.'}
             </Text>
           </View>
         ) : (
