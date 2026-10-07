@@ -18,6 +18,8 @@ import { supabase } from '../src/lib/supabase';
 import { useProfile } from '../src/context/ProfileContext';
 import { useCart } from '../src/context/CartContext';
 import { useReferral } from '../src/context/ReferralContext';
+import { useEPlanDraft } from '../src/context/EPlanDraftContext';
+import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { planErrorMessage } from '../src/lib/planLimits';
 import { AppDialog } from '../src/components/AppDialog';
 
@@ -103,7 +105,8 @@ export default function FundWalletAccountScreen() {
   }>();
   const isEwash = service === 'ewash';
   const isEchop = service === 'echop';
-  const isOrder = isEwash || isEchop;
+  const isEplan = service === 'eplan';
+  const isOrder = isEwash || isEchop || isEplan;
   const parsedDraft = useMemo(() => {
     try {
       return JSON.parse(order ?? '{}');
@@ -114,6 +117,8 @@ export default function FundWalletAccountScreen() {
   const isSubscription = isEwash && parsedDraft.kind === 'subscription';
   const { clear: clearCart } = useCart();
   const { refresh: refreshReferrals } = useReferral();
+  const { resetDraft } = useEPlanDraft();
+  const { refresh: refreshWallet } = useWalletBalance();
 
   const [details, setDetails] = useState<AccountDetails | null>(null);
   const [error, setError] = useState('');
@@ -121,6 +126,7 @@ export default function FundWalletAccountScreen() {
   const [checking, setChecking] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [success, setSuccess] = useState<SuccessPayload | null>(null);
+  const [copied, setCopied] = useState<'account' | 'reference' | null>(null);
   const orderPlacedRef = useRef(false);
   const handledRef = useRef(false);
   const confirmLockedRef = useRef(false);
@@ -140,7 +146,8 @@ export default function FundWalletAccountScreen() {
               'Idempotency-Key': idempotencyKeyRef.current,
             },
             body: JSON.stringify(
-              isOrder
+              // E-Plan pays as a plain top-up: the full amount lands in the wallet, then the plan locks from it.
+              isOrder && !isEplan
                 ? { amount: Number(amount), purpose: isSubscription ? 'ewash' : service }
                 : { amount: Number(amount) }
             ),
@@ -227,6 +234,46 @@ export default function FundWalletAccountScreen() {
   return true;
 };
 
+  // Activates the E-Plan from the freshly funded wallet. The server decides what is locked, so any
+  // surplus (e.g. the extra ₦2,500 on ₦22,500) simply stays in the wallet. Returns the plan id.
+  const activateEplan = async (): Promise<string | null> => {
+    if (orderPlacedRef.current) return null;
+    orderPlacedRef.current = true;
+
+    const d = parsedDraft;
+    const call = () =>
+      d.fixedKey
+        ? supabase.rpc('activate_eplan_fixed', {
+            p_plan_key: d.fixedKey,
+            p_exclusions: d.exclusions ?? 'None',
+            p_delivery_window: d.deliveryWindow ?? '',
+          })
+        : supabase.rpc('activate_eplan_tiered', {
+            p_paid_kobo: Math.round(Number(amount) * 100),
+            p_plan_name: 'E-Plan',
+            p_duration_days: Number(d.durationDays ?? 7),
+            p_exclusions: d.exclusions ?? 'None',
+            p_delivery_window: d.deliveryWindow ?? '',
+          });
+
+    let result = await call();
+    // The wallet credit can land a moment after the payment is marked successful, so retry briefly.
+    for (let i = 0; i < 3 && result.error && /insufficient.*balance/i.test(result.error.message); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      result = await call();
+    }
+
+    if (result.error) {
+      orderPlacedRef.current = false;
+      Alert.alert(
+        'E-Plan not activated',
+        `${/active_plan_exists/i.test(result.error.message) ? 'You already have an active E-Plan.' : result.error.message}\n\nYour payment was received (ref ${details?.reference}) and the money is in your wallet. You can activate your E-Plan from the E-Plan screen.`
+      );
+      return null;
+    }
+    return String(result.data ?? '') || null;
+  };
+
   const placeOrder = async (reference: string) => {
     if (orderPlacedRef.current) return true;
     orderPlacedRef.current = true;
@@ -308,6 +355,28 @@ export default function FundWalletAccountScreen() {
   const handlePaid = async (reference: string) => {
     if (handledRef.current) return;
     handledRef.current = true;
+
+    if (isEplan) {
+      const planId = await activateEplan();
+      if (!planId) {
+        handledRef.current = false;
+        setConfirmed(false);
+        return;
+      }
+      tagPayment(reference, 'eplan', 'E-Plan payment');
+      refreshWallet();
+      resetDraft();
+      setSuccess({
+        title: 'E-Plan activated',
+        message: 'Your payment was received and your E-Plan is now active.',
+        redirect: () =>
+          router.replace({
+            pathname: '/e-plan-success',
+            params: { planId, meals: String(parsedDraft.meals ?? '') },
+          } as any),
+      });
+      return;
+    }
 
     if (isSubscription) {
       const ok = await createSubscription();
@@ -394,8 +463,14 @@ export default function FundWalletAccountScreen() {
     } catch {}
   };
 
-  const copy = async (value: string) => {
-    await Clipboard.setStringAsync(value);
+  const copy = async (value: string, which: 'account' | 'reference') => {
+    try {
+      await Clipboard.setStringAsync(value);
+      setCopied(which);
+      setTimeout(() => setCopied((current) => (current === which ? null : current)), 2000);
+    } catch {
+      Alert.alert('Could not copy', `Please copy it manually:\n\n${value}`);
+    }
   };
 
   const handleConfirm = async () => {
@@ -464,11 +539,17 @@ export default function FundWalletAccountScreen() {
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
               <Feather name="arrow-left" size={18} color={ui.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.title}>{isSubscription ? 'Subscription' : isEwash ? 'E-Wash' : isEchop ? 'E-Chop' : 'Fund Wallet'}</Text>
+            <Text style={styles.title}>{isEplan ? 'E-Plan' : isSubscription ? 'Subscription' : isEwash ? 'E-Wash' : isEchop ? 'E-Chop' : 'Fund Wallet'}</Text>
             <Text style={styles.subtitle}>
               Transfer <Text style={styles.subtitleBlue}>exactly {formatNaira(details.amount)}</Text> to the account
-              below to {isSubscription ? 'pay for your subscription' : isEwash ? 'pay for your pickup' : isEchop ? 'pay for your order' : 'fund your wallet'}.
+              below to {isEplan ? 'pay for your E-Plan' : isSubscription ? 'pay for your subscription' : isEwash ? 'pay for your pickup' : isEchop ? 'pay for your order' : 'fund your wallet'}.
             </Text>
+            {isEplan && Number(parsedDraft.surplus) > 0 && (
+              <Text style={styles.surplusNote}>
+                Your plan locks {formatNaira(Number(parsedDraft.locked))}. The extra{' '}
+                {formatNaira(Number(parsedDraft.surplus))} stays in your wallet.
+              </Text>
+            )}
           </View>
 
           {!isOrder && (
@@ -526,12 +607,15 @@ export default function FundWalletAccountScreen() {
               <Text style={styles.detailValueLarge}>{formatAccountNumber(details.accountNumber)}</Text>
             </View>
             <TouchableOpacity
-              style={styles.copyBtn}
-              onPress={() => copy(details.accountNumber)}
+              style={[styles.copyBtn, copied === 'account' && styles.copyBtnDone]}
+              onPress={() => copy(details.accountNumber.replace(/\s/g, ''), 'account')}
               activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Feather name="copy" size={13} color={ui.blue} />
-              <Text style={styles.copyBtnText}>Copy</Text>
+              <Feather name={copied === 'account' ? 'check' : 'copy'} size={13} color={copied === 'account' ? ui.green : ui.blue} />
+              <Text style={[styles.copyBtnText, copied === 'account' && styles.copyBtnTextDone]}>
+                {copied === 'account' ? 'Copied' : 'Copy'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -558,12 +642,15 @@ export default function FundWalletAccountScreen() {
               <Text style={styles.detailValueSmall}>{details.reference}</Text>
             </View>
             <TouchableOpacity
-              style={styles.copyBtn}
-              onPress={() => copy(details.reference)}
+              style={[styles.copyBtn, copied === 'reference' && styles.copyBtnDone]}
+              onPress={() => copy(details.reference, 'reference')}
               activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Feather name="copy" size={13} color={ui.blue} />
-              <Text style={styles.copyBtnText}>Copy</Text>
+              <Feather name={copied === 'reference' ? 'check' : 'copy'} size={13} color={copied === 'reference' ? ui.green : ui.blue} />
+              <Text style={[styles.copyBtnText, copied === 'reference' && styles.copyBtnTextDone]}>
+                {copied === 'reference' ? 'Copied' : 'Copy'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -726,6 +813,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   subtitleBlue: { fontFamily: fonts.poppins.semiBold, color: ui.blue },
+  surplusNote: { fontSize: 11.5, lineHeight: 17, fontFamily: fonts.poppins.medium, color: ui.green, marginTop: 6 },
 
   amountBadge: {
     backgroundColor: ui.surface,
@@ -824,6 +912,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   copyBtnText: { fontSize: 12, fontFamily: fonts.poppins.semiBold, color: ui.blue },
+  copyBtnDone: { borderColor: ui.green, backgroundColor: 'rgba(34,163,90,0.08)' },
+  copyBtnTextDone: { color: ui.green },
 
   expiryBanner: {
     flexDirection: 'row',

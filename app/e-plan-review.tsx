@@ -56,6 +56,8 @@ export default function EPlanReviewScreen() {
   const deliveryWindow =
     draft.lunchWindow && draft.dinnerWindow ? 'Lunch + Dinner' : draft.lunchWindow ? 'Lunch' : draft.dinnerWindow ? 'Dinner' : 'None selected';
   const exclusions = [...draft.proteinLabels, ...draft.allergenLabels].join(', ') || 'None';
+  // What the user actually pays: the fixed price, or whatever they typed for a custom plan.
+  const payAmount = fixed ? fixed.amount : draft.amount;
   const startsLabel = `Today, ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
 
   const handleActivate = async () => {
@@ -67,7 +69,25 @@ export default function EPlanReviewScreen() {
     }
 
     if (selectedMethod === 'transfer') {
-      router.push({ pathname: '/fund-wallet-amount' } as any);
+      // Straight to the payment account for the full amount. Once it's confirmed, the plan is
+      // activated automatically and any surplus stays in the wallet.
+      router.push({
+        pathname: '/fund-wallet-account',
+        params: {
+          amount: String(payAmount),
+          service: 'eplan',
+          order: JSON.stringify({
+            kind: 'eplan',
+            fixedKey: fixed?.key ?? null,
+            durationDays,
+            exclusions,
+            deliveryWindow,
+            locked: tier.locked,
+            surplus: tier.surplus,
+            meals: tier.meals,
+          }),
+        },
+      } as any);
       return;
     }
 
@@ -100,6 +120,8 @@ export default function EPlanReviewScreen() {
       if (result.error) {
         if (/insufficient.*balance/i.test(result.error.message)) {
           setError('Insufficient wallet balance. Fund your wallet first.');
+        } else if (/active_plan_exists/i.test(result.error.message)) {
+          setError('You already have an active E-Plan. You can only run one at a time.');
         } else {
           setError(result.error.message || 'Could not activate E-Plan. Please try again.');
         }
@@ -196,7 +218,7 @@ export default function EPlanReviewScreen() {
         <PaymentOption
           id="transfer"
           title="Fund via Bank Transfer"
-          subtitle="Top up your wallet first"
+          subtitle={`Pay ${formatNaira(payAmount)} — we activate your plan automatically`}
           icon="bank"
           isSelected={selectedMethod === 'transfer'}
           onSelect={setSelectedMethod}
@@ -221,7 +243,7 @@ export default function EPlanReviewScreen() {
             <>
               <Feather name="lock" size={ms(16)} color="#fff" style={styles.btnIcon} />
               <Text style={styles.primaryBtnText}>
-                {selectedMethod === 'transfer' ? 'Fund Wallet' : `Lock ${formatNaira(tier.locked)} & Activate`}
+                {selectedMethod === 'transfer' ? `Pay ${formatNaira(payAmount)} by Transfer` : `Lock ${formatNaira(tier.locked)} & Activate`}
               </Text>
             </>
           )}

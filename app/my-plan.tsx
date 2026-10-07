@@ -33,6 +33,8 @@ type PlanRow = {
   locked_amount_kobo: number;
   balance_kobo: number;
   ends_at: string;
+  meals_min: number | null;
+  meals_max: number | null;
 };
 
 type DeliveryRow = {
@@ -60,7 +62,7 @@ export default function MyPlanScreen() {
     setLoading(true);
     const { data: planData } = await supabase
       .from('eplan_plans')
-      .select('id, locked_amount_kobo, balance_kobo, ends_at')
+      .select('id, locked_amount_kobo, balance_kobo, ends_at, meals_min, meals_max')
       .eq('user_id', session.user.id)
       .eq('status', 'active')
       .maybeSingle();
@@ -88,9 +90,12 @@ export default function MyPlanScreen() {
 
   const handleCancel = () => {
     if (!plan) return;
+    const refundNaira = Math.round(plan.balance_kobo / 100);
     Alert.alert(
       'Cancel Plan',
-      'Your remaining locked balance will be refunded to your wallet. Continue?',
+      refundNaira > 0
+        ? `Only the unused part of your plan is refunded: ${formatNaira(refundNaira)} will go back to your wallet. Meals already delivered are not refunded. Continue?`
+        : 'There is no unused balance left on this plan, so nothing will be refunded. Continue?',
       [
         { text: 'Keep Plan', style: 'cancel' },
         {
@@ -101,7 +106,7 @@ export default function MyPlanScreen() {
             const { error } = await supabase.rpc('cancel_eplan', { p_plan_id: plan.id });
             setCancelling(false);
             if (error) {
-              Alert.alert('Error', 'Could not cancel plan. Please try again.');
+              Alert.alert('Error', error.message || 'Could not cancel plan. Please try again.');
               return;
             }
             await Promise.all([load(), refreshWallet()]);
@@ -115,6 +120,13 @@ export default function MyPlanScreen() {
   const endsLabel = plan
     ? new Date(plan.ends_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
+
+  // Meals delivered so far vs what the plan covers.
+  const deliveredCount = deliveries.filter((d) => d.status === 'delivered').length;
+  const mealsTotal = plan?.meals_max ?? 0;
+  const mealsRange =
+    plan?.meals_min != null && plan?.meals_max != null ? `${plan.meals_min}–${plan.meals_max}` : null;
+  const mealsProgress = mealsTotal > 0 ? Math.min(deliveredCount / mealsTotal, 1) : 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -174,6 +186,21 @@ export default function MyPlanScreen() {
           </View>
 
           <Text style={styles.sectionLabel}>DELIVERY HISTORY</Text>
+
+          <View style={styles.mealsCard}>
+            <View style={styles.mealsTopRow}>
+              <Text style={styles.mealsCount}>{deliveredCount}</Text>
+              <Text style={styles.mealsOf}>
+                {mealsRange ? `of ${mealsRange} meals delivered` : deliveredCount === 1 ? 'meal delivered' : 'meals delivered'}
+              </Text>
+            </View>
+            {mealsTotal > 0 && (
+              <View style={styles.mealsTrack}>
+                <View style={[styles.mealsFill, { width: `${mealsProgress * 100}%` }]} />
+              </View>
+            )}
+          </View>
+
           <View style={styles.deliveryGroup}>
             {deliveries.map((d) => (
               <View key={d.id} style={styles.deliveryRow}>
@@ -214,7 +241,7 @@ export default function MyPlanScreen() {
           <View style={styles.infoBanner}>
             <Feather name="info" size={ms(18)} color={WALLET_BLUE} />
             <Text style={styles.infoBannerText}>
-              Your plan ends {endsLabel}. Unused balance will be refunded to your wallet.
+              Your plan ends {endsLabel}. Only the unused balance is refunded to your wallet. Meals already delivered are not refunded.
             </Text>
           </View>
 
@@ -268,6 +295,16 @@ const styles = StyleSheet.create({
   daysLeft: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: '#fff' },
 
   sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: ms(10) },
+
+  mealsCard: {
+    backgroundColor: foodColors.surface, borderRadius: ms(16), padding: ms(16), marginBottom: ms(12),
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  mealsTopRow: { flexDirection: 'row', alignItems: 'flex-end', gap: ms(10) },
+  mealsCount: { fontSize: ms(34), lineHeight: ms(38), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  mealsOf: { flex: 1, fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, paddingBottom: ms(5) },
+  mealsTrack: { height: 6, borderRadius: 3, backgroundColor: foodColors.border, overflow: 'hidden', marginTop: ms(12) },
+  mealsFill: { height: '100%', borderRadius: 3, backgroundColor: WALLET_BLUE },
 
   deliveryGroup: { backgroundColor: foodColors.surface, borderRadius: ms(16), overflow: 'hidden', marginBottom: ms(16) },
   deliveryRow: {
