@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -36,9 +37,31 @@ const initialMessages: Message[] = [
 
 export default function LiveChatScreen() {
   const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList<Message>>(null);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [draft, setDraft] = useState('');
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  const scrollToLatest = () => {
+    listRef.current?.scrollToEnd({ animated: true });
+  };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setKeyboardOpen(true);
+      setTimeout(scrollToLatest, 100);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardOpen(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -70,8 +93,8 @@ export default function LiveChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
     >
       <StatusBar style="dark" />
       <ScreenHeader title="Live Chat" />
@@ -90,10 +113,14 @@ export default function LiveChatScreen() {
       </View>
 
       <FlatList
+        ref={listRef}
         data={messages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        onContentSizeChange={scrollToLatest}
+        onLayout={scrollToLatest}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <View
             style={[
@@ -148,7 +175,12 @@ export default function LiveChatScreen() {
           </View>
         )}
 
-        <View style={[styles.inputBar, { paddingBottom: insets.bottom + ms(14) }]}>
+        <View
+          style={[
+            styles.inputBar,
+            { paddingBottom: (keyboardOpen ? 0 : insets.bottom) + ms(14) },
+          ]}
+        >
           <TouchableOpacity style={styles.attachButton} onPress={pickImage} activeOpacity={0.8}>
             <Feather name="image" size={ms(18)} color={foodColors.textSecondary} />
           </TouchableOpacity>

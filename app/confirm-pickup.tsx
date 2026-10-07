@@ -150,8 +150,8 @@ export default function ConfirmPickupScreen() {
 
           {orderItems.map((item, index) => (
             <View key={index} style={styles.paymentRow}>
-              <Text style={styles.itemName}>{item.name} <Text style={styles.itemQty}>× {item.qty}</Text></Text>
-              <Text style={styles.itemPrice}>
+              <Text style={[styles.itemName, styles.rowLabel]}>{item.name} <Text style={styles.itemQty}>× {item.qty}</Text></Text>
+              <Text style={[styles.itemPrice, styles.rowValue]}>
                 {covered ? 'Included' : `₦${item.price.toLocaleString('en-US')}`}
               </Text>
             </View>
@@ -161,8 +161,8 @@ export default function ConfirmPickupScreen() {
 
           {covered ? (
             <View style={styles.paymentRow}>
-              <Text style={styles.summaryLabel}>Pickup, delivery & processing</Text>
-              <Text style={styles.summaryValue}>Covered by plan</Text>
+              <Text style={[styles.summaryLabel, styles.rowLabel]}>Pickup, delivery &{'\n'}processing</Text>
+              <Text style={[styles.summaryValue, styles.rowValue]}>Covered by plan</Text>
             </View>
           ) : (
             <>
@@ -265,6 +265,8 @@ const styles = StyleSheet.create({
 
   paymentCard: { backgroundColor: washColors.surface, borderRadius: ms(20), padding: ms(20) },
   paymentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: ms(12) },
+  rowLabel: { flex: 1, paddingRight: ms(16) },
+  rowValue: { flexShrink: 0, textAlign: 'right' },
   itemName: { fontSize: ms(14), fontFamily: fonts.poppins.regular, color: washColors.textSecondary },
   itemQty: { color: washColors.textMuted },
   itemPrice: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: washColors.navySolid },

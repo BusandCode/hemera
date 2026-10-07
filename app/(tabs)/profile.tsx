@@ -1,4 +1,5 @@
 // app/(tabs)/profile.tsx
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +8,8 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Modal,
+  Animated,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -18,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useAuth } from '../../src/context/AuthContext';
-import { useOnboarding } from '../../src/context/OnboardingContext';
 import { useFavorites } from '../../src/context/FavoritesContext';
 
 type MenuItem = {
@@ -142,16 +144,25 @@ export default function FoodProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
   const { signOut, displayName } = useAuth();
-  const { resetOnboarding } = useOnboarding();
   const { favoriteIds } = useFavorites();
+  const [comingSoonItem, setComingSoonItem] = useState<MenuItem | null>(null);
+  const popAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (comingSoonItem) {
+      popAnim.setValue(0);
+      Animated.spring(popAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 70,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [comingSoonItem, popAnim]);
 
   const handleItemPress = (item: MenuItem) => {
     if (item.comingSoon) {
-      Alert.alert(
-        'Coming Soon',
-        `${item.title} will be available in a future update.`,
-        [{ text: 'OK', style: 'default' }]
-      );
+      setComingSoonItem(item);
       return;
     }
     if (item.route) {
@@ -171,25 +182,6 @@ export default function FoodProfileScreen() {
         },
       },
     ]);
-  };
-
-  const handleResetOnboarding = () => {
-    Alert.alert(
-      'Reset Onboarding',
-      'This will sign you out and take you through the welcome flow again. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            await resetOnboarding();
-            await signOut();
-            router.replace('/onboarding' as any);
-          },
-        },
-      ]
-    );
   };
 
   const fullName = profile?.fullName?.trim() || displayName || 'Your name';
@@ -259,21 +251,61 @@ export default function FoodProfileScreen() {
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
-        {__DEV__ && (
-          <TouchableOpacity
-            style={styles.resetButton}
-            onPress={handleResetOnboarding}
-            activeOpacity={0.85}
-          >
-            <Feather name="refresh-cw" size={15} color={foodColors.primary} />
-            <Text style={styles.resetButtonText}>Reset Onboarding</Text>
-          </TouchableOpacity>
-        )}
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
       <FoodTabBar />
+
+      <Modal
+        visible={!!comingSoonItem}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setComingSoonItem(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalCard,
+              {
+                opacity: popAnim,
+                transform: [
+                  {
+                    scale: popAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.85, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.modalIconRing}>
+              <View style={styles.modalIconCircle}>
+                <Feather
+                  name={comingSoonItem?.icon ?? 'clock'}
+                  size={ms(26)}
+                  color="#fff"
+                />
+              </View>
+            </View>
+            <View style={styles.modalPill}>
+              <Text style={styles.modalPillText}>COMING SOON</Text>
+            </View>
+            <Text style={styles.modalTitle}>{comingSoonItem?.title}</Text>
+            <Text style={styles.modalText}>
+              We're working on this feature and it will be available in a future update.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setComingSoonItem(null)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -435,22 +467,84 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
   },
 
-  resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: ms(8),
-    marginTop: ms(8),
-    paddingVertical: ms(13),
-    borderRadius: ms(26),
-    borderWidth: 1.5,
-    borderColor: foodColors.primary,
-    backgroundColor: foodColors.surface,
-  },
-  resetButtonText: {
-    fontSize: ms(13.5),
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.primary,
-  },
   bottomSpacer: { height: 20 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: '8%',
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: foodColors.surface,
+    borderRadius: ms(24),
+    paddingHorizontal: ms(24),
+    paddingTop: ms(28),
+    paddingBottom: ms(22),
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  modalIconRing: {
+    width: ms(88),
+    height: ms(88),
+    borderRadius: ms(44),
+    backgroundColor: 'rgba(255,107,53,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: ms(16),
+  },
+  modalIconCircle: {
+    width: ms(60),
+    height: ms(60),
+    borderRadius: ms(30),
+    backgroundColor: foodColors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalPill: {
+    backgroundColor: 'rgba(255,107,53,0.1)',
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(4),
+    borderRadius: ms(10),
+    marginBottom: ms(10),
+  },
+  modalPillText: {
+    fontSize: ms(10),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.primary,
+    letterSpacing: 0.8,
+  },
+  modalTitle: {
+    fontSize: ms(18),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    marginBottom: ms(8),
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: ms(13),
+    fontFamily: fonts.poppins.regular,
+    lineHeight: ms(20),
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: ms(22),
+  },
+  modalButton: {
+    width: '100%',
+    backgroundColor: foodColors.primary,
+    paddingVertical: ms(14),
+    borderRadius: ms(26),
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
 });

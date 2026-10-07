@@ -71,17 +71,17 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
           <TouchableOpacity
             onPress={() => setQty(item.id, Math.max(1, qty - 1))}
             style={styles.stepBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
           >
-            <Feather name="minus" size={ms(12)} color={foodColors.textPrimary} />
+            <Feather name="minus" size={ms(16)} color={foodColors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.stepValue} maxFontSizeMultiplier={1.1}>{qty}</Text>
           <TouchableOpacity
             onPress={() => setQty(item.id, qty + 1)}
             style={styles.stepBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
           >
-            <Feather name="plus" size={ms(12)} color={foodColors.textPrimary} />
+            <Feather name="plus" size={ms(16)} color={foodColors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -152,18 +152,21 @@ const styles = StyleSheet.create({
   addBtnText: { fontSize: ms(9), lineHeight: ms(11), fontFamily: fonts.poppins.bold, color: '#fff', textAlign: 'center' },
   addBtnIcon: { marginTop: 2 },
 
+  // Small pill, but with larger − and + icons inside it.
   stepper: {
     alignSelf: 'stretch',
+    // width:,
+    marginLeft: ms(10),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    borderRadius: ms(20),
+    borderRadius: ms(16),
     borderWidth: 1,
     borderColor: foodColors.border,
-    paddingHorizontal: ms(6),
-    height: ms(30),
+    paddingHorizontal: ms(3),
+    height: ms(24),
   },
-  stepBtn: { width: ms(18), height: ms(18), justifyContent: 'center', alignItems: 'center' },
-  stepValue: { fontSize: ms(12), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  stepBtn: { width: ms(20), height: ms(20), justifyContent: 'center', alignItems: 'center' },
+  stepValue: { fontSize: ms(11.5), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
 });

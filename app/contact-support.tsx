@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,11 @@ import {
   TouchableOpacity,
   TextInput,
   Linking,
+  Modal,
+  Animated,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -28,26 +32,68 @@ const channels = [
 export default function ContactSupportScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-  const [sent, setSent] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [successVisible, setSuccessVisible] = useState(false);
+  const popAnim = useRef(new Animated.Value(0)).current;
+
+  const scrollToEnd = () => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+  };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setKeyboardOpen(true);
+      setTimeout(scrollToEnd, 100);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardOpen(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (successVisible) {
+      popAnim.setValue(0);
+      Animated.spring(popAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 70,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [successVisible, popAnim]);
 
   const handleSend = () => {
     if (!subject.trim() || !message.trim()) return;
-    setSent(true);
     setSubject('');
     setMessage('');
+    Keyboard.dismiss();
+    setSuccessVisible(true);
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar style="dark" />
       <ScreenHeader title="Contact Support" />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <TouchableOpacity
           style={styles.liveChatCard}
@@ -96,42 +142,76 @@ export default function ContactSupportScreen() {
             placeholder="Subject"
             placeholderTextColor={foodColors.textMuted}
             value={subject}
-            onChangeText={(text) => {
-              setSubject(text);
-              setSent(false);
-            }}
+            onChangeText={setSubject}
           />
           <TextInput
             style={[styles.input, styles.messageInput]}
             placeholder="Describe your issue..."
             placeholderTextColor={foodColors.textMuted}
             value={message}
-            onChangeText={(text) => {
-              setMessage(text);
-              setSent(false);
-            }}
+            onChangeText={setMessage}
             multiline
           />
         </View>
 
-        {sent && (
-          <View style={styles.sentBanner}>
-            <Feather name="check-circle" size={ms(14)} color={foodColors.success} />
-            <Text style={styles.sentBannerText}>
-              Message sent — we'll get back to you shortly
-            </Text>
-          </View>
-        )}
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: (keyboardOpen ? 0 : insets.bottom) + ms(14) },
+        ]}
+      >
         <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.85}>
           <Text style={styles.sendButtonText}>Send Message</Text>
         </TouchableOpacity>
       </View>
-    </View>
+
+      <Modal
+        visible={successVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setSuccessVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalCard,
+              {
+                opacity: popAnim,
+                transform: [
+                  {
+                    scale: popAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.85, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.modalIconRing}>
+              <View style={styles.modalIconCircle}>
+                <Feather name="check" size={ms(28)} color="#fff" />
+              </View>
+            </View>
+            <Text style={styles.modalTitle}>Message Sent</Text>
+            <Text style={styles.modalText}>
+              Thanks for reaching out. Our support team will get back to you shortly.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setSuccessVisible(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -230,23 +310,6 @@ const styles = StyleSheet.create({
   },
   messageInput: { minHeight: ms(100), textAlignVertical: 'top' },
 
-  sentBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ms(6),
-    marginTop: ms(14),
-    backgroundColor: 'rgba(52,199,89,0.1)',
-    borderRadius: ms(10),
-    paddingVertical: ms(10),
-    paddingHorizontal: ms(12),
-  },
-  sentBannerText: {
-    fontSize: ms(12),
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.success,
-    flexShrink: 1,
-  },
-
   bottomSpacer: { height: ms(90) },
 
   footer: {
@@ -263,6 +326,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sendButtonText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: '8%',
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: foodColors.surface,
+    borderRadius: ms(24),
+    paddingHorizontal: ms(24),
+    paddingTop: ms(28),
+    paddingBottom: ms(22),
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  modalIconRing: {
+    width: ms(88),
+    height: ms(88),
+    borderRadius: ms(44),
+    backgroundColor: 'rgba(52,199,89,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: ms(18),
+  },
+  modalIconCircle: {
+    width: ms(60),
+    height: ms(60),
+    borderRadius: ms(30),
+    backgroundColor: foodColors.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: ms(18),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    marginBottom: ms(8),
+  },
+  modalText: {
+    fontSize: ms(13),
+    fontFamily: fonts.poppins.regular,
+    lineHeight: ms(20),
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: ms(22),
+  },
+  modalButton: {
+    width: '100%',
+    backgroundColor: foodColors.primary,
+    paddingVertical: ms(14),
+    borderRadius: ms(26),
+    alignItems: 'center',
+  },
+  modalButtonText: {
     fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',

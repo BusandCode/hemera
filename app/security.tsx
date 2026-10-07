@@ -1,27 +1,49 @@
+import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { useAppData } from '../src/context/AppDataContext';
+import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
+
+type PinStatus = {
+  loaded: boolean;
+  hasPin: boolean;
+  changedAt: string | null;
+};
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
 function ActionRow({
   icon,
   title,
   subtitle,
   onPress,
+  disabled,
 }: {
   icon: keyof typeof Feather.glyphMap;
   title: string;
   subtitle?: string;
   onPress?: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+    >
       <View style={styles.iconWrap}>
         <Feather name={icon} size={ms(16)} color={foodColors.textPrimary} />
       </View>
@@ -69,6 +91,38 @@ function ToggleRow({
 export default function SecurityScreen() {
   const router = useRouter();
   const { security, setBiometric, setTwoFactor } = useAppData();
+  const [pin, setPin] = useState<PinStatus>({ loaded: false, hasPin: false, changedAt: null });
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        try {
+          const { data } = await supabase.rpc('get_pin_status');
+          if (!active) return;
+          setPin({
+            loaded: true,
+            hasPin: data?.has_pin === true,
+            changedAt: data?.changed_at ?? null,
+          });
+        } catch {
+          if (active) setPin((p) => ({ ...p, loaded: true }));
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
+  const pinTitle = !pin.loaded ? 'PIN' : pin.hasPin ? 'Change PIN' : 'Set PIN';
+  const pinSubtitle = !pin.loaded
+    ? undefined
+    : pin.hasPin
+      ? `Used to confirm E-Chop & E-Wash payments${
+          pin.changedAt ? ` · changed ${formatDate(pin.changedAt)}` : ''
+        }`
+      : 'Create a 4-digit PIN to confirm payments and unlock the app';
 
   return (
     <View style={styles.container}>
@@ -90,8 +144,9 @@ export default function SecurityScreen() {
           />
           <ActionRow
             icon="hash"
-            title="Change Transaction PIN"
-            subtitle={`Used to confirm E-Chop & E-Wash payments · changed ${security.pinLastChanged}`}
+            title={pinTitle}
+            subtitle={pinSubtitle}
+            disabled={!pin.loaded}
             onPress={() => router.push('/change-pin' as any)}
           />
           <ToggleRow

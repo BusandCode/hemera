@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Modal } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +29,7 @@ function getInitials(fullName: string) {
 }
 
 const STATS = [
-  { value: '2,400+', label: 'Active Plans' },
+  { value: '700+', label: 'Active Plans' },
   { value: '98%', label: 'Delight Rate' },
   { value: '30min', label: 'Avg. Delivery' },
 ];
@@ -180,7 +180,9 @@ export default function EPlanScreen() {
                   activeOpacity={0.85}
                   onPress={() => startFixedPlan(plan)}
                 >
-                  <Text style={styles.fixedEmoji}>{plan.emoji}</Text>
+                  <View style={styles.fixedIconTile}>
+                    <MaterialCommunityIcons name={plan.icon as any} size={ms(22)} color="#1E3FEA" />
+                  </View>
                   <Text style={styles.fixedTitle}>{formatNaira(plan.amount)}</Text>
                   <Text style={styles.fixedSubtitle}>
                     {plan.durationLabel}
@@ -313,7 +315,7 @@ const styles = StyleSheet.create({
     borderColor: foodColors.border, padding: ms(16),
     shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
-  fixedEmoji: { fontSize: ms(26), marginBottom: ms(14) },
+  fixedIconTile: { width: ms(44), height: ms(44), borderRadius: ms(14), backgroundColor: 'rgba(30,63,234,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: ms(14) },
   fixedTitle: { fontSize: ms(17), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(4) },
   fixedSubtitle: { fontSize: ms(12), lineHeight: ms(17), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
 });

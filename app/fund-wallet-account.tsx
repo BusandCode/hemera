@@ -42,6 +42,7 @@ const ui = {
 
 const RING = 76;
 const RING_STROKE = 4;
+const REQUEST_TIMEOUT_MS = 20000;
 
 type AccountDetails = {
   accountNumber: string;
@@ -70,6 +71,21 @@ function formatClock(totalSeconds: number) {
 
 function formatAccountNumber(value: string) {
   return value.replace(/\s/g, '').replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+// Reads the most useful message out of a failed edge function call.
+async function readFunctionError(fnError: any): Promise<string> {
+  const context = fnError?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.json();
+      if (body?.error || body?.message) return String(body.error ?? body.message);
+    } catch {}
+    if (typeof context.status === 'number') {
+      return `Server error (${context.status}). Please try again.`;
+    }
+  }
+  return fnError?.message ? `Could not reach the server: ${fnError.message}` : 'Something went wrong. Please try again.';
 }
 
 function ExpiryRing({ fraction, label }: { fraction: number; label: string }) {
@@ -122,6 +138,7 @@ export default function FundWalletAccountScreen() {
 
   const [details, setDetails] = useState<AccountDetails | null>(null);
   const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [checking, setChecking] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -132,39 +149,80 @@ export default function FundWalletAccountScreen() {
   const confirmLockedRef = useRef(false);
   const idempotencyKeyRef = useRef(`fund-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
+  // Creates the one-time virtual account. Uses the shared Supabase client, so the server
+  // address and the login token come from the same place as the rest of the app.
   useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timeout')), REQUEST_TIMEOUT_MS);
+      });
+
       try {
-        const res = await fetch(
-          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/fund-wallet`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session?.access_token}`,
-              'Idempotency-Key': idempotencyKeyRef.current,
-            },
-            body: JSON.stringify(
+        const { data, error: fnError } = await Promise.race([
+          supabase.functions.invoke('fund-wallet', {
+            body:
               // E-Plan pays as a plain top-up: the full amount lands in the wallet, then the plan locks from it.
               isOrder && !isEplan
                 ? { amount: Number(amount), purpose: isSubscription ? 'ewash' : service }
-                : { amount: Number(amount) }
-            ),
-          }
-        );
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error ?? 'Failed to generate account details.');
+                : { amount: Number(amount) },
+            headers: { 'Idempotency-Key': idempotencyKeyRef.current },
+          }),
+          timeout,
+        ]);
+
+        if (cancelled) return;
+
+        if (fnError) {
+          const message = await readFunctionError(fnError);
+          if (cancelled) return;
+          console.log('fund-wallet invoke failed:', fnError?.name, fnError?.message);
+          setError(message);
           return;
         }
-        setDetails(data);
-        setSecondsLeft(data.expiresInSeconds);
-      } catch (e) {
-        setError('Network error contacting server.');
+
+        let result: any = data;
+        if (typeof result === 'string') {
+          try {
+            result = JSON.parse(result);
+          } catch {
+            result = null;
+          }
+        }
+
+        if (!result?.accountNumber || !result?.reference) {
+          setError(result?.error ?? result?.message ?? 'The server sent an unexpected response. Please try again.');
+          return;
+        }
+
+        setDetails(result);
+        setSecondsLeft(Number(result.expiresInSeconds) || 0);
+      } catch (e: any) {
+        if (cancelled) return;
+        console.log('fund-wallet request failed:', e?.name, e?.message);
+        setError(
+          e?.message === 'timeout'
+            ? 'The request timed out. Check your connection and try again.'
+            : `Network error: ${e?.message ?? 'unknown'}`
+        );
+      } finally {
+        if (timer) clearTimeout(timer);
       }
     })();
-  }, [amount]);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [amount, attempt]);
+
+  const handleRetry = () => {
+    setError('');
+    setDetails(null);
+    setAttempt((a) => a + 1);
+  };
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -199,40 +257,40 @@ export default function FundWalletAccountScreen() {
     };
   }, [details, confirmed]);
 
- const createSubscription = async () => {
-  if (orderPlacedRef.current) return true;
-  orderPlacedRef.current = true;
+  const createSubscription = async () => {
+    if (orderPlacedRef.current) return true;
+    orderPlacedRef.current = true;
 
-  let draft: any = {};
-  try {
-    draft = JSON.parse(order ?? '{}');
-  } catch {}
+    let draft: any = {};
+    try {
+      draft = JSON.parse(order ?? '{}');
+    } catch {}
 
-  const planId = String(draft.metadata?.plan_id ?? '').trim();
-  const durationMonths = Number(draft.metadata?.duration_months ?? 0);
-  const amountKobo = Math.round(Number(amount) * 100);
+    const planId = String(draft.metadata?.plan_id ?? '').trim();
+    const durationMonths = Number(draft.metadata?.duration_months ?? 0);
+    const amountKobo = Math.round(Number(amount) * 100);
 
-  if (!planId || !durationMonths) {
-    orderPlacedRef.current = false;
-    Alert.alert('Subscription failed', 'Plan details are missing. Please try again.');
-    return false;
-  }
+    if (!planId || !durationMonths) {
+      orderPlacedRef.current = false;
+      Alert.alert('Subscription failed', 'Plan details are missing. Please try again.');
+      return false;
+    }
 
-  const { error: rpcError } = await supabase.rpc('activate_plan_direct', {
-    p_plan_id: planId,
-    p_duration_months: durationMonths,
-    p_amount_kobo: amountKobo,
-    p_tx_ref: details?.reference ?? null,
-  });
+    const { error: rpcError } = await supabase.rpc('activate_plan_direct', {
+      p_plan_id: planId,
+      p_duration_months: durationMonths,
+      p_amount_kobo: amountKobo,
+      p_tx_ref: details?.reference ?? null,
+    });
 
-  if (rpcError) {
-    orderPlacedRef.current = false;
-    Alert.alert('Subscription failed', rpcError.message);
-    return false;
-  }
+    if (rpcError) {
+      orderPlacedRef.current = false;
+      Alert.alert('Subscription failed', rpcError.message);
+      return false;
+    }
 
-  return true;
-};
+    return true;
+  };
 
   // Activates the E-Plan from the freshly funded wallet. The server decides what is locked, so any
   // surplus (e.g. the extra ₦2,500 on ₦22,500) simply stays in the wallet. Returns the plan id.
@@ -501,8 +559,11 @@ export default function FundWalletAccountScreen() {
         <StatusBar style="dark" />
         <Feather name="alert-circle" size={32} color="#FF3B30" />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => router.back()}>
-          <Text style={styles.retryBtnText}>Go Back</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+          <Text style={styles.retryBtnText}>Try Again</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.helpLink} onPress={() => router.back()}>
+          <Text style={styles.helpText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );

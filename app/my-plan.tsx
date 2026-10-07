@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,8 @@ import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
 const WALLET_BLUE = '#0032C1';
+const TRANSIT_ORANGE = '#F59E0B';
+const SURPRISE_PURPLE = '#7C3AED';
 
 function formatNaira(value: number) {
   return `₦${value.toLocaleString()}`;
@@ -28,13 +30,26 @@ function getInitials(fullName: string) {
   return (first + last).toUpperCase();
 }
 
+function formatDelivered(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
+  const day =
+    diff === 0
+      ? 'Today'
+      : diff === 1
+      ? 'Yesterday'
+      : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return { day, time };
+}
+
 type PlanRow = {
   id: string;
   locked_amount_kobo: number;
   balance_kobo: number;
   ends_at: string;
-  meals_min: number | null;
-  meals_max: number | null;
 };
 
 type DeliveryRow = {
@@ -43,6 +58,12 @@ type DeliveryRow = {
   subtitle: string | null;
   status: 'delivered' | 'in_transit' | 'surprise_pending';
   delivered_at: string | null;
+};
+
+const STATUS_ORDER: Record<DeliveryRow['status'], number> = {
+  delivered: 0,
+  in_transit: 1,
+  surprise_pending: 2,
 };
 
 export default function MyPlanScreen() {
@@ -62,7 +83,7 @@ export default function MyPlanScreen() {
     setLoading(true);
     const { data: planData } = await supabase
       .from('eplan_plans')
-      .select('id, locked_amount_kobo, balance_kobo, ends_at, meals_min, meals_max')
+      .select('id, locked_amount_kobo, balance_kobo, ends_at')
       .eq('user_id', session.user.id)
       .eq('status', 'active')
       .maybeSingle();
@@ -121,12 +142,32 @@ export default function MyPlanScreen() {
     ? new Date(plan.ends_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
 
-  // Meals delivered so far vs what the plan covers.
-  const deliveredCount = deliveries.filter((d) => d.status === 'delivered').length;
-  const mealsTotal = plan?.meals_max ?? 0;
-  const mealsRange =
-    plan?.meals_min != null && plan?.meals_max != null ? `${plan.meals_min}–${plan.meals_max}` : null;
-  const mealsProgress = mealsTotal > 0 ? Math.min(deliveredCount / mealsTotal, 1) : 0;
+  const sortedDeliveries = [...deliveries].sort((a, b) => {
+    if (a.status !== b.status) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+    if (a.status === 'delivered') {
+      return new Date(b.delivered_at ?? 0).getTime() - new Date(a.delivered_at ?? 0).getTime();
+    }
+    return 0;
+  });
+
+  const renderMeta = (d: DeliveryRow) => {
+    if (d.status === 'delivered' && d.delivered_at) {
+      const { day, time } = formatDelivered(d.delivered_at);
+      return (
+        <View style={styles.metaWrap}>
+          <Text style={styles.metaDay}>{day}</Text>
+          <Text style={styles.metaTime}>{time}</Text>
+        </View>
+      );
+    }
+    if (d.status === 'in_transit') {
+      return <Text style={[styles.metaStatus, { color: TRANSIT_ORANGE }]}>On the way</Text>;
+    }
+    if (d.status === 'surprise_pending') {
+      return <Text style={[styles.metaStatus, { color: SURPRISE_PURPLE }]}>???</Text>;
+    }
+    return null;
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -187,72 +228,54 @@ export default function MyPlanScreen() {
 
           <Text style={styles.sectionLabel}>DELIVERY HISTORY</Text>
 
-          <View style={styles.mealsCard}>
-            <View style={styles.mealsTopRow}>
-              <Text style={styles.mealsCount}>{deliveredCount}</Text>
-              <Text style={styles.mealsOf}>
-                {mealsRange ? `of ${mealsRange} meals delivered` : deliveredCount === 1 ? 'meal delivered' : 'meals delivered'}
-              </Text>
+          {sortedDeliveries.map((d) => (
+            <View key={d.id} style={styles.deliveryCard}>
+              <View
+                style={[
+                  styles.deliveryIconWrap,
+                  d.status === 'delivered' && styles.deliveryIconDelivered,
+                  d.status === 'in_transit' && styles.deliveryIconTransit,
+                  d.status === 'surprise_pending' && styles.deliveryIconPending,
+                ]}
+              >
+                {d.status === 'delivered' && <Feather name="check" size={ms(20)} color={foodColors.success} />}
+                {d.status === 'in_transit' && <MaterialCommunityIcons name="moped" size={ms(22)} color={TRANSIT_ORANGE} />}
+                {d.status === 'surprise_pending' && <Feather name="gift" size={ms(20)} color={SURPRISE_PURPLE} />}
+              </View>
+              <View style={styles.deliveryInfo}>
+                <Text style={styles.deliveryTitle} numberOfLines={1}>{d.title}</Text>
+                {!!d.subtitle && <Text style={styles.deliverySubtitle} numberOfLines={1}>{d.subtitle}</Text>}
+              </View>
+              {renderMeta(d)}
             </View>
-            {mealsTotal > 0 && (
-              <View style={styles.mealsTrack}>
-                <View style={[styles.mealsFill, { width: `${mealsProgress * 100}%` }]} />
-              </View>
-            )}
-          </View>
+          ))}
 
-          <View style={styles.deliveryGroup}>
-            {deliveries.map((d) => (
-              <View key={d.id} style={styles.deliveryRow}>
-                <View
-                  style={[
-                    styles.deliveryIconWrap,
-                    d.status === 'delivered' && styles.deliveryIconDelivered,
-                    d.status === 'in_transit' && styles.deliveryIconTransit,
-                    d.status === 'surprise_pending' && styles.deliveryIconPending,
-                  ]}
-                >
-                  <Feather
-                    name={d.status === 'delivered' ? 'check' : d.status === 'in_transit' ? 'navigation' : 'gift'}
-                    size={ms(15)}
-                    color={d.status === 'delivered' ? foodColors.success : d.status === 'in_transit' ? '#D97706' : WALLET_BLUE}
-                  />
-                </View>
-                <View style={styles.deliveryInfo}>
-                  <Text style={styles.deliveryTitle}>{d.title}</Text>
-                  <Text style={styles.deliverySubtitle}>{d.subtitle ?? ''}</Text>
-                </View>
-                <Text style={styles.deliveryMeta}>
-                  {d.status === 'delivered' && d.delivered_at
-                    ? new Date(d.delivered_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                    : d.status === 'surprise_pending'
-                    ? '???'
-                    : ''}
-                </Text>
-              </View>
-            ))}
-            {deliveries.length === 0 && (
-              <View style={styles.deliveryEmpty}>
-                <Text style={styles.deliveryEmptyText}>No deliveries yet — surprises are on the way.</Text>
-              </View>
-            )}
-          </View>
+          {sortedDeliveries.length === 0 && (
+            <View style={styles.deliveryEmpty}>
+              <Text style={styles.deliveryEmptyText}>No deliveries yet — surprises are on the way.</Text>
+            </View>
+          )}
 
-          <View style={styles.infoBanner}>
-            <Feather name="info" size={ms(18)} color={WALLET_BLUE} />
-            <Text style={styles.infoBannerText}>
-              Your plan ends {endsLabel}. Only the unused balance is refunded to your wallet. Meals already delivered are not refunded.
-            </Text>
-          </View>
+          <View style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconWrap}>
+                <Feather name="info" size={ms(22)} color={WALLET_BLUE} />
+              </View>
+              <View style={styles.infoTextWrap}>
+                <Text style={styles.infoTitle}>Your plan ends {endsLabel}.</Text>
+                <Text style={styles.infoText}>Unused balance will be refunded to your wallet.</Text>
+              </View>
+            </View>
 
-          <TouchableOpacity
-            style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
-            activeOpacity={0.85}
-            disabled={cancelling}
-            onPress={handleCancel}
-          >
-            {cancelling ? <ActivityIndicator color={foodColors.textPrimary} /> : <Text style={styles.cancelBtnText}>Cancel Plan</Text>}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
+              activeOpacity={0.85}
+              disabled={cancelling}
+              onPress={handleCancel}
+            >
+              {cancelling ? <ActivityIndicator color={foodColors.textPrimary} /> : <Text style={styles.cancelBtnText}>Cancel Plan</Text>}
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       )}
 
@@ -294,42 +317,46 @@ const styles = StyleSheet.create({
   fromLabel: { fontSize: ms(11), fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.75)' },
   daysLeft: { fontSize: ms(16), fontFamily: fonts.poppins.bold, color: '#fff' },
 
-  sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.bold, color: foodColors.textMuted, letterSpacing: 0.6, marginBottom: ms(10) },
+  sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: foodColors.textMuted, letterSpacing: 1, marginBottom: ms(12) },
 
-  mealsCard: {
-    backgroundColor: foodColors.surface, borderRadius: ms(16), padding: ms(16), marginBottom: ms(12),
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  deliveryCard: {
+    flexDirection: 'row', alignItems: 'center', gap: ms(14),
+    backgroundColor: foodColors.surface, borderRadius: ms(14), borderWidth: 1, borderColor: foodColors.border,
+    paddingHorizontal: ms(14), paddingVertical: ms(14), marginBottom: ms(10),
   },
-  mealsTopRow: { flexDirection: 'row', alignItems: 'flex-end', gap: ms(10) },
-  mealsCount: { fontSize: ms(34), lineHeight: ms(38), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  mealsOf: { flex: 1, fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, paddingBottom: ms(5) },
-  mealsTrack: { height: 6, borderRadius: 3, backgroundColor: foodColors.border, overflow: 'hidden', marginTop: ms(12) },
-  mealsFill: { height: '100%', borderRadius: 3, backgroundColor: WALLET_BLUE },
-
-  deliveryGroup: { backgroundColor: foodColors.surface, borderRadius: ms(16), overflow: 'hidden', marginBottom: ms(16) },
-  deliveryRow: {
-    flexDirection: 'row', alignItems: 'center', gap: ms(12), paddingHorizontal: ms(14), paddingVertical: ms(13),
-    borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.04)',
-  },
-  deliveryIconWrap: { width: ms(34), height: ms(34), borderRadius: ms(17), justifyContent: 'center', alignItems: 'center' },
+  deliveryIconWrap: { width: ms(48), height: ms(48), borderRadius: ms(24), justifyContent: 'center', alignItems: 'center' },
   deliveryIconDelivered: { backgroundColor: 'rgba(52,199,89,0.12)' },
-  deliveryIconTransit: { backgroundColor: 'rgba(217,119,6,0.1)' },
-  deliveryIconPending: { backgroundColor: 'rgba(0,50,193,0.08)' },
+  deliveryIconTransit: { backgroundColor: 'rgba(245,158,11,0.12)' },
+  deliveryIconPending: { backgroundColor: 'rgba(124,58,237,0.1)' },
   deliveryInfo: { flex: 1, minWidth: 0 },
-  deliveryTitle: { fontSize: ms(13.5), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  deliverySubtitle: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(2) },
-  deliveryMeta: { fontSize: ms(11.5), fontFamily: fonts.poppins.bold, color: foodColors.textMuted },
-  deliveryEmpty: { paddingVertical: ms(20), paddingHorizontal: ms(14) },
+  deliveryTitle: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  deliverySubtitle: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(3) },
+  metaWrap: { alignItems: 'flex-end' },
+  metaDay: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  metaTime: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(3) },
+  metaStatus: { fontSize: ms(13), fontFamily: fonts.poppins.bold },
+  deliveryEmpty: {
+    backgroundColor: foodColors.surface, borderRadius: ms(14), borderWidth: 1, borderColor: foodColors.border,
+    paddingVertical: ms(20), paddingHorizontal: ms(14), marginBottom: ms(10),
+  },
   deliveryEmptyText: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, textAlign: 'center' },
 
-  infoBanner: {
-    flexDirection: 'row', gap: ms(10), backgroundColor: 'rgba(0,50,193,0.06)', borderRadius: ms(14), padding: ms(14), marginBottom: ms(14), alignItems: 'flex-start',
+  infoCard: {
+    backgroundColor: foodColors.surface, borderRadius: ms(18), borderWidth: 1, borderColor: foodColors.border,
+    padding: ms(16), marginTop: ms(6),
   },
-  infoBannerText: { flex: 1, fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, lineHeight: ms(16) },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: ms(16) },
+  infoIconWrap: {
+    width: ms(52), height: ms(52), borderRadius: ms(26), backgroundColor: 'rgba(0,50,193,0.08)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  infoTextWrap: { flex: 1 },
+  infoTitle: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  infoText: { fontSize: ms(12.5), lineHeight: ms(18), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(3) },
 
   cancelBtn: {
-    alignItems: 'center', justifyContent: 'center', paddingVertical: ms(15), borderRadius: ms(26),
-    borderWidth: 1.5, borderColor: foodColors.border,
+    alignItems: 'center', justifyContent: 'center', paddingVertical: ms(14), borderRadius: ms(14),
+    borderWidth: 1.5, borderColor: foodColors.textPrimary, marginTop: ms(16),
   },
   cancelBtnDisabled: { opacity: 0.6 },
   cancelBtnText: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },

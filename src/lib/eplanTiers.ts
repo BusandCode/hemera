@@ -74,12 +74,13 @@ export type FixedPlan = {
   durationLabel: string;
   /** e.g. "16–20" */
   meals: string;
-  emoji: string;
+  /** MaterialCommunityIcons name shown on the card. */
+  icon: string;
 };
 
 export const FIXED_PLANS: FixedPlan[] = [
-  { key: 'week-75k', amount: 75_000, durationDays: 7, durationLabel: '1 week', meals: '16–20', emoji: '🍱' },
-  { key: 'twoweeks-50k', amount: 50_000, durationDays: 14, durationLabel: '2 weeks', meals: '12–15', emoji: '🥘' },
-  { key: 'month-150k', amount: 150_000, durationDays: 30, durationLabel: '1 month', meals: '34–38', emoji: '📅' },
-  { key: 'twomonths-250k', amount: 250_000, durationDays: 60, durationLabel: '2 months', meals: '50–60', emoji: '🎁' },
+  { key: 'week-75k', amount: 75_000, durationDays: 7, durationLabel: '1 week', meals: '16–20', icon: 'calendar-week' },
+  { key: 'twoweeks-50k', amount: 50_000, durationDays: 14, durationLabel: '2 weeks', meals: '12–15', icon: 'calendar-range' },
+  { key: 'month-150k', amount: 150_000, durationDays: 30, durationLabel: '1 month', meals: '34–38', icon: 'calendar-month' },
+  { key: 'twomonths-250k', amount: 250_000, durationDays: 60, durationLabel: '2 months', meals: '50–60', icon: 'calendar-multiple' },
 ];
