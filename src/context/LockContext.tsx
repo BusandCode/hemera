@@ -15,6 +15,9 @@ import { useRouter } from 'expo-router';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 
+/** Away this long → lock screen (PIN / password). */
+export const LOCK_AFTER_MS = 20 * 1000;
+
 /** Away this long → full sign-out (email + password on the auth screen). */
 export const SIGN_OUT_AFTER_MS = 5 * 24 * 60 * 60 * 1000;
 
@@ -105,7 +108,7 @@ export function LockProvider({ children }: { children: ReactNode }) {
     })();
   }, [loading, session]);
 
-  // While signed in: lock as soon as the user leaves the app.
+  // While signed in: lock when the user comes back after being away 20+ seconds.
   useEffect(() => {
     if (!userId) {
       leftAtRef.current = null;
@@ -127,20 +130,23 @@ export function LockProvider({ children }: { children: ReactNode }) {
           leftAtRef.current = now;
           AsyncStorage.setItem(LEFT_AT_KEY, String(now)).catch(() => {});
         }
-        // Lock now, so the home screen never flashes when they come back.
-        if (!skipNextRef.current) setLocked(true);
         return;
       }
 
       if (next === 'active') {
         const leftAt = leftAtRef.current;
+        const skip = skipNextRef.current;
         leftAtRef.current = null;
         skipNextRef.current = false;
         AsyncStorage.removeItem(LEFT_AT_KEY).catch(() => {});
 
-        if (leftAt !== null && Date.now() - leftAt >= SIGN_OUT_AFTER_MS) {
-          expireRef.current();
-          return;
+        if (leftAt !== null) {
+          const away = Date.now() - leftAt;
+          if (away >= SIGN_OUT_AFTER_MS) {
+            expireRef.current();
+            return;
+          }
+          if (away >= LOCK_AFTER_MS && !skip) setLocked(true);
         }
         refreshPinStatus(); // pick up a PIN set/removed elsewhere
       }
