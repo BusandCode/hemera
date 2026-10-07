@@ -12,16 +12,17 @@ import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { useEPlanDraft } from '../src/context/EPlanDraftContext';
+import { getEPlanTier, weeksFor, EPlanDuration } from '../src/lib/eplanTiers';
 import { ms } from '../src/utils/responsive';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 const ACCENT_BLUE = '#1E3FEA';
 
-type DurationKey = '1w' | '2w';
+type DurationKey = EPlanDuration;
 
-const DURATIONS: { key: DurationKey; label: string; meals: string }[] = [
-  { key: '1w', label: '1 Week', meals: '4–6 meals' },
-  { key: '2w', label: '2 Weeks', meals: '8–12 meals' },
+const DURATIONS: { key: DurationKey; label: string }[] = [
+  { key: '1w', label: '1 Week' },
+  { key: '2w', label: '2 Weeks' },
 ];
 
 function formatNaira(value: number) {
@@ -47,7 +48,17 @@ export default function EPlanSetupScreen() {
   const [lunchWindow, setLunchWindow] = useState(draft.lunchWindow);
   const [dinnerWindow, setDinnerWindow] = useState(draft.dinnerWindow);
 
-  const selectedDuration = DURATIONS.find((d) => d.key === duration)!;
+  const tier = getEPlanTier(amount, duration);
+  // What the user's amount is worth per week, used to preview the other duration.
+  const weeklyAmount = amount / weeksFor(duration);
+
+  // Duration scales the amount: the number typed is the 1-week budget, so 2 weeks doubles it
+  // and switching back halves it again.
+  const handleDurationChange = (next: DurationKey) => {
+    if (next === duration) return;
+    setAmount((current) => (next === '2w' ? current * 2 : Math.round(current / 2)));
+    setDuration(next);
+  };
 
   const handleAmountChange = (raw: string) => {
     const digitsOnly = raw.replace(/[^0-9]/g, '');
@@ -55,7 +66,7 @@ export default function EPlanSetupScreen() {
   };
 
   const handleContinue = () => {
-    updateDraft({ amount, duration, lunchWindow, dinnerWindow });
+    updateDraft({ amount, duration, lunchWindow, dinnerWindow, fixedPlan: null });
     router.push('/e-plan-exclusions' as any);
   };
 
@@ -103,10 +114,25 @@ export default function EPlanSetupScreen() {
             placeholderTextColor={foodColors.textMuted}
           />
         </View>
-        <Text style={styles.amountHelper}>
-          {formatNaira(amount)} will be locked • Est. {selectedDuration.meals}
-          {amount > balanceNaira ? ' • Exceeds wallet balance' : ''}
-        </Text>
+        {tier.valid ? (
+          <>
+            <Text style={styles.amountHelper}>
+              {formatNaira(tier.locked)} will be locked • Est. {tier.meals} meals
+              {tier.locked > balanceNaira ? ' • Exceeds wallet balance' : ''}
+            </Text>
+            {tier.surplus > 0 && (
+              <Text style={styles.surplusHelper}>
+                You have {formatNaira(tier.surplus)} excess that won't cover a new meal tier. It
+                goes back to your wallet, or add {formatNaira(tier.toNextTier)} more to unlock the
+                next level.
+              </Text>
+            )}
+          </>
+        ) : (
+          <Text style={styles.errorHelper}>
+            Minimum for {duration === '2w' ? '2 weeks' : '1 week'} is {formatNaira(tier.min)}
+          </Text>
+        )}
 
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>CHOOSE YOUR DURATION</Text>
         <View style={styles.durationRow}>
@@ -117,13 +143,15 @@ export default function EPlanSetupScreen() {
                 key={d.key}
                 style={[styles.durationCard, selected && styles.durationCardSelected]}
                 activeOpacity={0.85}
-                onPress={() => setDuration(d.key)}
+                onPress={() => handleDurationChange(d.key)}
               >
                 <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
                   {selected && <Feather name="check" size={ms(11)} color="#fff" />}
                 </View>
                 <Text style={[styles.durationLabel, selected && styles.durationLabelSelected]}>{d.label}</Text>
-                <Text style={[styles.durationMeals, selected && styles.durationMealsSelected]}>~{d.meals}</Text>
+                <Text style={[styles.durationMeals, selected && styles.durationMealsSelected]}>
+                  ~{getEPlanTier(weeklyAmount * weeksFor(d.key), d.key).meals} meals
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -159,9 +187,9 @@ export default function EPlanSetupScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.continueBtn, amount <= 0 && styles.continueBtnDisabled]}
+          style={[styles.continueBtn, !tier.valid && styles.continueBtnDisabled]}
           activeOpacity={0.85}
-          disabled={amount <= 0}
+          disabled={!tier.valid}
           onPress={handleContinue}
         >
           <Text style={styles.continueBtnText}>Continue</Text>
@@ -206,6 +234,8 @@ const styles = StyleSheet.create({
   nairaSign: { fontSize: ms(26), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   amountInput: { flex: 1, fontSize: ms(30), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, padding: 0 },
   amountHelper: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textMuted, marginTop: ms(8) },
+  surplusHelper: { fontSize: ms(12), lineHeight: ms(17), fontFamily: fonts.poppins.regular, color: ACCENT_BLUE, marginTop: ms(6) },
+  errorHelper: { fontSize: ms(12), fontFamily: fonts.poppins.medium, color: '#FF3B30', marginTop: ms(8) },
 
   durationRow: { flexDirection: 'row', gap: ms(12) },
   durationCard: {
@@ -236,6 +266,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: ms(8),
     backgroundColor: '#161311', borderRadius: ms(26), paddingVertical: ms(16), marginTop: ms(30),
   },
-  continueBtnDisabled: { opacity: 0.5 },
+  continueBtnDisabled: { opacity: 0.4 },
   continueBtnText: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: '#fff' },
 });

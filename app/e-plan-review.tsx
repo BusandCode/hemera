@@ -14,6 +14,7 @@ import { useProfile } from '../src/context/ProfileContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { useEPlanDraft } from '../src/context/EPlanDraftContext';
 import { supabase } from '../src/lib/supabase';
+import { getEPlanTier, EPlanTier } from '../src/lib/eplanTiers';
 import { ms } from '../src/utils/responsive';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
@@ -43,8 +44,15 @@ export default function EPlanReviewScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const durationDays = draft.duration === '1w' ? 7 : 14;
-  const estimatedMeals = draft.duration === '1w' ? '4–6 Surprises' : '8–12 Surprises';
+  const fixed = draft.fixedPlan;
+  const durationDays = fixed ? fixed.durationDays : draft.duration === '1w' ? 7 : 14;
+  const durationText = fixed ? fixed.durationLabel : draft.duration === '1w' ? '1 Week' : '2 Weeks';
+  // Fixed cards lock exactly their price. Custom amounts lock whole tiers only; anything extra
+  // stays in (or returns to) the wallet.
+  const tier: Pick<EPlanTier, 'valid' | 'min' | 'locked' | 'surplus' | 'meals'> = fixed
+    ? { valid: true, min: fixed.amount, locked: fixed.amount, surplus: 0, meals: fixed.meals }
+    : getEPlanTier(draft.amount, draft.duration);
+  const estimatedMeals = `${tier.meals} Surprises`;
   const deliveryWindow =
     draft.lunchWindow && draft.dinnerWindow ? 'Lunch + Dinner' : draft.lunchWindow ? 'Lunch' : draft.dinnerWindow ? 'Dinner' : 'None selected';
   const exclusions = [...draft.proteinLabels, ...draft.allergenLabels].join(', ') || 'None';
@@ -53,12 +61,17 @@ export default function EPlanReviewScreen() {
   const handleActivate = async () => {
     if (submitting) return;
 
+    if (!tier.valid) {
+      setError(`The minimum is ${formatNaira(tier.min)} for this duration. Go back and adjust your amount.`);
+      return;
+    }
+
     if (selectedMethod === 'transfer') {
       router.push({ pathname: '/fund-wallet-amount' } as any);
       return;
     }
 
-    if (draft.amount > balanceNaira) {
+    if (tier.locked > balanceNaira) {
       setError('Insufficient wallet balance. Fund your wallet first.');
       return;
     }
@@ -68,13 +81,21 @@ export default function EPlanReviewScreen() {
 
     let data: string | null = null;
     try {
-      const result = await supabase.rpc('activate_eplan', {
-        p_amount_kobo: draft.amount * 100,
-        p_plan_name: 'E-Plan',
-        p_duration_days: durationDays,
-        p_exclusions: exclusions,
-        p_delivery_window: deliveryWindow,
-      });
+      // The server owns the prices: fixed plans are looked up by key, custom amounts are
+      // re-checked and tiered there, so the amount can't be tampered with from the app.
+      const result = fixed
+        ? await supabase.rpc('activate_eplan_fixed', {
+            p_plan_key: fixed.key,
+            p_exclusions: exclusions,
+            p_delivery_window: deliveryWindow,
+          })
+        : await supabase.rpc('activate_eplan_tiered', {
+            p_paid_kobo: draft.amount * 100,
+            p_plan_name: 'E-Plan',
+            p_duration_days: durationDays,
+            p_exclusions: exclusions,
+            p_delivery_window: deliveryWindow,
+          });
 
       if (result.error) {
         if (/insufficient.*balance/i.test(result.error.message)) {
@@ -99,7 +120,7 @@ export default function EPlanReviewScreen() {
 
     await refresh();
     resetDraft();
-    router.replace({ pathname: '/e-plan-success', params: { planId: data ?? '' } } as any);
+    router.replace({ pathname: '/e-plan-success', params: { planId: data ?? '', meals: tier.meals } } as any);
   };
 
   return (
@@ -150,8 +171,11 @@ export default function EPlanReviewScreen() {
         <Text style={[styles.sectionLabel, styles.sectionSpacing]}>YOUR E-PLAN SUMMARY</Text>
         <View style={styles.summaryCard}>
           <SummaryRow icon="list" label="Plan" value="E-Plan" />
-          <SummaryRow icon="dollar-sign" label="Amount" value={formatNaira(draft.amount)} isBold />
-          <SummaryRow icon="calendar" label="Duration" value={draft.duration === '1w' ? '1 Week' : '2 Weeks'} />
+          <SummaryRow icon="dollar-sign" label="Amount Locked" value={formatNaira(tier.locked)} isBold />
+          {tier.surplus > 0 && (
+            <SummaryRow icon="corner-up-left" label="Excess Returned" value={formatNaira(tier.surplus)} />
+          )}
+          <SummaryRow icon="calendar" label="Duration" value={durationText} />
           <SummaryRow icon="pie-chart" label="Estimated Meals" value={estimatedMeals} />
           <SummaryRow icon="slash" label="Exclusions" value={exclusions} />
           <SummaryRow icon="clock" label="Delivery Window" value={deliveryWindow} />
@@ -197,7 +221,7 @@ export default function EPlanReviewScreen() {
             <>
               <Feather name="lock" size={ms(16)} color="#fff" style={styles.btnIcon} />
               <Text style={styles.primaryBtnText}>
-                {selectedMethod === 'transfer' ? 'Fund Wallet' : `Lock ${formatNaira(draft.amount)} & Activate`}
+                {selectedMethod === 'transfer' ? 'Fund Wallet' : `Lock ${formatNaira(tier.locked)} & Activate`}
               </Text>
             </>
           )}

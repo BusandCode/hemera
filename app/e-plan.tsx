@@ -12,6 +12,8 @@ import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
 import { useAuth } from '../src/context/AuthContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
+import { useEPlanDraft } from '../src/context/EPlanDraftContext';
+import { FIXED_PLANS, FixedPlan } from '../src/lib/eplanTiers';
 import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
@@ -38,6 +40,7 @@ export default function EPlanScreen() {
   const { profile } = useProfile();
   const { session } = useAuth();
   const { balanceNaira } = useWalletBalance();
+  const { updateDraft } = useEPlanDraft();
   const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
 
   const planReady = hasActivePlan !== null;
@@ -64,6 +67,16 @@ export default function EPlanScreen() {
       })();
     }, [session?.user.id])
   );
+
+  const startFixedPlan = (plan: FixedPlan) => {
+    updateDraft({
+      amount: plan.amount,
+      fixedPlan: plan,
+      lunchWindow: true,
+      dinnerWindow: true,
+    });
+    router.push('/e-plan-exclusions' as any);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -148,6 +161,31 @@ export default function EPlanScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {planReady && !active && (
+          <>
+            <Text style={[styles.sectionLabel, styles.moreSpacing]}>MORE OPTIONS</Text>
+
+            <View style={styles.fixedGrid}>
+              {FIXED_PLANS.map((plan) => (
+                <TouchableOpacity
+                  key={plan.key}
+                  style={styles.fixedCard}
+                  activeOpacity={0.85}
+                  onPress={() => startFixedPlan(plan)}
+                >
+                  <Text style={styles.fixedEmoji}>{plan.emoji}</Text>
+                  <Text style={styles.fixedTitle}>{formatNaira(plan.amount)}</Text>
+                  <Text style={styles.fixedSubtitle}>
+                    {plan.durationLabel}
+                    {'\n'}
+                    {plan.meals} meals
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <BottomTabs />
@@ -203,4 +241,15 @@ const styles = StyleSheet.create({
   planPrice: { fontSize: ms(17), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   startBtn: { flexDirection: 'row', alignItems: 'center', gap: ms(6) },
   startBtnText: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+
+  moreSpacing: { marginTop: ms(26) },
+  fixedGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: ms(12) },
+  fixedCard: {
+    width: '47.5%', backgroundColor: foodColors.surface, borderRadius: ms(18), borderWidth: 1,
+    borderColor: foodColors.border, padding: ms(16),
+    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  fixedEmoji: { fontSize: ms(26), marginBottom: ms(14) },
+  fixedTitle: { fontSize: ms(17), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(4) },
+  fixedSubtitle: { fontSize: ms(12), lineHeight: ms(17), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
 });

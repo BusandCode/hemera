@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import type { FixedPlan } from '../lib/eplanTiers';
 
 export type EPlanDraft = {
   amount: number;
@@ -8,6 +9,8 @@ export type EPlanDraft = {
   proteinLabels: string[];
   allergenLabels: string[];
   note: string;
+  /** Set when the user picked one of the fixed cards; null for a custom amount. */
+  fixedPlan: FixedPlan | null;
 };
 
 const DEFAULT_DRAFT: EPlanDraft = {
@@ -18,6 +21,7 @@ const DEFAULT_DRAFT: EPlanDraft = {
   proteinLabels: [],
   allergenLabels: [],
   note: '',
+  fixedPlan: null,
 };
 
 type EPlanDraftContextValue = {

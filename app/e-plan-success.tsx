@@ -41,7 +41,7 @@ type PlanRow = {
 export default function EPlanSuccessScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { planId } = useLocalSearchParams<{ planId: string }>();
+  const { planId, meals } = useLocalSearchParams<{ planId: string; meals?: string }>();
   const [plan, setPlan] = useState<PlanRow | null>(null);
 
   useEffect(() => {
@@ -89,8 +89,11 @@ export default function EPlanSuccessScreen() {
     durationDays === 1 ? '' : 's'
   }`;
 
-  const estimatedMeals =
-    durationDays <= 7 ? '4–6 Surprises' : '8–12 Surprises';
+  const estimatedMeals = meals
+    ? `${meals} Surprises`
+    : durationDays <= 7
+      ? '4–6 Surprises'
+      : '8–12 Surprises';
 
   const startsLabel = `Today, ${new Date(
     plan.created_at
