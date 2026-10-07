@@ -518,6 +518,7 @@ import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useOrders } from '../../src/hooks/useOrders';
 import { useAuth } from '../../src/context/AuthContext';
+import { quickServices, QuickService } from '../../src/constants/quickServices';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -538,26 +539,6 @@ const AUTO_SLIDE_MS = 2200;
 const SLIDE_DURATION_MS = 700;
 
 const BADGE_BLUE_DARK = '#1E3F82';
-
-type QuickService = {
-  id: string;
-  icon: keyof typeof Feather.glyphMap;
-  title: string;
-  subtitle: string;
-  bgColor: string;
-  route?: string;
-};
-
-const quickServices: QuickService[] = [
-  { id: 'echop',    icon: 'coffee',         title: 'E-Chop',          subtitle: 'Order food you love',      bgColor: foodColors.primary,     route: '/echop' },
-  { id: 'ewash',    icon: 'droplet',        title: 'E-Wash',          subtitle: 'Laundry & dry cleaning',   bgColor: foodColors.badgeBlue,   route: '/wash' },
-  { id: 'track',    icon: 'map-pin',        title: 'Track Order',     subtitle: 'Track your orders live',   bgColor: foodColors.forestGreen, route: '/track-order' },
-  { id: 'pickup',   icon: 'truck',          title: 'Pickup',  subtitle: 'Schedule a pickup',        bgColor: foodColors.primary,     route: '/request-pickup' },
-  { id: 'support',  icon: 'message-circle', title: 'Support',         subtitle: 'Get help anytime',         bgColor: foodColors.badgeBlue,   route: '/contact-support' },
-  { id: 'quality',  icon: 'shield',         title: 'Our Promise', subtitle: 'Top quality assurance',    bgColor: foodColors.primary,     route: '/quality-promise' },
-  { id: 'eplan',    icon: 'calendar',       title: 'E-Plan',          subtitle: 'Plan meals ahead',         bgColor: foodColors.forestGreen, route: '/e-plan' },
-  { id: 'offers',   icon: 'tag',            title: 'Offers',          subtitle: 'Exclusive deals for you',  bgColor: foodColors.badgeBlue,   route: '/offers' },
-];
 
 type PromoCard = {
   id: string;
@@ -748,7 +729,7 @@ export default function HomeScreen() {
         {/* Quick Services */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Quick Services</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/services' as any)}>
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>

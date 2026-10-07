@@ -1,5 +1,14 @@
 import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Switch,
+  Modal,
+  Pressable,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -14,15 +23,26 @@ import { ms } from '../src/utils/responsive';
 type PinStatus = {
   loaded: boolean;
   hasPin: boolean;
-  changedAt: string | null;
 };
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+type Unavailable = {
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  body: string;
+};
+
+const UNAVAILABLE: Record<'biometric' | 'twoFactor', Unavailable> = {
+  biometric: {
+    icon: 'smartphone',
+    title: 'Biometric Login',
+    body: "Face ID and fingerprint login aren't available yet. For now, use your PIN or password to open the app. We'll let you know as soon as it's ready.",
+  },
+  twoFactor: {
+    icon: 'shield',
+    title: 'Two-Factor Authentication',
+    body: "Two-factor authentication is not available at the moment. We're working on it and you'll be able to turn it on soon.",
+  },
+};
 
 function ActionRow({
   icon,
@@ -88,10 +108,52 @@ function ToggleRow({
   );
 }
 
+function UnavailableModal({
+  info,
+  onClose,
+}: {
+  info: Unavailable | null;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={!!info}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        {/* Inner Pressable stops taps on the card from closing the modal */}
+        <Pressable style={styles.card} onPress={() => {}}>
+          <View style={styles.badgeOuter}>
+            <View style={styles.badgeInner}>
+              <Feather name={info?.icon ?? 'shield'} size={ms(26)} color={foodColors.primary} />
+            </View>
+          </View>
+
+          <View style={styles.soonPill}>
+            <Feather name="clock" size={ms(11)} color={foodColors.primary} />
+            <Text style={styles.soonPillText}>COMING SOON</Text>
+          </View>
+
+          <Text style={styles.modalTitle}>{info?.title}</Text>
+          <Text style={styles.modalBody}>{info?.body}</Text>
+
+          <TouchableOpacity style={styles.modalBtn} onPress={onClose} activeOpacity={0.85}>
+            <Text style={styles.modalBtnText}>Got it</Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function SecurityScreen() {
   const router = useRouter();
   const { security, setBiometric, setTwoFactor } = useAppData();
-  const [pin, setPin] = useState<PinStatus>({ loaded: false, hasPin: false, changedAt: null });
+  const [pin, setPin] = useState<PinStatus>({ loaded: false, hasPin: false });
+  const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,11 +162,7 @@ export default function SecurityScreen() {
         try {
           const { data } = await supabase.rpc('get_pin_status');
           if (!active) return;
-          setPin({
-            loaded: true,
-            hasPin: data?.has_pin === true,
-            changedAt: data?.changed_at ?? null,
-          });
+          setPin({ loaded: true, hasPin: data?.has_pin === true });
         } catch {
           if (active) setPin((p) => ({ ...p, loaded: true }));
         }
@@ -115,14 +173,25 @@ export default function SecurityScreen() {
     }, [])
   );
 
+  // Not available yet: turning on shows the modal and the switch stays off.
+  // Turning off still works, in case an older account has it saved as on.
+  const handleBiometric = (next: boolean) => {
+    if (next) {
+      setUnavailable(UNAVAILABLE.biometric);
+      return;
+    }
+    setBiometric(false);
+  };
+
+  const handleTwoFactor = (next: boolean) => {
+    if (next) {
+      setUnavailable(UNAVAILABLE.twoFactor);
+      return;
+    }
+    setTwoFactor(false);
+  };
+
   const pinTitle = !pin.loaded ? 'PIN' : pin.hasPin ? 'Change PIN' : 'Set PIN';
-  const pinSubtitle = !pin.loaded
-    ? undefined
-    : pin.hasPin
-      ? `Used to confirm E-Chop & E-Wash payments${
-          pin.changedAt ? ` · changed ${formatDate(pin.changedAt)}` : ''
-        }`
-      : 'Create a 4-digit PIN to confirm payments and unlock the app';
 
   return (
     <View style={styles.container}>
@@ -145,7 +214,6 @@ export default function SecurityScreen() {
           <ActionRow
             icon="hash"
             title={pinTitle}
-            subtitle={pinSubtitle}
             disabled={!pin.loaded}
             onPress={() => router.push('/change-pin' as any)}
           />
@@ -154,19 +222,21 @@ export default function SecurityScreen() {
             title="Biometric Login"
             subtitle="Use Face ID or fingerprint to open the app"
             value={security.biometric}
-            onValueChange={setBiometric}
+            onValueChange={handleBiometric}
           />
           <ToggleRow
             icon="shield"
             title="Two-Factor Authentication"
             subtitle="Extra code required when logging in on a new device"
             value={security.twoFactor}
-            onValueChange={setTwoFactor}
+            onValueChange={handleTwoFactor}
           />
         </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      <UnavailableModal info={unavailable} onClose={() => setUnavailable(null)} />
     </View>
   );
 }
@@ -225,4 +295,88 @@ const styles = StyleSheet.create({
   },
 
   bottomSpacer: { height: ms(20) },
+
+  // Modal
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(11,16,32,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: ms(28),
+  },
+  card: {
+    width: '100%',
+    maxWidth: ms(360),
+    backgroundColor: foodColors.background,
+    borderRadius: ms(24),
+    paddingHorizontal: ms(22),
+    paddingTop: ms(28),
+    paddingBottom: ms(22),
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  badgeOuter: {
+    width: ms(84),
+    height: ms(84),
+    borderRadius: ms(42),
+    backgroundColor: foodColors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: ms(16),
+  },
+  badgeInner: {
+    width: ms(60),
+    height: ms(60),
+    borderRadius: ms(30),
+    backgroundColor: foodColors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  soonPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ms(5),
+    backgroundColor: foodColors.primaryLight,
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(4),
+    borderRadius: ms(20),
+    marginBottom: ms(12),
+  },
+  soonPillText: {
+    fontSize: ms(10),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.primary,
+    letterSpacing: 0.8,
+  },
+  modalTitle: {
+    fontSize: ms(18),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: ms(8),
+  },
+  modalBody: {
+    fontSize: ms(13),
+    lineHeight: ms(19),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: ms(22),
+  },
+  modalBtn: {
+    width: '100%',
+    backgroundColor: foodColors.primary,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
 });

@@ -1,20 +1,25 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Switch } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useFocusEffect } from 'expo-router';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { useAuth } from '../src/context/AuthContext';
+import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
 type ToggleKey =
-  | 'orderUpdates'
+  | 'order_updates'
   | 'promotions'
-  | 'chatMessages'
-  | 'pushEnabled'
-  | 'emailEnabled'
-  | 'smsEnabled';
+  | 'chat_messages'
+  | 'push_enabled'
+  | 'email_enabled'
+  | 'sms_enabled';
+
+type Values = Record<ToggleKey, boolean>;
 
 type ToggleDef = {
   key: ToggleKey;
@@ -23,31 +28,76 @@ type ToggleDef = {
   subtitle: string;
 };
 
-const activityToggles: ToggleDef[] = [
-  { key: 'orderUpdates', icon: 'package', title: 'Order Updates', subtitle: 'Status changes for E-Chop & E-Wash orders' },
-  { key: 'promotions', icon: 'tag', title: 'Promotions & Offers', subtitle: 'Discounts, deals, and new features' },
-  { key: 'chatMessages', icon: 'message-circle', title: 'Chat Messages', subtitle: 'Replies from support and riders' },
-];
+// Same as the column defaults in Supabase: everything on, SMS off.
+const DEFAULTS: Values = {
+  order_updates: true,
+  promotions: true,
+  chat_messages: true,
+  push_enabled: true,
+  email_enabled: true,
+  sms_enabled: false,
+};
 
-const channelToggles: ToggleDef[] = [
-  { key: 'pushEnabled', icon: 'bell', title: 'Push Notifications', subtitle: 'Alerts on this device' },
-  { key: 'emailEnabled', icon: 'mail', title: 'Email', subtitle: 'Sent to suleiman@example.com' },
-  { key: 'smsEnabled', icon: 'message-square', title: 'SMS', subtitle: 'Sent to +234 803 123 4567' },
-];
+const COLUMNS = Object.keys(DEFAULTS).join(', ');
 
 export default function NotificationSettingsScreen() {
-  const [values, setValues] = useState<Record<ToggleKey, boolean>>({
-    orderUpdates: true,
-    promotions: true,
-    chatMessages: true,
-    pushEnabled: true,
-    emailEnabled: false,
-    smsEnabled: true,
-  });
+  const { session } = useAuth();
+  const userId = session?.user.id;
+  const email = session?.user.email ?? '';
+  const phone = (session?.user.user_metadata?.phone as string | undefined) ?? '';
 
-  const toggle = (key: ToggleKey) => {
-    setValues((prev) => ({ ...prev, [key]: !prev[key] }));
+  const [values, setValues] = useState<Values>(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+
+  // Load the user's saved choices every time the screen opens.
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      let active = true;
+      (async () => {
+        const { data } = await supabase
+          .from('notification_settings')
+          .select(COLUMNS)
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (!active) return;
+        setValues(data ? { ...DEFAULTS, ...(data as Partial<Values>) } : DEFAULTS);
+        setLoading(false);
+      })();
+      return () => {
+        active = false;
+      };
+    }, [userId])
+  );
+
+  // Save only the toggle the user tapped. Show the change straight away,
+  // and put it back if saving fails.
+  const toggle = async (key: ToggleKey) => {
+    if (!userId) return;
+    const next = !values[key];
+    setValues((prev) => ({ ...prev, [key]: next }));
+
+    const { error } = await supabase
+      .from('notification_settings')
+      .upsert({ user_id: userId, [key]: next }, { onConflict: 'user_id' });
+
+    if (error) {
+      setValues((prev) => ({ ...prev, [key]: !next }));
+      Alert.alert('Not saved', 'We couldn’t save that change. Please check your connection and try again.');
+    }
   };
+
+  const activityToggles: ToggleDef[] = [
+    { key: 'order_updates', icon: 'package', title: 'Order Updates', subtitle: 'Status changes for E-Chop & E-Wash orders' },
+    { key: 'promotions', icon: 'tag', title: 'Promotions & Offers', subtitle: 'Discounts, deals, and new features' },
+    { key: 'chat_messages', icon: 'message-circle', title: 'Chat Messages', subtitle: 'Replies from support and riders' },
+  ];
+
+  const channelToggles: ToggleDef[] = [
+    { key: 'push_enabled', icon: 'bell', title: 'Push Notifications', subtitle: 'Alerts on this device' },
+    { key: 'email_enabled', icon: 'mail', title: 'Email', subtitle: email ? `Sent to ${email}` : 'Sent to your email' },
+    { key: 'sms_enabled', icon: 'message-square', title: 'SMS', subtitle: phone ? `Sent to ${phone}` : 'Sent to your phone number' },
+  ];
 
   const renderGroup = (items: ToggleDef[]) => (
     <View style={styles.group}>
@@ -76,25 +126,32 @@ export default function NotificationSettingsScreen() {
       <StatusBar style="dark" />
       <ScreenHeader title="Notifications" />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.sectionLabel}>What you're notified about</Text>
-        {renderGroup(activityToggles)}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={foodColors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionLabel}>What you're notified about</Text>
+          {renderGroup(activityToggles)}
 
-        <Text style={styles.sectionLabel}>How you're notified</Text>
-        {renderGroup(channelToggles)}
+          <Text style={styles.sectionLabel}>How you're notified</Text>
+          {renderGroup(channelToggles)}
 
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { paddingHorizontal: '5.5%', paddingBottom: ms(30) },
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
@@ -81,11 +82,35 @@ const OFFERS: Offer[] = [
 ];
 
 const TABS = ['All', 'E-Chop', 'E-Wash'] as const;
+const COPIED_MS = 2000;
 
 export default function OffersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('All');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+  }, []);
+
+  const copyCode = async (offer: Offer) => {
+    try {
+      await Clipboard.setStringAsync(offer.code);
+      setCopiedId(offer.id);
+      setToast(`${offer.code} copied. Paste it at checkout.`);
+    } catch {
+      setCopiedId(null);
+      setToast("Couldn't copy the code. Please try again.");
+    }
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => {
+      setCopiedId(null);
+      setToast(null);
+    }, COPIED_MS);
+  };
 
   const filtered =
     activeTab === 'All'
@@ -117,51 +142,68 @@ export default function OffersScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.subtitle}>
-          Exclusive deals curated for you. Tap to copy a code and use it at checkout.
+          Exclusive deals curated for you. Tap a code to copy it and use it at checkout.
         </Text>
 
         <View style={styles.list}>
-          {filtered.map((offer) => (
-            <View key={offer.id} style={styles.offerCard}>
-              <View style={[styles.offerIconWrap, { backgroundColor: offer.accent }]}>
-                <Feather name={offer.icon} size={ms(20)} color="#fff" />
-              </View>
-
-              <View style={styles.offerInfo}>
-                <View style={styles.offerHeader}>
-                  <Text style={styles.offerTitle} numberOfLines={2}>
-                    {offer.title}
-                  </Text>
-                  <View style={styles.expiryPill}>
-                    <Text style={styles.expiryText}>{offer.expires}</Text>
-                  </View>
+          {filtered.map((offer) => {
+            const copied = copiedId === offer.id;
+            return (
+              <View key={offer.id} style={styles.offerCard}>
+                <View style={[styles.offerIconWrap, { backgroundColor: offer.accent }]}>
+                  <Feather name={offer.icon} size={ms(20)} color="#fff" />
                 </View>
 
-                <Text style={styles.offerSubtitle} numberOfLines={2}>
-                  {offer.subtitle}
-                </Text>
-
-                <View style={styles.codeRow}>
-                  <View style={styles.codeBox}>
-                    <Feather name="tag" size={ms(12)} color={offer.accent} />
-                    <Text style={[styles.codeText, { color: offer.accent }]}>
-                      {offer.code}
+                <View style={styles.offerInfo}>
+                  <View style={styles.offerHeader}>
+                    <Text style={styles.offerTitle} numberOfLines={2}>
+                      {offer.title}
                     </Text>
+                    <View style={styles.expiryPill}>
+                      <Text style={styles.expiryText}>{offer.expires}</Text>
+                    </View>
                   </View>
-                  <TouchableOpacity
-                    style={[styles.copyBtn, { backgroundColor: offer.accent }]}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.copyBtnText}>Copy Code</Text>
-                  </TouchableOpacity>
+
+                  <Text style={styles.offerSubtitle} numberOfLines={2}>
+                    {offer.subtitle}
+                  </Text>
+
+                  <View style={styles.codeRow}>
+                    <TouchableOpacity
+                      style={[styles.codeBox, copied && { borderColor: offer.accent }]}
+                      activeOpacity={0.7}
+                      onPress={() => copyCode(offer)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Copy code ${offer.code}`}
+                    >
+                      <Feather name="tag" size={ms(12)} color={offer.accent} />
+                      <Text style={[styles.codeText, { color: offer.accent }]} selectable>
+                        {offer.code}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.copyBtn,
+                        { backgroundColor: copied ? foodColors.forestGreen : offer.accent },
+                      ]}
+                      activeOpacity={0.85}
+                      onPress={() => copyCode(offer)}
+                      accessibilityRole="button"
+                      accessibilityLabel={copied ? 'Code copied' : `Copy code ${offer.code}`}
+                    >
+                      <Feather name={copied ? 'check' : 'copy'} size={ms(12)} color="#fff" />
+                      <Text style={styles.copyBtnText}>{copied ? 'Copied!' : 'Copy Code'}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           {filtered.length === 0 && (
             <View style={styles.emptyState}>
@@ -174,6 +216,17 @@ export default function OffersScreen() {
           )}
         </View>
       </ScrollView>
+
+      {toast && (
+        <View
+          pointerEvents="none"
+          style={[styles.toast, { bottom: insets.bottom + 20 }]}
+          accessibilityLiveRegion="polite"
+        >
+          <Feather name="check-circle" size={ms(16)} color="#fff" />
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -289,6 +342,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ms(5),
     paddingHorizontal: ms(12),
     paddingVertical: ms(8),
     borderRadius: ms(10),
@@ -296,6 +352,30 @@ const styles = StyleSheet.create({
   copyBtnText: {
     fontSize: ms(11),
     fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
+
+  toast: {
+    position: 'absolute',
+    left: ms(20),
+    right: ms(20),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ms(10),
+    backgroundColor: foodColors.textPrimary,
+    paddingHorizontal: ms(16),
+    paddingVertical: ms(12),
+    borderRadius: ms(14),
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  toastText: {
+    flex: 1,
+    fontSize: ms(12.5),
+    fontFamily: fonts.poppins.semiBold,
     color: '#fff',
   },
 

@@ -45,8 +45,9 @@ export default function EPlanSetupScreen() {
 
   const [amount, setAmount] = useState(draft.amount);
   const [duration, setDuration] = useState<DurationKey>(draft.duration);
-  const [lunchWindow, setLunchWindow] = useState(draft.lunchWindow);
-  const [dinnerWindow, setDinnerWindow] = useState(draft.dinnerWindow);
+  // Delivery windows always start off; the user turns them on themselves.
+  const [lunchWindow, setLunchWindow] = useState(false);
+  const [dinnerWindow, setDinnerWindow] = useState(false);
 
   const tier = getEPlanTier(amount, duration);
   // What the user's amount is worth per week, used to preview the other duration.
@@ -67,6 +68,9 @@ export default function EPlanSetupScreen() {
 
   const handleContinue = () => {
     updateDraft({ amount, duration, lunchWindow, dinnerWindow, fixedPlan: null });
+    // Choice is saved in the draft; reset the switches so they're off next time.
+    setLunchWindow(false);
+    setDinnerWindow(false);
     router.push('/e-plan-exclusions' as any);
   };
 

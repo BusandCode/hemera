@@ -65,54 +65,24 @@ function PinDots({ filled, shakeAnim }: { filled: number; shakeAnim: Animated.Va
   );
 }
 
-function NumPad({
-  onKey,
-  disabled,
-  extraKey,
-}: {
-  onKey: (key: string) => void;
-  disabled?: boolean;
-  extraKey?: { label: string; onPress: () => void };
-}) {
+function NumPad({ onKey, disabled }: { onKey: (key: string) => void; disabled?: boolean }) {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   return (
     <View style={styles.numPad}>
       {keys.map((k) => (
-        <TouchableOpacity
-          key={k}
-          style={styles.numKey}
-          onPress={() => onKey(k)}
-          disabled={disabled}
-          activeOpacity={0.6}
-        >
+        <TouchableOpacity key={k} style={styles.numKey} onPress={() => onKey(k)} disabled={disabled} activeOpacity={0.6}>
           <Text style={styles.numKeyText}>{k}</Text>
         </TouchableOpacity>
       ))}
 
-      <TouchableOpacity
-        style={[styles.numKey, !extraKey && styles.numKeyGhost]}
-        onPress={extraKey?.onPress}
-        disabled={disabled || !extraKey}
-        activeOpacity={extraKey ? 0.6 : 1}
-      >
-        {extraKey ? <Text style={styles.numKeyExtra}>{extraKey.label}</Text> : null}
-      </TouchableOpacity>
+      {/* Empty spacer keeps 0 centred */}
+      <View style={[styles.numKey, styles.numKeyGhost]} />
 
-      <TouchableOpacity
-        style={styles.numKey}
-        onPress={() => onKey('0')}
-        disabled={disabled}
-        activeOpacity={0.6}
-      >
+      <TouchableOpacity style={styles.numKey} onPress={() => onKey('0')} disabled={disabled} activeOpacity={0.6}>
         <Text style={styles.numKeyText}>0</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.numKey}
-        onPress={() => onKey('⌫')}
-        disabled={disabled}
-        activeOpacity={0.6}
-      >
+      <TouchableOpacity style={styles.numKey} onPress={() => onKey('⌫')} disabled={disabled} activeOpacity={0.6}>
         <Feather name="delete" size={ms(22)} color={foodColors.textPrimary} />
       </TouchableOpacity>
     </View>
@@ -306,11 +276,7 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
         )}
 
         {mode === 'pin' ? (
-          <NumPad
-            onKey={handlePinKey}
-            disabled={loading}
-            extraKey={{ label: 'Forgot?', onPress: onForgotPin }}
-          />
+        <NumPad onKey={handlePinKey} disabled={loading} />
         ) : null}
 
         <View style={styles.footer}>
@@ -499,12 +465,12 @@ const styles = StyleSheet.create({
     color: foodColors.textPrimary,
     letterSpacing: 0.5,
   },
-  numKeyExtra: {
-    fontSize: ms(12.5),
-    fontFamily: fonts.poppins.semiBold,
-    color: foodColors.primary,
-    letterSpacing: 0.3,
-  },
+  // numKeyExtra: {
+  //   fontSize: ms(12.5),
+  //   fontFamily: fonts.poppins.semiBold,
+  //   color: foodColors.primary,
+  //   letterSpacing: 0.3,
+  // },
 
   footer: { alignItems: 'center', gap: ms(10), width: '100%' },
   altRow: {
