@@ -9,6 +9,7 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -25,11 +26,17 @@ import { allServices, QuickService, ServiceAction } from '../src/constants/quick
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PAD = 20;
 
+// Pick a font size per platform: fs(iosSize, androidSize).
+const IS_ANDROID = Platform.OS === 'android';
+const fs = (ios: number, android: number) => (IS_ANDROID ? android : ios);
+
 // Carousel: 3 banners visible at a time.
 const BANNER_GAP = 8;
 const BANNER_W = (SCREEN_WIDTH - PAD * 2 - BANNER_GAP * 2) / 3;
 const BANNER_H = BANNER_W * 1.08;
 const BANNER_STEP = BANNER_W + BANNER_GAP;
+const BANNER_INTERVAL = 3000;
+const BANNER_PAUSE_AFTER_TOUCH = 4000;
 
 // Grid: 4 columns.
 const GRID_GAP = 10;
@@ -245,16 +252,37 @@ export default function ServicesScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const bannerIndexRef = useRef(0);
+  const lastTouch = useRef(0);
   const [sheet, setSheet] = useState<ServiceAction | null>(null);
 
   const goTo = (i: number) => {
     const next = Math.max(0, Math.min(LAST_START, i));
+    bannerIndexRef.current = next;
     scrollRef.current?.scrollTo({ x: next * BANNER_STEP, animated: true });
     setBannerIndex(next);
   };
 
+  // Auto-advance the banners; wrap back to the start after the last position.
+  useEffect(() => {
+    if (LAST_START === 0) return;
+    const timer = setInterval(() => {
+      // Hold off while the user is interacting with the carousel.
+      if (Date.now() - lastTouch.current < BANNER_PAUSE_AFTER_TOUCH) return;
+      const next = bannerIndexRef.current >= LAST_START ? 0 : bannerIndexRef.current + 1;
+      goTo(next);
+    }, BANNER_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
+
+  const markTouch = () => {
+    lastTouch.current = Date.now();
+  };
+
   const onBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setBannerIndex(Math.round(e.nativeEvent.contentOffset.x / BANNER_STEP));
+    const i = Math.max(0, Math.min(LAST_START, Math.round(e.nativeEvent.contentOffset.x / BANNER_STEP)));
+    bannerIndexRef.current = i;
+    setBannerIndex(i);
   };
 
   const open = (service: QuickService) => {
@@ -286,7 +314,7 @@ export default function ServicesScreen() {
           <Feather name="arrow-left" size={20} color={foodColors.textPrimary} />
         </TouchableOpacity>
 
-        {/* Banner carousel */}
+        {/* Banner carousel (auto-sliding) */}
         <View style={styles.carouselWrap}>
           <ScrollView
             ref={scrollRef}
@@ -294,6 +322,8 @@ export default function ServicesScreen() {
             showsHorizontalScrollIndicator={false}
             snapToInterval={BANNER_STEP}
             decelerationRate="fast"
+            onScrollBeginDrag={markTouch}
+            onScrollEndDrag={markTouch}
             onMomentumScrollEnd={onBannerScroll}
             contentContainerStyle={styles.carouselTrack}
           >
@@ -305,22 +335,18 @@ export default function ServicesScreen() {
               </View>
             ))}
           </ScrollView>
-
-          {bannerIndex > 0 && (
-            <TouchableOpacity style={[styles.arrow, styles.arrowLeft]} onPress={() => goTo(bannerIndex - 1)} activeOpacity={0.8}>
-              <Feather name="chevron-left" size={18} color={foodColors.textPrimary} />
-            </TouchableOpacity>
-          )}
-          {bannerIndex < LAST_START && (
-            <TouchableOpacity style={[styles.arrow, styles.arrowRight]} onPress={() => goTo(bannerIndex + 1)} activeOpacity={0.8}>
-              <Feather name="chevron-right" size={18} color={foodColors.textPrimary} />
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={styles.dotsRow}>
           {Array.from({ length: LAST_START + 1 }, (_, i) => (
-            <TouchableOpacity key={i} onPress={() => goTo(i)} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
+            <TouchableOpacity
+              key={i}
+              onPress={() => {
+                markTouch();
+                goTo(i);
+              }}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            >
               <View style={[styles.dot, bannerIndex === i && styles.dotActive]} />
             </TouchableOpacity>
           ))}
@@ -334,7 +360,11 @@ export default function ServicesScreen() {
           {allServices.map((s) => (
             <TouchableOpacity key={s.id} style={styles.cell} activeOpacity={0.8} onPress={() => open(s)}>
               <View style={[styles.cellIcon, { backgroundColor: s.bgColor }]}>
-                <Feather name={s.icon} size={16} color="#fff" />
+                {s.symbol ? (
+                  <Text style={styles.cellSymbol} allowFontScaling={false}>{s.symbol}</Text>
+                ) : (
+                  <Feather name={s.icon} size={16} color="#fff" />
+                )}
               </View>
               <Text style={styles.cellTitle} numberOfLines={2} allowFontScaling={false}>
                 {s.title}
@@ -380,26 +410,22 @@ const styles = StyleSheet.create({
   banner: { width: BANNER_W, height: BANNER_H, borderRadius: 14, overflow: 'hidden', backgroundColor: foodColors.surface },
   bannerImg: { width: '100%', height: '100%' },
   bannerShade: { ...StyleSheet.absoluteFill, top: '50%' },
-  bannerLabel: { position: 'absolute', left: 8, right: 8, bottom: 8, fontSize: 11, fontFamily: fonts.poppins.bold, color: '#fff' },
-  arrow: {
-    position: 'absolute',
-    top: BANNER_H / 2 - 16,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  bannerLabel: {
+    position: 'absolute', left: 8, right: 8, bottom: 8,
+    fontSize: fs(11, 10), fontFamily: fonts.poppins.bold, color: '#fff',
   },
-  arrowLeft: { left: 6 },
-  arrowRight: { right: 6 },
 
   dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12, marginBottom: 22 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: foodColors.border },
   dotActive: { backgroundColor: foodColors.badgeBlue },
 
-  pageTitle: { fontSize: 24, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: 16 },
+  pageTitle: {
+    fontSize: fs(24, 19),
+    lineHeight: fs(32, 25),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    marginBottom: 16,
+  },
 
   // Grid
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
@@ -414,12 +440,20 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
   cellIcon: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  cellSymbol: {
+    fontSize: fs(18, 16),
+    lineHeight: fs(22, 20),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
   cellTitle: {
-    fontSize: 10.5, lineHeight: 13, fontFamily: fonts.poppins.semiBold,
+    fontSize: fs(10.5, 9.5), lineHeight: fs(13, 12), fontFamily: fonts.poppins.semiBold,
     color: foodColors.textPrimary, textAlign: 'center', marginBottom: 3,
   },
   cellSub: {
-    fontSize: 9, lineHeight: 11.5, fontFamily: fonts.poppins.regular,
+    fontSize: fs(9, 8), lineHeight: fs(11.5, 10.5), fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary, textAlign: 'center', paddingHorizontal: 2,
   },
 
@@ -437,13 +471,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginBottom: 6,
   },
-  slideEyebrowText: { fontSize: 9.5, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.8 },
-  slideTitle: { fontSize: 16, lineHeight: 21, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 8 },
+  slideEyebrowText: { fontSize: fs(9.5, 8.5), fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.8 },
+  slideTitle: {
+    fontSize: fs(16, 13.5), lineHeight: fs(21, 18),
+    fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 8,
+  },
   slideCta: {
     flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
     backgroundColor: '#fff', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
   },
-  slideCtaText: { fontSize: 11, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  slideCtaText: { fontSize: fs(11, 10), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
   slideImg: {
     width: SLIDE_H * 1.05,
     height: SLIDE_H * 1.05,
@@ -465,22 +502,25 @@ const styles = StyleSheet.create({
   },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: foodColors.border, marginBottom: 18 },
   sheetBadge: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  sheetTitle: { fontSize: 18, fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, textAlign: 'center', marginBottom: 6 },
+  sheetTitle: {
+    fontSize: fs(18, 15), lineHeight: fs(24, 20),
+    fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, textAlign: 'center', marginBottom: 6,
+  },
   sheetBody: {
-    fontSize: 13, lineHeight: 19, fontFamily: fonts.poppins.regular,
+    fontSize: fs(13, 12), lineHeight: fs(19, 17), fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary, textAlign: 'center', marginBottom: 18,
   },
   soonPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: foodColors.primaryLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 10,
   },
-  soonPillText: { fontSize: 10, fontFamily: fonts.poppins.bold, color: foodColors.primary, letterSpacing: 0.8 },
+  soonPillText: { fontSize: fs(10, 9), fontFamily: fonts.poppins.bold, color: foodColors.primary, letterSpacing: 0.8 },
 
   primaryBtn: {
     width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
     backgroundColor: foodColors.primary, paddingVertical: 15, borderRadius: 26,
   },
-  primaryBtnText: { fontSize: 14, fontFamily: fonts.poppins.bold, color: '#fff' },
+  primaryBtnText: { fontSize: fs(14, 13), fontFamily: fonts.poppins.bold, color: '#fff' },
 
   // Locations
   locList: { width: '100%', backgroundColor: foodColors.surface, borderRadius: 16, marginBottom: 18, overflow: 'hidden' },
@@ -493,12 +533,12 @@ const styles = StyleSheet.create({
   locPin: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   locPinLive: { backgroundColor: 'rgba(52,199,89,0.14)' },
   locPinSoon: { backgroundColor: foodColors.background },
-  locPlace: { flex: 1, fontSize: 13.5, fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  locPlace: { flex: 1, fontSize: fs(13.5, 12), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
   locBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10 },
   locBadgeLive: { backgroundColor: 'rgba(52,199,89,0.14)' },
   locBadgeSoon: { backgroundColor: foodColors.background },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34C759' },
-  locBadgeText: { fontSize: 10.5, fontFamily: fonts.poppins.bold },
+  locBadgeText: { fontSize: fs(10.5, 9.5), fontFamily: fonts.poppins.bold },
   locBadgeTextLive: { color: foodColors.forestGreen },
   locBadgeTextSoon: { color: foodColors.textMuted },
 });

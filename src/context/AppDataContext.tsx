@@ -4,12 +4,13 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
+import { Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useLocation } from './LocationContext';
-
 export type Address = {
   id: string;
   label: string;
@@ -32,6 +33,7 @@ export type PaymentCard = {
 };
 
 export type SecurityState = {
+  /** Human-readable, e.g. "3 months ago". Worked out from the saved date. */
   passwordLastChanged: string;
   pinLastChanged: string;
   biometric: boolean;
@@ -69,15 +71,27 @@ const initialCards: PaymentCard[] = [
   { id: 'card-2', brand: 'Mastercard', last4: '7734', expiry: '02/27', isDefault: false },
 ];
 
-const initialSecurity: SecurityState = {
-  passwordLastChanged: '3 months ago',
-  pinLastChanged: '6 months ago',
-  biometric: true,
-  twoFactor: false,
-};
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
-function formatChangedNow() {
-  return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'} ago`;
+
+/** Turns an ISO date into "just now", "5 hours ago", "3 months ago", etc. */
+function formatRelative(iso: string | null): string {
+  if (!iso) return 'not available';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return 'not available';
+
+  const diff = Math.max(0, Date.now() - then);
+  if (diff < MINUTE) return 'just now';
+  if (diff < HOUR) return plural(Math.floor(diff / MINUTE), 'minute');
+  if (diff < DAY) return plural(Math.floor(diff / HOUR), 'hour');
+
+  const days = Math.floor(diff / DAY);
+  if (days < 30) return plural(days, 'day');
+  if (days < 365) return plural(Math.floor(days / 30), 'month');
+  return plural(Math.floor(days / 365), 'year');
 }
 
 function mapRow(row: any): Address {
@@ -97,12 +111,43 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const { setLocation } = useLocation();
   const userId = session?.user.id;
+  const meta = session?.user.user_metadata as Record<string, any> | undefined;
+  const savedPasswordChangedAt: string | undefined = meta?.password_changed_at;
+  const savedPinChangedAt: string | undefined = meta?.pin_changed_at;
+  const createdAt: string | undefined = session?.user.created_at;
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressesLoading, setAddressesLoading] = useState(true);
   const [addressesError, setAddressesError] = useState<string | null>(null);
   const [cards, setCards] = useState<PaymentCard[]>(initialCards);
-  const [security, setSecurity] = useState<SecurityState>(initialSecurity);
+
+  // Real dates (ISO strings). Biometric and two-factor stay in memory for now.
+  const [passwordChangedAt, setPasswordChangedAt] = useState<string | null>(null);
+  const [pinChangedAt, setPinChangedAt] = useState<string | null>(null);
+  const [biometric, setBiometricState] = useState(false);
+  const [twoFactor, setTwoFactorState] = useState(false);
+
+  // Load the saved dates for the signed-in user. If a date was never saved
+  // (an account that hasn't changed it yet), fall back to when the account was created.
+  useEffect(() => {
+    if (!userId) {
+      setPasswordChangedAt(null);
+      setPinChangedAt(null);
+      return;
+    }
+    setPasswordChangedAt(savedPasswordChangedAt ?? createdAt ?? null);
+    setPinChangedAt(savedPinChangedAt ?? createdAt ?? null);
+  }, [userId, savedPasswordChangedAt, savedPinChangedAt, createdAt]);
+
+  const security: SecurityState = useMemo(
+    () => ({
+      passwordLastChanged: formatRelative(passwordChangedAt),
+      pinLastChanged: formatRelative(pinChangedAt),
+      biometric,
+      twoFactor,
+    }),
+    [passwordChangedAt, pinChangedAt, biometric, twoFactor]
+  );
 
   const loadAddresses = useCallback(async () => {
     if (!userId) {
@@ -212,20 +257,50 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCards((prev) => prev.map((c) => ({ ...c, isDefault: c.id === id })));
   };
 
+  // Saves the date on the user's account so it survives restarts.
+  // Returns true when saved. On failure it tells the user and returns false.
+  const saveChangeDate = async (
+    key: 'password_changed_at' | 'pin_changed_at',
+    iso: string
+  ): Promise<boolean> => {
+    try {
+      // updateUser reports failures through `error` instead of throwing.
+      const { error } = await supabase.auth.updateUser({ data: { [key]: iso } });
+      if (error) throw error;
+      return true;
+    } catch {
+      Alert.alert(
+        'Not saved',
+        'We couldn’t save that change. Please check your connection and try again.'
+      );
+      return false;
+    }
+  };
+
   const recordPasswordChange = () => {
-    setSecurity((prev) => ({ ...prev, passwordLastChanged: formatChangedNow() }));
+    const previous = passwordChangedAt;
+    const iso = new Date().toISOString();
+    setPasswordChangedAt(iso);
+    void saveChangeDate('password_changed_at', iso).then((ok) => {
+      if (!ok) setPasswordChangedAt(previous); // don't show a date that wasn't saved
+    });
   };
 
   const recordPinChange = () => {
-    setSecurity((prev) => ({ ...prev, pinLastChanged: formatChangedNow() }));
+    const previous = pinChangedAt;
+    const iso = new Date().toISOString();
+    setPinChangedAt(iso);
+    void saveChangeDate('pin_changed_at', iso).then((ok) => {
+      if (!ok) setPinChangedAt(previous);
+    });
   };
 
   const setBiometric = (v: boolean) => {
-    setSecurity((prev) => ({ ...prev, biometric: v }));
+    setBiometricState(v);
   };
 
   const setTwoFactor = (v: boolean) => {
-    setSecurity((prev) => ({ ...prev, twoFactor: v }));
+    setTwoFactorState(v);
   };
 
   return (

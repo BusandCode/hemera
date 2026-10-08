@@ -8,6 +8,7 @@ import {
   Linking,
   Image,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,7 +21,11 @@ import { fonts } from '../src/constants/typography';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PAD = 20;
-const WEBSITE = 'https://www.gethemera.app';
+const WEBSITE = 'https://www.gethemera.app/partner';
+
+// Pick a font size per platform: fs(iosSize, androidSize).
+const IS_ANDROID = Platform.OS === 'android';
+const fs = (ios: number, android: number) => (IS_ANDROID ? android : ios);
 
 // Hero ad slider: one full-width banner at a time, auto-advancing.
 const AD_W = SCREEN_WIDTH - PAD * 2;
@@ -236,7 +241,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
 
-  // Ad slider
+  // Ad slider (header swiper)
   adWrap: { borderRadius: 22, overflow: 'hidden', marginBottom: 24 },
   ad: {
     width: AD_W,
@@ -251,9 +256,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginBottom: 8,
   },
-  adEyebrowText: { fontSize: 9.5, fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.8 },
-  adTitle: { fontSize: 19, lineHeight: 24, fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 6 },
-  adBody: { fontSize: 12, lineHeight: 17, fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.88)' },
+  adEyebrowText: { fontSize: fs(9.5, 8), fontFamily: fonts.poppins.bold, color: '#fff', letterSpacing: 0.8 },
+  adTitle: {
+    fontSize: fs(19, 14), lineHeight: fs(24, 18),
+    fontFamily: fonts.poppins.bold, color: '#fff', marginBottom: 6,
+  },
+  adBody: {
+    fontSize: fs(12, 10.5), lineHeight: fs(17, 14.5),
+    fontFamily: fonts.poppins.regular, color: 'rgba(255,255,255,0.88)',
+  },
   adImg: {
     width: AD_H * 0.95,
     height: AD_H * 0.95,

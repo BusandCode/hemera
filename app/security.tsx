@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,7 @@ const UNAVAILABLE: Record<'biometric' | 'twoFactor', Unavailable> = {
   twoFactor: {
     icon: 'shield',
     title: 'Two-Factor Authentication',
-    body: "Two-factor authentication is not available at the moment. We're working on it and you'll be able to turn it on soon.",
+    body: "Two-factor authentication is not available at the moment. On our next update, you'll be able to turn it on soon.",
   },
 };
 
@@ -155,6 +155,12 @@ export default function SecurityScreen() {
   const [pin, setPin] = useState<PinStatus>({ loaded: false, hasPin: false });
   const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
 
+  // Biometric login isn't available yet, so it must always be off.
+  // If the saved value (or the context default) is on, switch it off.
+  useEffect(() => {
+    if (security.biometric) setBiometric(false);
+  }, [security.biometric, setBiometric]);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -174,7 +180,6 @@ export default function SecurityScreen() {
   );
 
   // Not available yet: turning on shows the modal and the switch stays off.
-  // Turning off still works, in case an older account has it saved as on.
   const handleBiometric = (next: boolean) => {
     if (next) {
       setUnavailable(UNAVAILABLE.biometric);
@@ -191,7 +196,7 @@ export default function SecurityScreen() {
     setTwoFactor(false);
   };
 
-  const pinTitle = !pin.loaded ? 'PIN' : pin.hasPin ? 'Change PIN' : 'Set PIN';
+  const pinTitle = !pin.loaded ? 'PIN' : pin.hasPin ? 'Change PIN' : 'Create PIN';
 
   return (
     <View style={styles.container}>
@@ -221,7 +226,7 @@ export default function SecurityScreen() {
             icon="smartphone"
             title="Biometric Login"
             subtitle="Use Face ID or fingerprint to open the app"
-            value={security.biometric}
+            value={false}
             onValueChange={handleBiometric}
           />
           <ToggleRow

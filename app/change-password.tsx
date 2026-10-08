@@ -1,4 +1,4 @@
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 
@@ -6,16 +6,22 @@ import { foodColors } from '../src/constants/foodColors';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { ChangeSecretForm } from '../src/components/profile/ChangeSecretForm';
 import { useAuth } from '../src/context/AuthContext';
+import { useAppData } from '../src/context/AppDataContext';
 import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const { recordPasswordChange } = useAppData();
 
   const handleSubmit = async (current: string, next: string) => {
     const email = session?.user.email;
     if (!email) throw new Error('You need to be signed in.');
+
+    if (next === current) {
+      throw new Error('Your new password must be different from the current one.');
+    }
 
     // 1) Verify the current password.
     const { error: verifyError } = await supabase.auth.signInWithPassword({
@@ -31,6 +37,10 @@ export default function ChangePasswordScreen() {
     if (updateError) {
       throw new Error(updateError.message ?? 'Could not update password.');
     }
+
+    // 3) Save the change date so "Last changed" on the Security screen is accurate.
+    //    This never throws, so a failed save can't make the password change look failed.
+    recordPasswordChange();
 
     // Small confirmation, then back.
     setTimeout(() => router.back(), 900);

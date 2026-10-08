@@ -1,62 +1,56 @@
 import { useEffect, useState } from 'react';
-
 import { Stack } from 'expo-router';
-
 import { View, StyleSheet } from 'react-native';
-
 import { StatusBar } from 'expo-status-bar';
-
 import * as Linking from 'expo-linking';
-
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
 import * as SplashScreen from 'expo-splash-screen';
-
 import { useFonts } from 'expo-font';
-
 import { Poppins_400Regular } from '@expo-google-fonts/poppins/400Regular';
-
 import { Poppins_500Medium } from '@expo-google-fonts/poppins/500Medium';
-
 import { Poppins_600SemiBold } from '@expo-google-fonts/poppins/600SemiBold';
-
 import { Poppins_700Bold } from '@expo-google-fonts/poppins/700Bold';
-
 import { Poppins_800ExtraBold } from '@expo-google-fonts/poppins/800ExtraBold';
-
 import { PlayfairDisplay_500Medium } from '@expo-google-fonts/playfair-display/500Medium';
 
 import { LocationProvider } from '../src/context/LocationContext';
-
 import { CartProvider } from '../src/context/CartContext';
-
 import { AppDataProvider } from '../src/context/AppDataContext';
-
 import { ProfileProvider } from '../src/context/ProfileContext';
-
-import { OnboardingProvider } from '../src/context/OnboardingContext';
-
-import { AuthProvider } from '../src/context/AuthContext';
-
+import { OnboardingProvider, useOnboarding } from '../src/context/OnboardingContext';
+import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { EPlanDraftProvider } from '../src/context/EPlanDraftContext';
-
 import { FavoritesProvider } from '../src/context/FavoritesContext';
-
 import { ReferralProvider } from '../src/context/ReferralContext';
-
+import { LockProvider, useLock } from '../src/context/LockContext';
 import { ReferralRewardPrompt } from '../src/components/referral/ReferralRewardPrompt';
-
+import { LockOverlay } from '../src/components/LockOverlay';
+import { SplashScreenView } from '../src/components/SplashScreenView';
 import { capturePendingReferral } from '../src/lib/referralLink';
 
-import { SplashScreenView } from '../src/components/SplashScreenView';
-import { LockProvider } from '../src/context/LockContext';
-import { LockOverlay } from '../src/components/LockOverlay';
-
-const SPLASH_DURATION_MS = 3500;
-
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function SplashGate() {
+  const { ready } = useOnboarding();
+  const { session, loading } = useAuth();
+  const { locked, signingOut } = useLock();
+  const [done, setDone] = useState(false);
+
+  const settled = ready && !loading && (!session || locked || signingOut);
+
+  useEffect(() => {
+    if (settled) setDone(true);
+  }, [settled]);
+
+  if (done) return null;
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <SplashScreenView />
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -68,19 +62,13 @@ export default function RootLayout() {
     PlayfairDisplay_500Medium,
   });
 
-  const [splashDone, setSplashDone] = useState(false);
-
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
-    const timer = setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
-    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     Linking.getInitialURL().then(capturePendingReferral);
-
     const sub = Linking.addEventListener('url', ({ url }) => capturePendingReferral(url));
-
     return () => sub.remove();
   }, []);
 
@@ -174,6 +162,7 @@ export default function RootLayout() {
 
                                 <ReferralRewardPrompt />
                                 <LockOverlay />
+                                <SplashGate />
                               </LockProvider>
                             </FavoritesProvider>
                           </EPlanDraftProvider>
@@ -188,7 +177,7 @@ export default function RootLayout() {
         </GestureHandlerRootView>
       )}
 
-      {(!splashDone || !fontsReady) && (
+      {!fontsReady && (
         <View style={StyleSheet.absoluteFill}>
           <SplashScreenView />
         </View>

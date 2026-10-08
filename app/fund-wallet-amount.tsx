@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Keyboard,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -35,105 +45,113 @@ export default function FundWalletAmountScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
-        <StatusBar style="dark" />
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top + 12 }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar style="dark" />
 
-        <View style={styles.titleRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Fund Wallet</Text>
-        </View>
-
-        <View style={styles.content}>
-          <Text style={styles.subtitle}>Add money to your Hemera wallet via bank transfer.</Text>
-
-          <View style={styles.infoCard}>
-            <Feather name="info" size={ms(18)} color={foodColors.badgeBlue} />
-            <View style={styles.infoTextBlock}>
-              <Text style={styles.infoTitle}>One-time Virtual Account</Text>
-              <Text style={styles.infoSubtitle}>
-                We'll generate a unique account for this payment. Transfer exactly the amount you enter to avoid delays.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.amountCard}>
-            <Text style={styles.amountLabel}>How much would you like to fund?</Text>
-            <View style={styles.amountInputRow}>
-              <Text style={styles.currencySign}>₦</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={formatWithCommas(amount)}
-                onChangeText={handleAmountChange}
-                keyboardType="number-pad"
-                placeholder="0"
-                returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
-              />
-            </View>
-            <Text style={styles.amountHint}>Enter amount to fund your wallet</Text>
-
-            <Text style={styles.quickLabel}>Quick amounts</Text>
-            <View style={styles.quickRow}>
-              {QUICK_AMOUNTS.map((q) => {
-                const active = numericAmount === q;
-                return (
-                  <TouchableOpacity
-                    key={q}
-                    style={[styles.quickPill, active && styles.quickPillActive]}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setAmount(String(q));
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.quickPillText, active && styles.quickPillTextActive]}>
-                      ₦{formatWithCommas(String(q))}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={styles.secureCard}>
-            <Feather name="shield" size={ms(18)} color={foodColors.success} />
-            <View style={styles.infoTextBlock}>
-              <Text style={styles.infoTitle}>Secure & Automatic</Text>
-              <Text style={styles.infoSubtitle}>Your wallet will be credited automatically once we confirm your payment.</Text>
-            </View>
-          </View>
-
-          <View style={styles.secureCard}>
-            <Feather name="file-text" size={ms(18)} color={foodColors.textSecondary} />
-            <View style={styles.infoTextBlock}>
-              <Text style={styles.infoTitle}>Important</Text>
-              <Text style={styles.infoSubtitle}>Transfer exactly the amount you enter. Payments above or below may be delayed.</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity
-            style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-            activeOpacity={0.85}
-            disabled={!canContinue}
-            onPress={handleContinue}
-          >
-            <Text style={styles.continueButtonText}>Continue</Text>
-            <Feather name="arrow-right" size={ms(16)} color="#fff" />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.titleRow}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+          <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Fund Wallet</Text>
       </View>
-    </TouchableWithoutFeedback>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.subtitle}>Add money to your Hemera wallet via bank transfer.</Text>
+
+        <View style={styles.infoCard}>
+          <Feather name="info" size={ms(18)} color={foodColors.badgeBlue} />
+          <View style={styles.infoTextBlock}>
+            <Text style={styles.infoTitle}>One-time Virtual Account</Text>
+            <Text style={styles.infoSubtitle}>
+              We'll generate a unique account for this payment. Transfer exactly the amount you enter to avoid delays.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.amountCard}>
+          <Text style={styles.amountLabel}>How much would you like to fund?</Text>
+          <View style={styles.amountInputRow}>
+            <Text style={styles.currencySign}>₦</Text>
+            <TextInput
+              style={styles.amountInput}
+              value={formatWithCommas(amount)}
+              onChangeText={handleAmountChange}
+              keyboardType="number-pad"
+              placeholder="0"
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
+            />
+          </View>
+          <Text style={styles.amountHint}>Enter amount to fund your wallet</Text>
+
+          <Text style={styles.quickLabel}>Quick amounts</Text>
+          <View style={styles.quickRow}>
+            {QUICK_AMOUNTS.map((q) => {
+              const active = numericAmount === q;
+              return (
+                <TouchableOpacity
+                  key={q}
+                  style={[styles.quickPill, active && styles.quickPillActive]}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setAmount(String(q));
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.quickPillText, active && styles.quickPillTextActive]}>
+                    ₦{formatWithCommas(String(q))}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.secureCard}>
+          <Feather name="shield" size={ms(18)} color={foodColors.success} />
+          <View style={styles.infoTextBlock}>
+            <Text style={styles.infoTitle}>Secure & Automatic</Text>
+            <Text style={styles.infoSubtitle}>Your wallet will be credited automatically once we confirm your payment.</Text>
+          </View>
+        </View>
+
+        <View style={styles.secureCard}>
+          <Feather name="file-text" size={ms(18)} color={foodColors.textSecondary} />
+          <View style={styles.infoTextBlock}>
+            <Text style={styles.infoTitle}>Important</Text>
+            <Text style={styles.infoSubtitle}>Transfer exactly the amount you enter. Payments above or below may be delayed.</Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <TouchableOpacity
+          style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
+          activeOpacity={0.85}
+          disabled={!canContinue}
+          onPress={handleContinue}
+        >
+          <Text style={styles.continueButtonText}>Continue</Text>
+          <Feather name="arrow-right" size={ms(16)} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
-  content: { flex: 1, paddingHorizontal: ms(20) },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: ms(20), paddingBottom: ms(20) },
 
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: ms(12), paddingHorizontal: ms(20), marginBottom: ms(16) },
   backBtn: {
@@ -182,6 +200,7 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: ms(20), paddingTop: ms(14),
     borderTopWidth: 1, borderTopColor: foodColors.border,
+    backgroundColor: foodColors.background,
   },
   continueButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: ms(8),

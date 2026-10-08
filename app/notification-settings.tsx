@@ -82,6 +82,7 @@ export default function NotificationSettingsScreen() {
       .upsert({ user_id: userId, [key]: next }, { onConflict: 'user_id' });
 
     if (error) {
+      console.log('notification save error:', error);
       setValues((prev) => ({ ...prev, [key]: !next }));
       Alert.alert('Not saved', 'We couldn’t save that change. Please check your connection and try again.');
     }
