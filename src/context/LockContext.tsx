@@ -30,9 +30,11 @@ type LockContextValue = {
   signingOut: boolean;
   /** null = not known yet (lock screen falls back to password). */
   hasPin: boolean | null;
+  /** True only when a PIN exists and the user turned Login with PIN on. */
+  pinLoginActive: boolean;
   unlock: () => void;
   lockNow: () => void;
-  /** Call after the user sets or removes a PIN. */
+  /** Call after the user sets or removes a PIN, or changes the Login with PIN toggle. */
   refreshPinStatus: () => Promise<void>;
   /** Call right before opening the camera, image picker, payment browser etc.
    *  so coming back from it doesn't show the lock screen. */
@@ -49,6 +51,7 @@ export function LockProvider({ children }: { children: ReactNode }) {
   const [locked, setLocked] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [hasPin, setHasPin] = useState<boolean | null>(null);
+  const [pinLoginEnabled, setPinLoginEnabled] = useState(false);
 
   const leftAtRef = useRef<number | null>(null);
   const skipNextRef = useRef(false);
@@ -56,9 +59,11 @@ export function LockProvider({ children }: { children: ReactNode }) {
 
   const refreshPinStatus = useCallback(async () => {
     try {
-      const { data, error } = await supabase.rpc('has_pin');
+      const { data, error } = await supabase.rpc('get_pin_status');
       if (error) throw error;
-      setHasPin(data === true);
+      const exists = data?.has_pin === true;
+      setHasPin(exists);
+      setPinLoginEnabled(exists && data?.pin_login_enabled === true);
     } catch {
       // Offline etc. — keep the last known value.
     }
@@ -114,6 +119,7 @@ export function LockProvider({ children }: { children: ReactNode }) {
       leftAtRef.current = null;
       skipNextRef.current = false;
       setHasPin(null);
+      setPinLoginEnabled(false);
       setLocked(false);
       AsyncStorage.removeItem(LEFT_AT_KEY).catch(() => {});
       return;
@@ -130,6 +136,7 @@ export function LockProvider({ children }: { children: ReactNode }) {
           leftAtRef.current = now;
           AsyncStorage.setItem(LEFT_AT_KEY, String(now)).catch(() => {});
         }
+        refreshPinStatus();
         return;
       }
 
@@ -148,7 +155,7 @@ export function LockProvider({ children }: { children: ReactNode }) {
           }
           if (away >= LOCK_AFTER_MS && !skip) setLocked(true);
         }
-        refreshPinStatus(); // pick up a PIN set/removed elsewhere
+        refreshPinStatus(); // pick up a PIN or toggle change made elsewhere
       }
     };
 
@@ -156,9 +163,20 @@ export function LockProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [userId, refreshPinStatus]);
 
+  const pinLoginActive = hasPin === true && pinLoginEnabled;
+
   const value = useMemo<LockContextValue>(
-    () => ({ locked, signingOut, hasPin, unlock, lockNow, refreshPinStatus, skipNextLock }),
-    [locked, signingOut, hasPin, unlock, lockNow, refreshPinStatus, skipNextLock]
+    () => ({
+      locked,
+      signingOut,
+      hasPin,
+      pinLoginActive,
+      unlock,
+      lockNow,
+      refreshPinStatus,
+      skipNextLock,
+    }),
+    [locked, signingOut, hasPin, pinLoginActive, unlock, lockNow, refreshPinStatus, skipNextLock]
   );
 
   return <LockContext.Provider value={value}>{children}</LockContext.Provider>;

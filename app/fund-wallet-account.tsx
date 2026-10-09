@@ -7,10 +7,11 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  BackHandler,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { fonts } from '../src/constants/typography';
@@ -43,6 +44,36 @@ const ui = {
 const RING = 76;
 const RING_STROKE = 4;
 const REQUEST_TIMEOUT_MS = 20000;
+// While the loading overlay is up, we re-check the payment on this interval as a backup to realtime.
+const POLL_INTERVAL_MS = 4000;
+// If nothing has arrived after this long, release the screen so the user is never stuck.
+const WAIT_LIMIT_MS = 90000;
+
+// Statuses we treat as "paid". The webhook is expected to write 'success', but be tolerant of spelling.
+const PAID_STATUSES = ['success', 'successful', 'completed', 'paid'];
+// After a payment is detected, the order/plan creation must finish within this time or we release the screen.
+const POST_PAYMENT_LIMIT_MS = 30000;
+
+// Rejects if a backend call takes too long, so a hanging call shows up as a named error instead of a silent stall.
+function withTimeout<T>(promise: PromiseLike<T>, label: string, ms = 15000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} did not respond`)), ms);
+    Promise.resolve(promise).then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      }
+    );
+  });
+}
+
+function isPaid(status: unknown) {
+  return PAID_STATUSES.includes(String(status ?? '').toLowerCase());
+}
 
 type AccountDetails = {
   accountNumber: string;
@@ -112,6 +143,7 @@ function ExpiryRing({ fraction, label }: { fraction: number; label: string }) {
 
 export default function FundWalletAccountScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
   const { amount, service, order } = useLocalSearchParams<{
@@ -140,14 +172,41 @@ export default function FundWalletAccountScreen() {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
-  const [checking, setChecking] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  // Set when an E-Plan payment is attempted while the user already has an active plan.
+  const [planBlocked, setPlanBlocked] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [success, setSuccess] = useState<SuccessPayload | null>(null);
   const [copied, setCopied] = useState<'account' | 'reference' | null>(null);
   const orderPlacedRef = useRef(false);
   const handledRef = useRef(false);
-  const confirmLockedRef = useRef(false);
+  const waitStartRef = useRef(0);
   const idempotencyKeyRef = useRef(`fund-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  // The screen is locked from the moment the user taps "I've Made the Transfer" until the success
+  // modal takes over (or the wait fails and we release it).
+  const blocked = processing && !success;
+  const blockedRef = useRef(false);
+  blockedRef.current = blocked;
+
+  // Locks the swipe-back gesture while blocked.
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !blocked });
+  }, [blocked, navigation]);
+
+  // Swallows the Android hardware back button while blocked.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => blockedRef.current);
+    return () => sub.remove();
+  }, []);
+
+  // Stops any other way of leaving the screen (header back, programmatic back) while blocked.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (blockedRef.current) e.preventDefault();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   // Creates the one-time virtual account. Uses the shared Supabase client, so the server
   // address and the login token come from the same place as the rest of the app.
@@ -156,6 +215,41 @@ export default function FundWalletAccountScreen() {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     (async () => {
+      // One E-Plan at a time. If the user already has an active one, stop here: no payment account
+      // is created, so no money can be sent for a plan that could never be activated.
+      if (isEplan) {
+        try {
+          const { data: { session } } = await withTimeout(supabase.auth.getSession(), 'auth.getSession');
+          const userId = session?.user.id;
+          if (userId) {
+            const { data: activePlans, error: planError } = await withTimeout(
+              supabase
+                .from('eplan_plans')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('status', 'active')
+                .limit(1),
+              'E-Plan check'
+            );
+            if (cancelled) return;
+            if (planError) {
+              console.log('[fund-wallet] active plan check error:', planError.message);
+              setError('We could not check your current E-Plan. Please try again.');
+              return;
+            }
+            if ((activePlans?.length ?? 0) > 0) {
+              setPlanBlocked(true);
+              return;
+            }
+          }
+        } catch (e: any) {
+          if (cancelled) return;
+          console.log('[fund-wallet] active plan check failed:', e?.message);
+          setError('We could not check your current E-Plan. Please try again.');
+          return;
+        }
+      }
+
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error('timeout')), REQUEST_TIMEOUT_MS);
       });
@@ -244,7 +338,8 @@ export default function FundWalletAccountScreen() {
           filter: `tx_ref=eq.${details.reference}`,
         },
         (payload: any) => {
-          if (payload.new?.status === 'success' && !confirmed) {
+          console.log('[fund-wallet] realtime update:', payload.new?.status, payload.new?.tx_ref);
+          if (isPaid(payload.new?.status) && !confirmed) {
             setConfirmed(true);
             handlePaid(details.reference);
           }
@@ -256,6 +351,61 @@ export default function FundWalletAccountScreen() {
       supabase.removeChannel(channel);
     };
   }, [details, confirmed]);
+
+  // While the overlay is showing, keep checking the payment in the background. Realtime normally
+  // fires first; this is the safety net. It also releases the screen if the wait runs too long.
+  useEffect(() => {
+    if (!processing || !details || confirmed) return;
+
+    let stopped = false;
+    const interval = setInterval(async () => {
+      if (stopped || handledRef.current) return;
+
+      const { data: txn, error: pollError } = await supabase
+        .from('wallet_transactions')
+        .select('status')
+        .eq('tx_ref', details.reference)
+        .maybeSingle();
+
+      console.log('[fund-wallet] poll:', details.reference, 'status =', txn?.status ?? null, 'error =', pollError?.message ?? null);
+
+      if (stopped || handledRef.current) return;
+
+      if (isPaid(txn?.status)) {
+        setConfirmed(true);
+        handlePaid(details.reference);
+        return;
+      }
+
+      if (Date.now() - waitStartRef.current > WAIT_LIMIT_MS) {
+        setProcessing(false);
+        Alert.alert(
+          'Still Processing',
+          "We haven't received your transfer yet. This can take a few minutes. You can tap the button again to re-check."
+        );
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [processing, details, confirmed]);
+
+  // Safety net: once a payment is detected, creating the order/plan must finish quickly. If it hangs,
+  // release the screen instead of leaving the user stuck behind the overlay forever.
+  useEffect(() => {
+    if (!confirmed || !processing || success) return;
+    const t = setTimeout(() => {
+      console.log('[fund-wallet] post-payment step timed out');
+      setProcessing(false);
+      Alert.alert(
+        'Payment received',
+        `Your payment was detected but we're still finishing up. Please check your wallet or orders in a moment.\n\nReference: ${details?.reference ?? ''}`
+      );
+    }, POST_PAYMENT_LIMIT_MS);
+    return () => clearTimeout(t);
+  }, [confirmed, processing, success]);
 
   const createSubscription = async () => {
     if (orderPlacedRef.current) return true;
@@ -276,12 +426,15 @@ export default function FundWalletAccountScreen() {
       return false;
     }
 
-    const { error: rpcError } = await supabase.rpc('activate_plan_direct', {
-      p_plan_id: planId,
-      p_duration_months: durationMonths,
-      p_amount_kobo: amountKobo,
-      p_tx_ref: details?.reference ?? null,
-    });
+    const { error: rpcError } = await withTimeout(
+      supabase.rpc('activate_plan_direct', {
+        p_plan_id: planId,
+        p_duration_months: durationMonths,
+        p_amount_kobo: amountKobo,
+        p_tx_ref: details?.reference ?? null,
+      }),
+      'activate_plan_direct'
+    );
 
     if (rpcError) {
       orderPlacedRef.current = false;
@@ -314,11 +467,11 @@ export default function FundWalletAccountScreen() {
             p_delivery_window: d.deliveryWindow ?? '',
           });
 
-    let result = await call();
+    let result = await withTimeout(call(), 'activate_eplan');
     // The wallet credit can land a moment after the payment is marked successful, so retry briefly.
     for (let i = 0; i < 3 && result.error && /insufficient.*balance/i.test(result.error.message); i++) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      result = await call();
+      result = await withTimeout(call(), 'activate_eplan');
     }
 
     if (result.error) {
@@ -343,15 +496,18 @@ export default function FundWalletAccountScreen() {
 
     if (isEwash && draft.covered) {
       const coveredLines: { id?: string; name: string; qty: number }[] = draft.lines ?? [];
-      const { error: planError } = await supabase.rpc('schedule_plan_pickup', {
-        p_items: coveredLines.map((l) => ({ id: l.id, name: l.name, qty: l.qty })),
-        p_express: !!draft.express,
-        p_pickup_date_id: draft.pickupDateId ?? '',
-        p_pickup_time: draft.pickupTime ?? '',
-        p_address: draft.pickupAddress ?? '',
-        p_notes: draft.notes || null,
-        p_tx_ref: reference,
-      });
+      const { error: planError } = await withTimeout(
+        supabase.rpc('schedule_plan_pickup', {
+          p_items: coveredLines.map((l) => ({ id: l.id, name: l.name, qty: l.qty })),
+          p_express: !!draft.express,
+          p_pickup_date_id: draft.pickupDateId ?? '',
+          p_pickup_time: draft.pickupTime ?? '',
+          p_address: draft.pickupAddress ?? '',
+          p_notes: draft.notes || null,
+          p_tx_ref: reference,
+        }),
+        'schedule_plan_pickup'
+      );
       if (planError) {
         orderPlacedRef.current = false;
         Alert.alert(
@@ -363,7 +519,7 @@ export default function FundWalletAccountScreen() {
       return true;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await withTimeout(supabase.auth.getSession(), 'auth.getSession');
     const total = Number(amount);
 
     const row = isEchop
@@ -400,7 +556,7 @@ export default function FundWalletAccountScreen() {
           };
         })();
 
-    const { error: insertError } = await supabase.from('orders').insert(row);
+    const { error: insertError } = await withTimeout(supabase.from('orders').insert(row), 'insert into orders');
 
     if (insertError) {
       orderPlacedRef.current = false;
@@ -413,12 +569,33 @@ export default function FundWalletAccountScreen() {
   const handlePaid = async (reference: string) => {
     if (handledRef.current) return;
     handledRef.current = true;
+    setProcessing(true);
+    console.log('[fund-wallet] payment detected, service =', service ?? 'wallet-funding');
+    try {
+      await runPaid(reference);
+    } catch (e: any) {
+      console.log('[fund-wallet] post-payment step failed:', e?.message ?? e);
+      handledRef.current = false;
+      orderPlacedRef.current = false;
+      setConfirmed(false);
+      setProcessing(false);
+      Alert.alert(
+        'Payment received',
+        `Your payment was received but we couldn't finish the last step (${e?.message ?? 'unknown error'}).\n\nReference: ${reference}`
+      );
+    }
+  };
+
+  const runPaid = async (reference: string) => {
+    // Keep the screen locked while the order / plan is being created after the payment lands.
+    setProcessing(true);
 
     if (isEplan) {
       const planId = await activateEplan();
       if (!planId) {
         handledRef.current = false;
         setConfirmed(false);
+        setProcessing(false);
         return;
       }
       tagPayment(reference, 'eplan', 'E-Plan payment');
@@ -441,6 +618,7 @@ export default function FundWalletAccountScreen() {
       if (!ok) {
         handledRef.current = false;
         setConfirmed(false);
+        setProcessing(false);
         return;
       }
       refreshReferrals();
@@ -459,6 +637,7 @@ export default function FundWalletAccountScreen() {
       if (!placed) {
         handledRef.current = false;
         setConfirmed(false);
+        setProcessing(false);
         return;
       }
 
@@ -531,27 +710,51 @@ export default function FundWalletAccountScreen() {
     }
   };
 
+  // Locks the whole screen straight away and shows the loading overlay, then checks once.
+  // If the payment hasn't landed yet, the overlay stays up while realtime and the poller wait for it.
   const handleConfirm = async () => {
-    if (checking || !details || confirmed || confirmLockedRef.current) return;
-    confirmLockedRef.current = true;
-    setChecking(true);
-    const { data: txn } = await supabase
+    if (processing || !details || confirmed) return;
+
+    waitStartRef.current = Date.now();
+    setProcessing(true);
+
+    const { data: txn, error: checkError } = await supabase
       .from('wallet_transactions')
       .select('status')
       .eq('tx_ref', details.reference)
-      .single();
+      .maybeSingle();
 
-    setChecking(false);
-    if (txn?.status === 'success') {
+    console.log('[fund-wallet] confirm check:', details.reference, 'status =', txn?.status ?? null, 'error =', checkError?.message ?? null);
+
+    if (isPaid(txn?.status) && !handledRef.current) {
       setConfirmed(true);
       handlePaid(details.reference);
-    } else {
-      Alert.alert(
-        'Still Processing',
-        "We haven't received your transfer yet. This can take a minute — try again shortly."
-      );
     }
   };
+
+  if (planBlocked) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <StatusBar style="dark" />
+        <View style={styles.blockedIconRing}>
+          <View style={styles.blockedIcon}>
+            <Feather name="lock" size={22} color="#fff" />
+          </View>
+        </View>
+        <Text style={styles.blockedTitle}>You have an active plan already</Text>
+        <Text style={styles.errorText}>
+          You can only run one E-Plan at a time, so we haven't created a payment account. Check on your
+          current plan, or come back once it ends or is cancelled.
+        </Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => router.replace('/my-plan' as any)}>
+          <Text style={styles.retryBtnText}>View My Plan</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.helpLink} onPress={() => router.back()}>
+          <Text style={styles.helpText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (error) {
     return (
@@ -584,7 +787,7 @@ export default function FundWalletAccountScreen() {
     : 'Hemera';
   const accountName = details.accountName ?? derivedName;
   const fraction = details.expiresInSeconds > 0 ? secondsLeft / details.expiresInSeconds : 0;
-  const confirmDisabled = checking || confirmLockedRef.current;
+  const confirmDisabled = processing;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -594,6 +797,7 @@ export default function FundWalletAccountScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!blocked}
       >
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
@@ -743,14 +947,8 @@ export default function FundWalletAccountScreen() {
           disabled={confirmDisabled}
           onPress={handleConfirm}
         >
-          {checking ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Text style={styles.confirmButtonText}>I've Made the Transfer</Text>
-              <Feather name="arrow-right" size={18} color="#fff" style={styles.confirmArrow} />
-            </>
-          )}
+          <Text style={styles.confirmButtonText}>I've Made the Transfer</Text>
+          <Feather name="arrow-right" size={18} color="#fff" style={styles.confirmArrow} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -767,6 +965,18 @@ export default function FundWalletAccountScreen() {
         </View>
       </ScrollView>
 
+      {blocked && (
+        <View style={styles.loadingOverlay} accessibilityViewIsModal accessibilityLabel="Confirming your payment">
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={ui.blue} />
+            <Text style={styles.loadingTitle}>Confirming your payment</Text>
+            <Text style={styles.loadingText}>
+              Please don't close or leave this screen. This usually takes less than a minute.
+            </Text>
+          </View>
+        </View>
+      )}
+
       {success && (
         <AppDialog
           visible
@@ -776,6 +986,10 @@ export default function FundWalletAccountScreen() {
           primaryLabel="OK"
           onPrimary={() => {
             const go = success.redirect;
+            // Release the lock first. Clearing the dialog while still "processing" would bring the
+            // loading overlay back and make the back-block cancel the redirect below.
+            blockedRef.current = false;
+            setProcessing(false);
             setSuccess(null);
             go();
           }}
@@ -839,6 +1053,23 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, fontFamily: fonts.poppins.medium, color: ui.textSecondary, textAlign: 'center' },
   retryBtn: { backgroundColor: ui.blue, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20 },
   retryBtnText: { fontSize: 13, fontFamily: fonts.poppins.bold, color: '#fff' },
+  blockedIconRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(226,58,46,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockedIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#161311',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockedTitle: { fontSize: 18, lineHeight: 25, fontFamily: fonts.poppins.bold, color: ui.textPrimary, textAlign: 'center' },
 
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 4 },
@@ -1029,4 +1260,34 @@ const styles = StyleSheet.create({
 
   securedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   securedText: { fontSize: 11.5, fontFamily: fonts.poppins.regular, color: ui.textSecondary },
+
+  // Full-screen blocker shown from "I've Made the Transfer" until the success modal appears.
+  // It sits on top of everything and swallows every touch so nothing underneath can be pressed.
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 100,
+    elevation: 100,
+    backgroundColor: 'rgba(11,16,32,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+  },
+  loadingCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: ui.surface,
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingTitle: { fontSize: 15, fontFamily: fonts.poppins.bold, color: ui.textPrimary, textAlign: 'center' },
+  loadingText: {
+    fontSize: 11.5,
+    lineHeight: 17,
+    fontFamily: fonts.poppins.regular,
+    color: ui.textSecondary,
+    textAlign: 'center',
+  },
 });

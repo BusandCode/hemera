@@ -10,7 +10,7 @@ import { foodColors } from '../constants/foodColors';
 
 export function LockOverlay() {
   const router = useRouter();
-  const { locked, signingOut, hasPin, unlock, refreshPinStatus } = useLock();
+  const { locked, signingOut, pinLoginActive, unlock, refreshPinStatus } = useLock();
   const { signOut } = useAuth();
   const [view, setView] = useState<'lock' | 'reset'>('lock');
 
@@ -52,10 +52,11 @@ export function LockOverlay() {
         />
       ) : (
         <LockScreen
+          key={pinLoginActive ? 'pin' : 'password'}
           onUnlock={unlock}
           onForgotPin={() => setView('reset')}
           onSwitchAccount={handleSwitchAccount}
-          hasPin={hasPin === true}
+          hasPin={pinLoginActive}
         />
       )}
     </View>

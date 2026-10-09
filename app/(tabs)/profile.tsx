@@ -1,4 +1,3 @@
-// app/(tabs)/profile.tsx
 import { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -6,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Alert,
   Modal,
   Animated,
@@ -19,6 +17,7 @@ import { fonts } from '../../src/constants/typography';
 import { ms } from '../../src/utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
+import { Avatar } from '../../src/components/profile/Avatar';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useFavorites } from '../../src/context/FavoritesContext';
@@ -186,14 +185,6 @@ export default function FoodProfileScreen() {
 
   const fullName = profile?.fullName?.trim() || displayName || 'Your name';
 
-  const avatarSource = profile.photoUri
-    ? { uri: profile.photoUri }
-    : {
-        uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          fullName
-        )}&background=FF6B35&color=fff&size=120`,
-      };
-
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -218,7 +209,8 @@ export default function FoodProfileScreen() {
         >
           <View style={styles.profileRow}>
             <View style={styles.avatarWrapper}>
-              <Image source={avatarSource} style={styles.avatar} />
+              {/* <Avatar uri={profile.photoUri} name={fullName} size={60} /> */}
+              <Avatar uri={profile.photoUri} name={profile.fullName?.trim() || displayName} size={60} />
               <View style={styles.verifiedBadge}>
                 <Feather name="check" size={10} color="#fff" />
               </View>
@@ -353,12 +345,6 @@ const styles = StyleSheet.create({
     gap: ms(14),
   },
   avatarWrapper: { position: 'relative' },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: ms(30),
-    backgroundColor: foodColors.border,
-  },
   verifiedBadge: {
     position: 'absolute',
     bottom: 0,

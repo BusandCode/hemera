@@ -1,8 +1,19 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity, TextInput, Switch, Platform } from 'react-native';
+import { useCallback, useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Switch,
+  Platform,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EPlanHeader } from '../src/components/eplan/EPlanHeader';
@@ -10,9 +21,11 @@ import { BottomTabs } from '../src/components/eplan/BottomTabs';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
+import { useAuth } from '../src/context/AuthContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { useEPlanDraft } from '../src/context/EPlanDraftContext';
 import { getEPlanTier, weeksFor, EPlanDuration } from '../src/lib/eplanTiers';
+import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
 const serif = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
@@ -40,6 +53,7 @@ export default function EPlanSetupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useProfile();
+  const { session } = useAuth();
   const { balanceNaira } = useWalletBalance();
   const { draft, updateDraft } = useEPlanDraft();
 
@@ -48,10 +62,40 @@ export default function EPlanSetupScreen() {
   // Delivery windows always start off; the user turns them on themselves.
   const [lunchWindow, setLunchWindow] = useState(false);
   const [dinnerWindow, setDinnerWindow] = useState(false);
+  const [showActivePlanModal, setShowActivePlanModal] = useState(false);
+  const [checkingPlan, setCheckingPlan] = useState(false);
 
   const tier = getEPlanTier(amount, duration);
   // What the user's amount is worth per week, used to preview the other duration.
   const weeklyAmount = amount / weeksFor(duration);
+
+  // True when the user already runs an E-Plan. If the lookup itself fails we let them carry on:
+  // the server still refuses a second plan, and the payment screen checks again before any money moves.
+  const userHasActivePlan = async () => {
+    if (!session?.user.id) return false;
+    const { data, error } = await supabase
+      .from('eplan_plans')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .eq('status', 'active')
+      .limit(1); // a user can hold more than one active plan, so don't expect exactly one row
+    if (error) return false;
+    return (data?.length ?? 0) > 0;
+  };
+
+  // Tell the user straight away if they land here with a plan already running.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const active = await userHasActivePlan();
+        if (active && !cancelled) setShowActivePlanModal(true);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [session?.user.id])
+  );
 
   // Duration scales the amount: the number typed is the 1-week budget, so 2 weeks doubles it
   // and switching back halves it again.
@@ -66,7 +110,18 @@ export default function EPlanSetupScreen() {
     setAmount(digitsOnly ? Number(digitsOnly) : 0);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    if (checkingPlan) return;
+
+    // Check again at the moment of tapping, in case a plan became active since this screen opened.
+    setCheckingPlan(true);
+    const active = await userHasActivePlan();
+    setCheckingPlan(false);
+    if (active) {
+      setShowActivePlanModal(true);
+      return;
+    }
+
     updateDraft({ amount, duration, lunchWindow, dinnerWindow, fixedPlan: null });
     // Choice is saved in the draft; reset the switches so they're off next time.
     setLunchWindow(false);
@@ -191,17 +246,66 @@ export default function EPlanSetupScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.continueBtn, !tier.valid && styles.continueBtnDisabled]}
+          style={[styles.continueBtn, (!tier.valid || checkingPlan) && styles.continueBtnDisabled]}
           activeOpacity={0.85}
-          disabled={!tier.valid}
+          disabled={!tier.valid || checkingPlan}
           onPress={handleContinue}
         >
-          <Text style={styles.continueBtnText}>Continue</Text>
-          <Feather name="arrow-right" size={ms(16)} color="#fff" />
+          {checkingPlan ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.continueBtnText}>Continue</Text>
+              <Feather name="arrow-right" size={ms(16)} color="#fff" />
+            </>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
       <BottomTabs />
+
+      <Modal
+        visible={showActivePlanModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowActivePlanModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconRing}>
+              <View style={styles.modalIcon}>
+                <Feather name="lock" size={ms(22)} color="#fff" />
+              </View>
+            </View>
+
+            <Text style={styles.modalTitle}>You have an active plan already</Text>
+            <Text style={styles.modalBody}>
+              You can only run one E-Plan at a time. Check on your current plan, or come back once it
+              ends or is cancelled.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalPrimary}
+              activeOpacity={0.85}
+              onPress={() => {
+                setShowActivePlanModal(false);
+                router.push('/my-plan' as any);
+              }}
+            >
+              <Text style={styles.modalPrimaryText}>View My Plan</Text>
+              <Feather name="arrow-right" size={ms(15)} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSecondary}
+              activeOpacity={0.7}
+              onPress={() => setShowActivePlanModal(false)}
+            >
+              <Text style={styles.modalSecondaryText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -272,4 +376,19 @@ const styles = StyleSheet.create({
   },
   continueBtnDisabled: { opacity: 0.4 },
   continueBtnText: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: '#fff' },
+
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(11,16,32,0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: ms(28) },
+  modalCard: {
+    width: '100%', backgroundColor: foodColors.surface, borderRadius: ms(26), paddingHorizontal: ms(24),
+    paddingTop: ms(28), paddingBottom: ms(18), alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12,
+  },
+  modalIconRing: { width: ms(84), height: ms(84), borderRadius: ms(42), backgroundColor: 'rgba(226,58,46,0.12)', justifyContent: 'center', alignItems: 'center', marginBottom: ms(18) },
+  modalIcon: { width: ms(54), height: ms(54), borderRadius: ms(27), backgroundColor: '#161311', justifyContent: 'center', alignItems: 'center' },
+  modalTitle: { fontSize: ms(19), lineHeight: ms(26), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, textAlign: 'center', marginBottom: ms(8) },
+  modalBody: { fontSize: ms(13), lineHeight: ms(19), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, textAlign: 'center', marginBottom: ms(22) },
+  modalPrimary: { width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: ms(8), backgroundColor: '#161311', borderRadius: ms(26), paddingVertical: ms(15) },
+  modalPrimaryText: { fontSize: ms(14.5), fontFamily: fonts.poppins.bold, color: '#fff' },
+  modalSecondary: { paddingVertical: ms(14), paddingHorizontal: ms(20) },
+  modalSecondaryText: { fontSize: ms(13.5), fontFamily: fonts.poppins.semiBold, color: foodColors.textSecondary },
 });

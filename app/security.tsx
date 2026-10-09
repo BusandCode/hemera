@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   ScrollView,
@@ -23,6 +24,12 @@ import { ms } from '../src/utils/responsive';
 type PinStatus = {
   loaded: boolean;
   hasPin: boolean;
+  loginEnabled: boolean;
+};
+
+type PinStatusRow = {
+  has_pin?: boolean | null;
+  pin_login_enabled?: boolean | null;
 };
 
 type Unavailable = {
@@ -44,6 +51,40 @@ const UNAVAILABLE: Record<'biometric' | 'twoFactor', Unavailable> = {
   },
 };
 
+/**
+ * Supabase RPCs return a single object for scalar/composite returns,
+ * but an array for RETURNS TABLE / SETOF. Normalize to one row.
+ */
+function unwrapRow<T>(data: unknown): T | null {
+  if (Array.isArray(data)) return (data[0] as T) ?? null;
+  return (data as T) ?? null;
+}
+
+/**
+ * Normalize set_pin_login's response into a status string.
+ * Accepts: 'ok' | 'pin_required' | true | { status: '...' } | null (void function).
+ */
+function toPinLoginStatus(data: unknown): 'ok' | 'pin_required' | 'unknown' {
+  const result = unwrapRow<any>(data);
+
+  if (result === null || result === undefined) return 'ok'; // void function, no error
+  if (result === true) return 'ok';
+  if (result === false) return 'unknown';
+
+  const raw =
+    typeof result === 'string'
+      ? result
+      : typeof result === 'object'
+        ? result.status ?? result.set_pin_login ?? result.result
+        : undefined;
+
+  const normalized = typeof raw === 'string' ? raw.trim().toLowerCase() : raw;
+
+  if (normalized === 'ok' || normalized === true) return 'ok';
+  if (normalized === 'pin_required') return 'pin_required';
+  return 'unknown';
+}
+
 function ActionRow({
   icon,
   title,
@@ -59,7 +100,7 @@ function ActionRow({
 }) {
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.row, disabled && styles.rowDisabled]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}
@@ -82,12 +123,14 @@ function ToggleRow({
   subtitle,
   value,
   onValueChange,
+  disabled,
 }: {
   icon: keyof typeof Feather.glyphMap;
   title: string;
   subtitle?: string;
   value: boolean;
   onValueChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.row}>
@@ -101,6 +144,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         trackColor={{ false: foodColors.border, true: foodColors.primary }}
         thumbColor="#fff"
       />
@@ -124,7 +168,6 @@ function UnavailableModal({
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        {/* Inner Pressable stops taps on the card from closing the modal */}
         <Pressable style={styles.card} onPress={() => {}}>
           <View style={styles.badgeOuter}>
             <View style={styles.badgeInner}>
@@ -152,34 +195,114 @@ function UnavailableModal({
 export default function SecurityScreen() {
   const router = useRouter();
   const { security, setBiometric, setTwoFactor } = useAppData();
-  const [pin, setPin] = useState<PinStatus>({ loaded: false, hasPin: false });
+  const [pin, setPin] = useState<PinStatus>({
+    loaded: false,
+    hasPin: false,
+    loginEnabled: false,
+  });
+  const [pinToggleBusy, setPinToggleBusy] = useState(false);
   const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
 
-  // Biometric login isn't available yet, so it must always be off.
-  // If the saved value (or the context default) is on, switch it off.
+  // Biometric isn't supported yet — make sure a stale "on" value is cleared.
   useEffect(() => {
     if (security.biometric) setBiometric(false);
   }, [security.biometric, setBiometric]);
 
+  const loadPinStatus = useCallback(async (isActive: () => boolean = () => true) => {
+    const { data, error } = await supabase.rpc('get_pin_status');
+    if (!isActive()) return;
+
+    if (error) {
+      console.warn('[Security] get_pin_status failed:', error);
+      setPin((p) => ({ ...p, loaded: true }));
+      return;
+    }
+
+    const row = unwrapRow<PinStatusRow>(data);
+    const hasPin = row?.has_pin === true;
+
+    setPin({
+      loaded: true,
+      hasPin,
+      loginEnabled: hasPin && row?.pin_login_enabled === true,
+    });
+  }, []);
+
+  // Refresh every time the screen is focused (e.g. after returning from Create PIN).
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      (async () => {
-        try {
-          const { data } = await supabase.rpc('get_pin_status');
-          if (!active) return;
-          setPin({ loaded: true, hasPin: data?.has_pin === true });
-        } catch {
-          if (active) setPin((p) => ({ ...p, loaded: true }));
-        }
-      })();
+      loadPinStatus(() => active).catch((e) => {
+        console.warn('[Security] get_pin_status threw:', e);
+        if (active) setPin((p) => ({ ...p, loaded: true }));
+      });
       return () => {
         active = false;
       };
-    }, [])
+    }, [loadPinStatus])
   );
 
-  // Not available yet: turning on shows the modal and the switch stays off.
+  const promptCreatePin = () => {
+    Alert.alert(
+      'Create a PIN first',
+      'You need to create a PIN before you can turn on Login with PIN. Create one now, then come back and switch it on.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Create PIN', onPress: () => router.push('/change-pin' as any) },
+      ]
+    );
+  };
+
+  const handlePinLogin = async (next: boolean) => {
+    if (!pin.loaded || pinToggleBusy) return;
+
+    if (next && !pin.hasPin) {
+      promptCreatePin();
+      return;
+    }
+
+    const previous = pin.loginEnabled;
+    setPinToggleBusy(true);
+    setPin((p) => ({ ...p, loginEnabled: next })); // optimistic
+
+    try {
+      const { data, error } = await supabase.rpc('set_pin_login', { p_enabled: next });
+
+      if (error) {
+        console.warn('[Security] set_pin_login failed:', error);
+        setPin((p) => ({ ...p, loginEnabled: previous }));
+        Alert.alert(
+          "Couldn't update Login with PIN",
+          error.message || 'Something went wrong. Please try again.'
+        );
+        return;
+      }
+
+      const status = toPinLoginStatus(data);
+
+      if (status === 'ok') return; // keep optimistic value
+
+      if (status === 'pin_required') {
+        setPin((p) => ({ ...p, loginEnabled: false, hasPin: false }));
+        promptCreatePin();
+        return;
+      }
+
+      console.warn('[Security] set_pin_login unexpected response:', data);
+      setPin((p) => ({ ...p, loginEnabled: previous }));
+      Alert.alert("Couldn't update Login with PIN", 'Please try again in a moment.');
+    } catch (e: any) {
+      console.warn('[Security] set_pin_login threw:', e);
+      setPin((p) => ({ ...p, loginEnabled: previous }));
+      Alert.alert(
+        "Couldn't update Login with PIN",
+        e?.message || 'Check your connection and try again.'
+      );
+    } finally {
+      setPinToggleBusy(false);
+    }
+  };
+
   const handleBiometric = (next: boolean) => {
     if (next) {
       setUnavailable(UNAVAILABLE.biometric);
@@ -221,6 +344,18 @@ export default function SecurityScreen() {
             title={pinTitle}
             disabled={!pin.loaded}
             onPress={() => router.push('/change-pin' as any)}
+          />
+          <ToggleRow
+            icon="key"
+            title="Login with PIN"
+            subtitle={
+              pin.loaded && !pin.hasPin
+                ? 'Create a PIN first to turn this on'
+                : 'Use your PIN instead of your password to log in'
+            }
+            value={pin.loginEnabled}
+            onValueChange={handlePinLogin}
+            disabled={!pin.loaded || pinToggleBusy}
           />
           <ToggleRow
             icon="smartphone"
@@ -278,6 +413,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
+  rowDisabled: { opacity: 0.6 },
   iconWrap: {
     width: ms(34),
     height: ms(34),
@@ -301,7 +437,6 @@ const styles = StyleSheet.create({
 
   bottomSpacer: { height: ms(20) },
 
-  // Modal
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(11,16,32,0.55)',

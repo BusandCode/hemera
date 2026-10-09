@@ -33,6 +33,7 @@ export default function ChangePinScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [doneOpen, setDoneOpen] = useState(false);
+  const [createdOpen, setCreatedOpen] = useState(false);
 
   const { anim: shakeAnim, trigger: shake } = useShake();
 
@@ -109,7 +110,8 @@ export default function ChangePinScreen() {
       if (rpcError) throw new Error(rpcError.message);
 
       if (data === 'ok') {
-        setDoneOpen(true);
+        if (isChange) setDoneOpen(true);
+        else setCreatedOpen(true);
         return;
       }
 
@@ -183,6 +185,49 @@ export default function ChangePinScreen() {
   const totalSteps = isChange ? 3 : 2;
   const stepIndex =
     step === 'current' ? 0 : step === 'new' ? (isChange ? 1 : 0) : isChange ? 2 : 1;
+
+  if (createdOpen) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" />
+        <View
+          style={[
+            styles.inner,
+            { paddingTop: insets.top + ms(12), paddingBottom: insets.bottom + ms(16) },
+          ]}
+        >
+          <View style={styles.successBody}>
+            <View style={styles.iconCircle}>
+              <Feather name="check-circle" size={ms(26)} color={foodColors.primary} />
+            </View>
+            <Text style={styles.title}>PIN Created Successfully</Text>
+            <Text style={styles.successMessage}>
+              Your PIN has been created successfully. To use it when logging in, enable Login with
+              PIN in your account settings. Until you enable this feature, you can continue logging
+              in with your password.
+            </Text>
+          </View>
+
+          <View style={styles.successActions}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              activeOpacity={0.85}
+              onPress={() => router.replace('/security' as any)}
+            >
+              <Text style={styles.primaryBtnText}>Go to Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              activeOpacity={0.7}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.secondaryBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -275,12 +320,8 @@ export default function ChangePinScreen() {
         <AppDialog
           visible
           tone="success"
-          title={isChange ? 'PIN updated' : 'PIN set'}
-          message={
-            isChange
-              ? 'Your new PIN is active. Use it to confirm payments and unlock the app.'
-              : 'Your PIN is ready. Use it to confirm payments and unlock the app.'
-          }
+          title="PIN updated"
+          message="Your new PIN is active. Use it to confirm payments and unlock the app."
           primaryLabel="Done"
           onPrimary={() => {
             setDoneOpen(false);
@@ -373,5 +414,39 @@ const styles = StyleSheet.create({
     fontSize: ms(12),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textMuted,
+  },
+
+  successBody: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  successMessage: {
+    fontSize: ms(13),
+    lineHeight: ms(20),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+    marginTop: ms(8),
+    paddingHorizontal: ms(8),
+  },
+  successActions: { gap: ms(8) },
+  primaryBtn: {
+    width: '100%',
+    backgroundColor: foodColors.primary,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
+    alignItems: 'center',
+  },
+  primaryBtnText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
+  secondaryBtn: {
+    width: '100%',
+    paddingVertical: ms(13),
+    alignItems: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.textSecondary,
   },
 });

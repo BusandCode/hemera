@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Redirect } from 'expo-router';
 import {
   View,
@@ -20,23 +20,150 @@ import { fonts } from '../src/constants/typography';
 import { termsOfUse, privacyPolicy } from '../src/constants/legalContent';
 import { useAuth } from '../src/context/AuthContext';
 import { LegalModal } from '../src/components/auth/LegalModal';
+import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
 type Mode = 'signin' | 'signup';
+type Step = 'form' | 'otp';
 type Gender = 'Male' | 'Female' | '';
+
+const OTP_LENGTH = 6;
+const RESEND_SECONDS = 60;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+type AuthErr = { message?: string; code?: string; status?: number; name?: string };
+
+function errCode(e: unknown): string {
+  return ((e as AuthErr)?.code ?? '').toString().toLowerCase();
+}
+
+function errMsg(e: unknown): string {
+  return ((e as AuthErr)?.message ?? '').toString();
+}
+
+function isInvalidCredentials(e: unknown): boolean {
+  return (
+    errCode(e) === 'invalid_credentials' ||
+    errMsg(e).toLowerCase().includes('invalid login credentials')
+  );
+}
+
+function isEmailNotConfirmed(e: unknown): boolean {
+  return errCode(e) === 'email_not_confirmed' || errMsg(e).toLowerCase().includes('not confirmed');
+}
+
+/** Turns Supabase auth errors into clear, user-facing messages. */
+function friendlyAuthError(e: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  const err = (e ?? {}) as AuthErr;
+  const code = errCode(e);
+  const raw = errMsg(e);
+  const msg = raw.toLowerCase();
+
+  if (
+    err.name === 'AuthRetryableFetchError' ||
+    msg.includes('network request failed') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('fetch failed') ||
+    msg.includes('network error')
+  ) {
+    return 'No internet connection. Check your network and try again.';
+  }
+
+  if (isInvalidCredentials(e)) return 'Email or password is incorrect.';
+
+  if (isEmailNotConfirmed(e)) return 'Your email is not verified yet. Enter the code we sent you.';
+
+  if (
+    code === 'user_already_exists' ||
+    code === 'email_exists' ||
+    msg.includes('already registered') ||
+    msg.includes('already exists')
+  ) {
+    return 'An account with this email already exists. Sign in instead.';
+  }
+
+  if (code === 'weak_password' || msg.includes('password should')) {
+    return raw || 'Your password is too weak. Try a longer one.';
+  }
+
+  if (code === 'same_password' || msg.includes('should be different')) {
+    return 'Your new password must be different from your old one.';
+  }
+
+  if (
+    code === 'otp_expired' ||
+    code === 'otp_invalid' ||
+    msg.includes('token has expired') ||
+    msg.includes('invalid token') ||
+    msg.includes('otp')
+  ) {
+    return 'That code is invalid or has expired. Request a new one and try again.';
+  }
+
+  if (code === 'over_email_send_rate_limit' || msg.includes('email rate limit')) {
+    return 'Too many emails sent. Please wait a few minutes before trying again.';
+  }
+
+  if (msg.includes('for security purposes')) {
+    // e.g. "For security purposes, you can only request this after 42 seconds."
+    return raw;
+  }
+
+  if (code === 'over_request_rate_limit' || err.status === 429 || msg.includes('rate limit')) {
+    return 'Too many attempts. Please wait a moment and try again.';
+  }
+
+  if (code === 'email_address_invalid' || msg.includes('invalid format') || msg.includes('invalid email')) {
+    return 'Enter a valid email address.';
+  }
+
+  if (code === 'user_banned') return 'This account has been suspended. Contact support for help.';
+
+  if (code === 'signup_disabled' || msg.includes('signups not allowed')) {
+    return 'New sign-ups are currently closed.';
+  }
+
+  if (code === 'user_not_found' || msg.includes('user not found')) {
+    return 'No account found with this email.';
+  }
+
+  if (typeof err.status === 'number' && err.status >= 500) {
+    return 'Our server is having trouble right now. Please try again shortly.';
+  }
+
+  return raw || fallback;
+}
+
+/** Returns true/false, or null if the check itself failed. Needs the email_exists SQL function. */
+async function emailExists(email: string): Promise<boolean | null> {
+  try {
+    const { data, error } = await supabase.rpc('email_exists', { p_email: email });
+    if (error) {
+      console.warn('[Auth] email_exists failed:', error);
+      return null;
+    }
+    return data === true;
+  } catch (e) {
+    console.warn('[Auth] email_exists threw:', e);
+    return null;
+  }
+}
 
 export default function AuthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signIn, signUp, session } = useAuth();
+  const { signIn, signUp, verifyOtp, resendOtp, session } = useAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
+  const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
   const [gender, setGender] = useState<Gender>('');
   const [phone, setPhone] = useState('');
   const [referredBy, setReferredBy] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [cooldown, setCooldown] = useState(0);
   const [secure, setSecure] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -47,33 +174,63 @@ export default function AuthScreen() {
 
   const isSignUp = mode === 'signup';
 
-  const canSubmit =
-    email.trim().length > 3 &&
-    password.trim().length >= 4 &&
-    (!isSignUp ||
-      (name.trim().length > 1 &&
-        gender.length > 0 &&
-        phone.trim().length > 6 &&
-        agreed));
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const validate = (): string => {
+    if (isSignUp) {
+      const missing =
+        !name.trim() || !gender || !phone.trim() || !email.trim() || !password.trim();
+      if (missing) return 'Please complete all fields to continue.';
+      if (name.trim().length < 2) return 'Please enter your full name.';
+      if (!EMAIL_RE.test(email.trim())) return 'Enter a valid email address.';
+      if (phone.length !== 11) return 'Phone number must be 11 digits.';
+      if (password.trim().length < 4) return 'Password must be at least 4 characters.';
+      if (!agreed) return 'Please agree to the Terms of Use and Privacy Policy to continue.';
+      return '';
+    }
+    if (!email.trim() || !password.trim()) return 'Please enter your email and password to continue.';
+    if (!EMAIL_RE.test(email.trim())) return 'Enter a valid email address.';
+    return '';
+  };
+
+  const openOtpStep = () => {
+    setOtp('');
+    setError('');
+    setCooldown(RESEND_SECONDS);
+    setStep('otp');
+  };
 
   const handleSubmit = async () => {
-    if (!canSubmit || busy) return;
+    if (busy) return;
+    const problem = validate();
+    if (problem) {
+      setError(problem);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       if (isSignUp) {
+        const exists = await emailExists(email.trim());
+        if (exists === true) {
+          setError('An account with this email already exists. Sign in instead.');
+          return;
+        }
+
         const signedIn = await signUp({
           fullName: name.trim(),
           gender,
-          phone: phone.trim(),
+          phone,
           referredBy: referredBy.trim(),
           email: email.trim(),
           password,
         });
         if (!signedIn) {
-          // Supabase "Confirm email" is on: no session until they verify.
-          setMode('signin');
-          setError('Account created. Check your email to confirm it, then sign in.');
+          openOtpStep();
           return;
         }
       } else {
@@ -81,10 +238,68 @@ export default function AuthScreen() {
       }
       router.replace('/(tabs)' as any);
     } catch (e: any) {
-      setError(e?.message ?? 'Something went wrong. Please try again.');
+      console.warn('[Auth] submit failed:', e);
+
+      if (!isSignUp && isEmailNotConfirmed(e)) {
+        try {
+          await resendOtp(email.trim());
+          openOtpStep();
+        } catch (re: any) {
+          setError(friendlyAuthError(re, 'Could not send a code. Please try again.'));
+        }
+      } else if (!isSignUp && isInvalidCredentials(e)) {
+        const exists = await emailExists(email.trim());
+        if (exists === false) {
+          setError('No account found with this email. Check the spelling or create an account.');
+        } else if (exists === true) {
+          setError('Incorrect password. Try again or tap "Forgot password?" to reset it.');
+        } else {
+          setError('Email or password is incorrect.');
+        }
+      } else {
+        setError(friendlyAuthError(e));
+      }
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleVerify = async () => {
+    if (busy) return;
+    if (otp.length !== OTP_LENGTH) {
+      setError(`Enter the ${OTP_LENGTH}-digit code sent to your email.`);
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await verifyOtp(email.trim(), otp);
+      router.replace('/(tabs)' as any);
+    } catch (e: any) {
+      setError(friendlyAuthError(e, 'Invalid or expired code. Please try again.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (busy || cooldown > 0) return;
+    setBusy(true);
+    setError('');
+    try {
+      await resendOtp(email.trim());
+      setCooldown(RESEND_SECONDS);
+    } catch (e: any) {
+      setError(friendlyAuthError(e, 'Could not resend the code. Please try again.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const backToForm = () => {
+    setStep('form');
+    setOtp('');
+    setError('');
   };
 
   const switchMode = (next: Mode) => {
@@ -98,20 +313,19 @@ export default function AuthScreen() {
       return;
     }
     setAgreed((a) => !a);
+    setError('');
   };
 
   const handleTermsAgree = () => {
     setTermsRead(true);
     setAgreed(true);
     setTermsOpen(false);
+    setError('');
   };
 
-  // Already signed in → never show the auth screen.
   if (session) return <Redirect href={'/(tabs)' as any} />;
 
   return (
-    // Same keyboard behavior as the Live Chat screen: the view shrinks to the space
-    // above the keyboard, so the field being typed in is never covered.
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -134,237 +348,298 @@ export default function AuthScreen() {
           <Text style={styles.brand}>HEMERA</Text>
         </View>
 
-        <Text style={styles.title}>
-          {isSignUp ? 'Create your account' : 'Welcome back'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {isSignUp
-            ? 'Sign up to order food and schedule laundry pickups.'
-            : 'Sign in to continue where you left off.'}
-        </Text>
-
-        <View style={styles.tabsRow}>
-          <TouchableOpacity
-            style={[styles.tabBtn, mode === 'signin' && styles.tabBtnActive]}
-            onPress={() => switchMode('signin')}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}
-            >
-              Sign In
+        {step === 'otp' ? (
+          <>
+            <Text style={styles.title}>Verify your email</Text>
+            <Text style={styles.subtitle}>
+              We sent a {OTP_LENGTH}-digit code to {email.trim()}. Enter it below to finish
+              creating your account.
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
-            onPress={() => switchMode('signup')}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}
-            >
-              Create Account
-            </Text>
-          </TouchableOpacity>
-        </View>
 
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Full Name</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="user" size={ms(16)} color={foodColors.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. Suleiman Abubakar"
-                placeholderTextColor={foodColors.textMuted}
-                autoCapitalize="words"
-              />
+            <View style={styles.field}>
+              <Text style={styles.label}>Verification Code</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="shield" size={ms(16)} color={foodColors.textMuted} />
+                <TextInput
+                  style={[styles.input, styles.otpInput]}
+                  value={otp}
+                  onChangeText={(t) => {
+                    setOtp(t.replace(/\D/g, '').slice(0, OTP_LENGTH));
+                    if (error) setError('');
+                  }}
+                  placeholder="------"
+                  placeholderTextColor={foodColors.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={OTP_LENGTH}
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                  autoFocus
+                />
+              </View>
             </View>
-          </View>
-        )}
 
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Gender</Text>
-            <View style={styles.genderRow}>
-              {(['Male', 'Female'] as Gender[]).map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  style={[styles.genderPill, gender === g && styles.genderPillActive]}
-                  onPress={() => setGender(g)}
-                  activeOpacity={0.85}
-                >
-                  <Text
-                    style={[
-                      styles.genderPillText,
-                      gender === g && styles.genderPillTextActive,
-                    ]}
-                  >
-                    {g}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
 
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Phone Number</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="phone" size={ms(16)} color={foodColors.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="+234 803 123 4567"
-                placeholderTextColor={foodColors.textMuted}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-        )}
-
-        {isSignUp && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Referral Code (optional)</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="gift" size={ms(16)} color={foodColors.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={referredBy}
-                onChangeText={setReferredBy}
-                placeholder="e.g. ABCD1234"
-                placeholderTextColor={foodColors.textMuted}
-                autoCapitalize="characters"
-              />
-            </View>
-          </View>
-        )}
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Email Address</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="mail" size={ms(16)} color={foodColors.textMuted} />
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={foodColors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.inputWrap}>
-            <Feather name="lock" size={ms(16)} color={foodColors.textMuted} />
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="At least 4 characters"
-              placeholderTextColor={foodColors.textMuted}
-              secureTextEntry={secure}
-              autoCapitalize="none"
-            />
             <TouchableOpacity
-              onPress={() => setSecure((s) => !s)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[styles.submit, busy && styles.submitDisabled]}
+              onPress={handleVerify}
+              disabled={busy}
+              activeOpacity={0.85}
             >
-              <Feather
-                name={secure ? 'eye-off' : 'eye'}
-                size={ms(16)}
-                color={foodColors.textMuted}
-              />
+              <Text style={styles.submitText}>{busy ? 'Please wait...' : 'Verify & Continue'}</Text>
             </TouchableOpacity>
-          </View>
 
-          {/* Forgot password — right under password, aligned right */}
-          {!isSignUp && (
             <TouchableOpacity
-              style={styles.forgotRow}
-              onPress={() => router.push('/forgot-password' as any)}
+              style={styles.switchLink}
+              onPress={handleResend}
+              disabled={cooldown > 0 || busy}
               activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.forgotLink}>Forgot password?</Text>
+              <Text style={[styles.switchText, cooldown > 0 && styles.resendDisabled]}>
+                {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+              </Text>
             </TouchableOpacity>
-          )}
-        </View>
 
-        {isSignUp && (
-          <View style={styles.agreeBlock}>
-            <View style={styles.agreeRow}>
+            <TouchableOpacity style={styles.backLink} onPress={backToForm} activeOpacity={0.7}>
+              <Text style={styles.backText}>Change email or details</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={styles.title}>
+              {isSignUp ? 'Create your account' : 'Welcome back'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {isSignUp
+                ? 'Sign up to order food and schedule laundry pickups.'
+                : 'Sign in to continue where you left off.'}
+            </Text>
+
+            <View style={styles.tabsRow}>
               <TouchableOpacity
-                style={[styles.checkbox, agreed && styles.checkboxChecked]}
-                onPress={handleCheckboxPress}
-                activeOpacity={0.8}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[styles.tabBtn, mode === 'signin' && styles.tabBtnActive]}
+                onPress={() => switchMode('signin')}
+                activeOpacity={0.85}
               >
-                {agreed && <Feather name="check" size={ms(13)} color="#fff" />}
-              </TouchableOpacity>
-              <Text style={styles.agreeText}>
-                I agree to Hemera's{' '}
-                <Text style={styles.agreeLink} onPress={() => setTermsOpen(true)}>
-                  Terms of Use
-                </Text>{' '}
-                and{' '}
-                <Text style={styles.agreeLink} onPress={() => setPrivacyOpen(true)}>
-                  Privacy Policy
+                <Text style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}>
+                  Sign In
                 </Text>
-              </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
+                onPress={() => switchMode('signup')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}>
+                  Create Account
+                </Text>
+              </TouchableOpacity>
             </View>
-            {!termsRead && (
-              <Text style={styles.agreeHint}>
-                Read the Terms of Use to the end before agreeing.
-              </Text>
+
+            {isSignUp && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Full Name</Text>
+                <View style={styles.inputWrap}>
+                  <Feather name="user" size={ms(16)} color={foodColors.textMuted} />
+                  <TextInput
+                    style={styles.input}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="e.g. Suleiman Abubakar"
+                    placeholderTextColor={foodColors.textMuted}
+                    autoCapitalize="words"
+                  />
+                </View>
+              </View>
             )}
-          </View>
+
+            {isSignUp && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Gender</Text>
+                <View style={styles.genderRow}>
+                  {(['Male', 'Female'] as Gender[]).map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.genderPill, gender === g && styles.genderPillActive]}
+                      onPress={() => setGender(g)}
+                      activeOpacity={0.85}
+                    >
+                      <Text
+                        style={[
+                          styles.genderPillText,
+                          gender === g && styles.genderPillTextActive,
+                        ]}
+                      >
+                        {g}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {isSignUp && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Phone Number</Text>
+                <View style={styles.inputWrap}>
+                  <Feather name="phone" size={ms(16)} color={foodColors.textMuted} />
+                  <TextInput
+                    style={styles.input}
+                    value={phone}
+                    onChangeText={(t) => setPhone(t.replace(/\D/g, '').slice(0, 11))}
+                    placeholder="08031234567"
+                    placeholderTextColor={foodColors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={11}
+                  />
+                </View>
+              </View>
+            )}
+
+            {isSignUp && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Referral Code (optional)</Text>
+                <View style={styles.inputWrap}>
+                  <Feather name="gift" size={ms(16)} color={foodColors.textMuted} />
+                  <TextInput
+                    style={styles.input}
+                    value={referredBy}
+                    onChangeText={setReferredBy}
+                    placeholder="e.g. ABCD1234"
+                    placeholderTextColor={foodColors.textMuted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+              </View>
+            )}
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Email Address</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="mail" size={ms(16)} color={foodColors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={foodColors.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="lock" size={ms(16)} color={foodColors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="At least 4 characters"
+                  placeholderTextColor={foodColors.textMuted}
+                  secureTextEntry={secure}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => setSecure((s) => !s)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather
+                    name={secure ? 'eye-off' : 'eye'}
+                    size={ms(16)}
+                    color={foodColors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {!isSignUp && (
+                <TouchableOpacity
+                  style={styles.forgotRow}
+                  onPress={() => router.push('/forgot-password' as any)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.forgotLink}>Forgot password?</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {isSignUp && (
+              <View style={styles.agreeBlock}>
+                <View style={styles.agreeRow}>
+                  <TouchableOpacity
+                    style={[styles.checkbox, agreed && styles.checkboxChecked]}
+                    onPress={handleCheckboxPress}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {agreed && <Feather name="check" size={ms(13)} color="#fff" />}
+                  </TouchableOpacity>
+                  <Text style={styles.agreeText}>
+                    I agree to Hemera's{' '}
+                    <Text style={styles.agreeLink} onPress={() => setTermsOpen(true)}>
+                      Terms of Use
+                    </Text>{' '}
+                    and{' '}
+                    <Text style={styles.agreeLink} onPress={() => setPrivacyOpen(true)}>
+                      Privacy Policy
+                    </Text>
+                  </Text>
+                </View>
+                {!termsRead && (
+                  <Text style={styles.agreeHint}>
+                    Read the Terms of Use to the end before agreeing.
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {error ? (
+              <View style={styles.errorBox}>
+                <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.submit, busy && styles.submitDisabled]}
+              onPress={handleSubmit}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.submitText}>
+                {busy ? 'Please wait...' : isSignUp ? 'Send Code' : 'Sign In'}
+              </Text>
+              {!busy && (
+                <Feather
+                  name={isSignUp ? 'send' : 'arrow-right'}
+                  size={ms(16)}
+                  color="#fff"
+                />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.switchLink}
+              onPress={() => switchMode(isSignUp ? 'signin' : 'signup')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.switchText}>
+                {isSignUp
+                  ? 'Already have an account? Sign In'
+                  : "Don't have an account? Create one"}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
-
-        {error ? (
-          <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        <TouchableOpacity
-          style={[styles.submit, (!canSubmit || busy) && styles.submitDisabled]}
-          onPress={handleSubmit}
-          disabled={!canSubmit || busy}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.submitText}>
-            {busy ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
-          </Text>
-          {!busy && (
-            <Feather
-              name={isSignUp ? 'user-plus' : 'arrow-right'}
-              size={ms(16)}
-              color="#fff"
-            />
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.switchLink}
-          onPress={() => switchMode(isSignUp ? 'signin' : 'signup')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.switchText}>
-            {isSignUp
-              ? 'Already have an account? Sign In'
-              : "Don't have an account? Create one"}
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
 
       <LegalModal
@@ -468,6 +743,11 @@ const styles = StyleSheet.create({
     color: foodColors.textPrimary,
     padding: 0,
     minWidth: 0,
+  },
+  otpInput: {
+    fontSize: ms(20),
+    fontFamily: fonts.poppins.semiBold,
+    letterSpacing: 8,
   },
 
   forgotRow: {
@@ -588,5 +868,13 @@ const styles = StyleSheet.create({
     fontSize: ms(12.5),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.primary,
+  },
+  resendDisabled: { color: foodColors.textMuted },
+
+  backLink: { alignItems: 'center', paddingVertical: ms(6) },
+  backText: {
+    fontSize: ms(12.5),
+    fontFamily: fonts.poppins.medium,
+    color: foodColors.textSecondary,
   },
 });

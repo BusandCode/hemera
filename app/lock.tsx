@@ -4,14 +4,14 @@ import { Alert } from 'react-native';
 
 import { LockScreen } from '../src/components/LockScreen';
 import { useAuth } from '../src/context/AuthContext';
+import { useLock } from '../src/context/LockContext';
 
 export default function LockRoute() {
   const router = useRouter();
   const { signOut } = useAuth();
+  const { pinLoginActive } = useLock();
 
   const handleUnlock = () => {
-    // Temporary: this route is only reachable manually for now.
-    // The real unlock flow (overlay) is wired later.
     router.replace('/(tabs)' as any);
   };
 
@@ -40,6 +40,7 @@ export default function LockRoute() {
         onUnlock={handleUnlock}
         onForgotPin={handleForgotPin}
         onSwitchAccount={handleSwitchAccount}
+        hasPin={pinLoginActive}
       />
     </>
   );
