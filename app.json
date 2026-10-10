@@ -46,6 +46,12 @@
           "cameraPermission": "Allow Hemera to use your camera so you can take a profile picture."
         }
       ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Hemera to use Face ID to unlock the app."
+        }
+      ],
       "expo-asset"
     ],
     "experiments": {

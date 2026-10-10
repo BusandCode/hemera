@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +28,9 @@ type Pickup = {
   slot: string;
   sortTime: number;
 };
+
+const compact = Platform.OS === 'android';
+const pick = (small: number, regular: number) => (compact ? small : regular);
 
 const statusStyle = {
   label: 'Scheduled',
@@ -282,7 +286,7 @@ export default function ScheduleScreen() {
                     >
                       <MaterialCommunityIcons
                         name={statusStyle.icon}
-                        size={15}
+                        size={pick(12, 15)}
                         color={statusStyle.fg}
                       />
                       <Text style={[styles.statusText, { color: statusStyle.fg }]}>
@@ -291,7 +295,7 @@ export default function ScheduleScreen() {
                     </View>
                   </View>
 
-                  <Feather name="chevron-right" size={22} color={ui.chevron} />
+                  <Feather name="chevron-right" size={pick(20, 22)} color={ui.chevron} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -300,7 +304,7 @@ export default function ScheduleScreen() {
                   onPress={() => cancelPickup(pickup)}
                   disabled={busy}
                 >
-                  <Feather name="x-circle" size={20} color={foodColors.primary} />
+                  <Feather name="x-circle" size={pick(17, 20)} color={foodColors.primary} />
                   <Text style={[styles.actionText, { color: foodColors.primary }]}>
                     Cancel pickup
                   </Text>
@@ -437,63 +441,63 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#fff',
-    borderRadius: 26,
+    borderRadius: pick(18, 26),
     borderWidth: 1,
     borderColor: ui.border,
-    padding: 16,
-    marginBottom: 16,
+    padding: pick(12, 16),
+    marginBottom: pick(12, 16),
   },
   cardBusy: { opacity: 0.55 },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: pick(10, 14),
   },
   dateTile: {
-    width: 78,
-    height: 78,
-    borderRadius: 20,
+    width: pick(56, 78),
+    height: pick(56, 78),
+    borderRadius: pick(14, 20),
     backgroundColor: ui.dateTile,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dateMonth: {
-    fontSize: 15,
+    fontSize: pick(11, 15),
     letterSpacing: 0.6,
     fontFamily: fonts.poppins.regular,
     color: ui.heading,
   },
   dateDay: {
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: pick(22, 30),
+    lineHeight: pick(26, 36),
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
   cardInfo: { flex: 1 },
   orderId: {
-    fontSize: 20,
+    fontSize: pick(15, 20),
     fontFamily: fonts.poppins.medium,
     color: ui.heading,
   },
   slot: {
-    fontSize: 15,
+    fontSize: pick(12, 15),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
     marginTop: 2,
-    marginBottom: 8,
+    marginBottom: pick(6, 8),
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
+    gap: pick(5, 8),
+    paddingHorizontal: pick(10, 14),
+    paddingVertical: pick(4, 7),
+    borderRadius: pick(12, 16),
   },
-  statusPillNoSlot: { marginTop: 8 },
+  statusPillNoSlot: { marginTop: pick(6, 8) },
   statusText: {
-    fontSize: 14,
+    fontSize: pick(11.5, 14),
     fontFamily: fonts.poppins.medium,
   },
 
@@ -501,15 +505,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    borderRadius: 24,
+    gap: pick(8, 10),
+    borderRadius: pick(18, 24),
     borderWidth: 1.5,
-    paddingVertical: 16,
-    marginTop: 14,
+    paddingVertical: pick(10, 16),
+    marginTop: pick(10, 14),
   },
   cancelButton: { borderColor: foodColors.primary },
   actionText: {
-    fontSize: 18,
+    fontSize: pick(14, 18),
     fontFamily: fonts.poppins.medium,
   },
 

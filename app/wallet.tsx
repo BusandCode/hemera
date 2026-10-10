@@ -86,6 +86,11 @@ export default function WalletScreen() {
         .select('id, amount_kobo, type, tx_ref, status, created_at')
         .eq('user_id', userId)
         .eq('status', 'success')
+        // Recent Activity lists wallet funding (HEM-) and withdrawals (WD-) only. E-Plan, E-Chop,
+        // E-Wash and subscription payments are left out.
+        .or('tx_ref.like.HEM-*,tx_ref.like.WD-*')
+        // Orders paid by bank transfer (Flutterwave) also use a HEM- reference but never touch the wallet.
+        .or('purpose.is.null,purpose.not.in.(eplan,echop,ewash,subscription)')
         .order('created_at', { ascending: false })
         .limit(20),
     ]);
@@ -99,6 +104,12 @@ export default function WalletScreen() {
       load();
     }, [load])
   );
+
+  // Recent Activity shows wallet funding and withdrawals only.
+  const activity = txns.filter((t) => {
+    const kind = classify(t);
+    return kind === 'funded' || kind === 'withdrawal';
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -171,13 +182,13 @@ export default function WalletScreen() {
 
         <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
         <View style={styles.activityGroup}>
-          {txns.map((t, i) => {
+          {activity.map((t, i) => {
             const kind = classify(t);
             const meta = getKindMeta(kind);
             return (
               <View
                 key={t.id}
-                style={[styles.activityRow, i !== txns.length - 1 && styles.activityRowDivider]}
+                style={[styles.activityRow, i !== activity.length - 1 && styles.activityRowDivider]}
               >
                 <View style={[styles.activityIconWrap, { backgroundColor: meta.iconBg }]}>
                   <Feather name={meta.icon} size={16} color={meta.iconColor} />
@@ -192,7 +203,7 @@ export default function WalletScreen() {
               </View>
             );
           })}
-          {!loading && txns.length === 0 && (
+          {!loading && activity.length === 0 && (
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyText}>No activity yet.</Text>
             </View>

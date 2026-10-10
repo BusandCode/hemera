@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
+  Animated,
+  Easing,
   View,
   Text,
   ScrollView,
@@ -32,22 +33,37 @@ type PinStatusRow = {
   pin_login_enabled?: boolean | null;
 };
 
-type Unavailable = {
-  icon: keyof typeof Feather.glyphMap;
+type FeatherIcon = keyof typeof Feather.glyphMap;
+
+type DialogTone = 'primary' | 'danger';
+
+type DialogConfig = {
+  icon: FeatherIcon;
+  tone?: DialogTone;
+  pill?: { icon: FeatherIcon; label: string };
   title: string;
   body: string;
+  primary: { label: string; onPress?: () => void };
+  secondary?: { label: string; onPress?: () => void };
 };
 
-const UNAVAILABLE: Record<'biometric' | 'twoFactor', Unavailable> = {
+const DANGER = '#FF3B30';
+const DANGER_LIGHT = 'rgba(255,59,48,0.10)';
+
+const UNAVAILABLE: Record<'biometric' | 'twoFactor', DialogConfig> = {
   biometric: {
     icon: 'smartphone',
+    pill: { icon: 'clock', label: 'COMING SOON' },
     title: 'Biometric Login',
     body: "Face ID and fingerprint login aren't available yet. For now, use your PIN or password to open the app. We'll let you know as soon as it's ready.",
+    primary: { label: 'Got it' },
   },
   twoFactor: {
     icon: 'shield',
+    pill: { icon: 'clock', label: 'COMING SOON' },
     title: 'Two-Factor Authentication',
     body: "Two-factor authentication is not available at the moment. On our next update, you'll be able to turn it on soon.",
+    primary: { label: 'Got it' },
   },
 };
 
@@ -67,7 +83,7 @@ function unwrapRow<T>(data: unknown): T | null {
 function toPinLoginStatus(data: unknown): 'ok' | 'pin_required' | 'unknown' {
   const result = unwrapRow<any>(data);
 
-  if (result === null || result === undefined) return 'ok'; // void function, no error
+  if (result === null || result === undefined) return 'ok';
   if (result === true) return 'ok';
   if (result === false) return 'unknown';
 
@@ -92,7 +108,7 @@ function ActionRow({
   onPress,
   disabled,
 }: {
-  icon: keyof typeof Feather.glyphMap;
+  icon: FeatherIcon;
   title: string;
   subtitle?: string;
   onPress?: () => void;
@@ -125,7 +141,7 @@ function ToggleRow({
   onValueChange,
   disabled,
 }: {
-  icon: keyof typeof Feather.glyphMap;
+  icon: FeatherIcon;
   title: string;
   subtitle?: string;
   value: boolean;
@@ -152,41 +168,80 @@ function ToggleRow({
   );
 }
 
-function UnavailableModal({
-  info,
-  onClose,
-}: {
-  info: Unavailable | null;
-  onClose: () => void;
-}) {
+/** Branded dialog used instead of the system Alert. */
+function AppDialog({ config, onClose }: { config: DialogConfig | null; onClose: () => void }) {
+  // Keep the last config while fading out so content doesn't vanish mid-animation.
+  const [shown, setShown] = useState<DialogConfig | null>(config);
+  const scale = useRef(new Animated.Value(0.92)).current;
+
+  useEffect(() => {
+    if (config) {
+      setShown(config);
+      scale.setValue(0.92);
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.back(1.4)),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [config, scale]);
+
+  const tone = shown?.tone ?? 'primary';
+  const accent = tone === 'danger' ? DANGER : foodColors.primary;
+  const accentLight = tone === 'danger' ? DANGER_LIGHT : foodColors.primaryLight;
+
+  const press = (action?: { onPress?: () => void }) => {
+    onClose();
+    action?.onPress?.();
+  };
+
   return (
     <Modal
-      visible={!!info}
+      visible={!!config}
       transparent
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.card} onPress={() => {}}>
-          <View style={styles.badgeOuter}>
-            <View style={styles.badgeInner}>
-              <Feather name={info?.icon ?? 'shield'} size={ms(26)} color={foodColors.primary} />
+        <Animated.View style={[styles.cardWrap, { transform: [{ scale }] }]}>
+          <Pressable style={styles.card} onPress={() => {}}>
+            <View style={[styles.badgeOuter, { backgroundColor: accentLight }]}>
+              <View style={styles.badgeInner}>
+                <Feather name={shown?.icon ?? 'info'} size={ms(26)} color={accent} />
+              </View>
             </View>
-          </View>
 
-          <View style={styles.soonPill}>
-            <Feather name="clock" size={ms(11)} color={foodColors.primary} />
-            <Text style={styles.soonPillText}>COMING SOON</Text>
-          </View>
+            {shown?.pill ? (
+              <View style={[styles.pill, { backgroundColor: accentLight }]}>
+                <Feather name={shown.pill.icon} size={ms(11)} color={accent} />
+                <Text style={[styles.pillText, { color: accent }]}>{shown.pill.label}</Text>
+              </View>
+            ) : null}
 
-          <Text style={styles.modalTitle}>{info?.title}</Text>
-          <Text style={styles.modalBody}>{info?.body}</Text>
+            <Text style={styles.modalTitle}>{shown?.title}</Text>
+            <Text style={styles.modalBody}>{shown?.body}</Text>
 
-          <TouchableOpacity style={styles.modalBtn} onPress={onClose} activeOpacity={0.85}>
-            <Text style={styles.modalBtnText}>Got it</Text>
-          </TouchableOpacity>
-        </Pressable>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: accent }]}
+              onPress={() => press(shown?.primary)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalBtnText}>{shown?.primary.label}</Text>
+            </TouchableOpacity>
+
+            {shown?.secondary ? (
+              <TouchableOpacity
+                style={styles.modalSecondaryBtn}
+                onPress={() => press(shown.secondary)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalSecondaryText}>{shown.secondary.label}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -201,7 +256,7 @@ export default function SecurityScreen() {
     loginEnabled: false,
   });
   const [pinToggleBusy, setPinToggleBusy] = useState(false);
-  const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
+  const [dialog, setDialog] = useState<DialogConfig | null>(null);
 
   // Biometric isn't supported yet — make sure a stale "on" value is cleared.
   useEffect(() => {
@@ -242,22 +297,32 @@ export default function SecurityScreen() {
     }, [loadPinStatus])
   );
 
-  const promptCreatePin = () => {
-    Alert.alert(
-      'Create a PIN first',
-      'You need to create a PIN before you can turn on Login with PIN. Create one now, then come back and switch it on.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Create PIN', onPress: () => router.push('/change-pin' as any) },
-      ]
-    );
+  const showCreatePin = () => {
+    setDialog({
+      icon: 'hash',
+      title: 'Create a PIN first',
+      body: 'You need a PIN before you can turn on Login with PIN. Create one now, then come back and switch it on.',
+      primary: { label: 'Create PIN', onPress: () => router.push('/change-pin' as any) },
+      secondary: { label: 'Not now' },
+    });
+  };
+
+  const showPinError = (message: string, attempted: boolean) => {
+    setDialog({
+      icon: 'alert-triangle',
+      tone: 'danger',
+      title: "Couldn't update Login with PIN",
+      body: message,
+      primary: { label: 'Try again', onPress: () => handlePinLogin(attempted) },
+      secondary: { label: 'Close' },
+    });
   };
 
   const handlePinLogin = async (next: boolean) => {
     if (!pin.loaded || pinToggleBusy) return;
 
     if (next && !pin.hasPin) {
-      promptCreatePin();
+      showCreatePin();
       return;
     }
 
@@ -271,33 +336,27 @@ export default function SecurityScreen() {
       if (error) {
         console.warn('[Security] set_pin_login failed:', error);
         setPin((p) => ({ ...p, loginEnabled: previous }));
-        Alert.alert(
-          "Couldn't update Login with PIN",
-          error.message || 'Something went wrong. Please try again.'
-        );
+        showPinError(error.message || 'Something went wrong. Please try again.', next);
         return;
       }
 
       const status = toPinLoginStatus(data);
 
-      if (status === 'ok') return; // keep optimistic value
+      if (status === 'ok') return;
 
       if (status === 'pin_required') {
         setPin((p) => ({ ...p, loginEnabled: false, hasPin: false }));
-        promptCreatePin();
+        showCreatePin();
         return;
       }
 
       console.warn('[Security] set_pin_login unexpected response:', data);
       setPin((p) => ({ ...p, loginEnabled: previous }));
-      Alert.alert("Couldn't update Login with PIN", 'Please try again in a moment.');
+      showPinError('Something went wrong on our side. Please try again in a moment.', next);
     } catch (e: any) {
       console.warn('[Security] set_pin_login threw:', e);
       setPin((p) => ({ ...p, loginEnabled: previous }));
-      Alert.alert(
-        "Couldn't update Login with PIN",
-        e?.message || 'Check your connection and try again.'
-      );
+      showPinError(e?.message || 'Check your internet connection and try again.', next);
     } finally {
       setPinToggleBusy(false);
     }
@@ -305,7 +364,7 @@ export default function SecurityScreen() {
 
   const handleBiometric = (next: boolean) => {
     if (next) {
-      setUnavailable(UNAVAILABLE.biometric);
+      setDialog(UNAVAILABLE.biometric);
       return;
     }
     setBiometric(false);
@@ -313,7 +372,7 @@ export default function SecurityScreen() {
 
   const handleTwoFactor = (next: boolean) => {
     if (next) {
-      setUnavailable(UNAVAILABLE.twoFactor);
+      setDialog(UNAVAILABLE.twoFactor);
       return;
     }
     setTwoFactor(false);
@@ -376,7 +435,7 @@ export default function SecurityScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <UnavailableModal info={unavailable} onClose={() => setUnavailable(null)} />
+      <AppDialog config={dialog} onClose={() => setDialog(null)} />
     </View>
   );
 }
@@ -437,6 +496,7 @@ const styles = StyleSheet.create({
 
   bottomSpacer: { height: ms(20) },
 
+  // Dialog
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(11,16,32,0.55)',
@@ -444,14 +504,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: ms(28),
   },
-  card: {
+  cardWrap: {
     width: '100%',
     maxWidth: ms(360),
+  },
+  card: {
+    width: '100%',
     backgroundColor: foodColors.background,
     borderRadius: ms(24),
     paddingHorizontal: ms(22),
     paddingTop: ms(28),
-    paddingBottom: ms(22),
+    paddingBottom: ms(18),
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.18,
@@ -463,7 +526,6 @@ const styles = StyleSheet.create({
     width: ms(84),
     height: ms(84),
     borderRadius: ms(42),
-    backgroundColor: foodColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: ms(16),
@@ -476,20 +538,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  soonPill: {
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: ms(5),
-    backgroundColor: foodColors.primaryLight,
     paddingHorizontal: ms(10),
     paddingVertical: ms(4),
     borderRadius: ms(20),
     marginBottom: ms(12),
   },
-  soonPillText: {
+  pillText: {
     fontSize: ms(10),
     fontFamily: fonts.poppins.bold,
-    color: foodColors.primary,
     letterSpacing: 0.8,
   },
   modalTitle: {
@@ -509,7 +569,6 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     width: '100%',
-    backgroundColor: foodColors.primary,
     paddingVertical: ms(15),
     borderRadius: ms(26),
     alignItems: 'center',
@@ -518,5 +577,16 @@ const styles = StyleSheet.create({
     fontSize: ms(14),
     fontFamily: fonts.poppins.bold,
     color: '#fff',
+  },
+  modalSecondaryBtn: {
+    width: '100%',
+    paddingVertical: ms(13),
+    marginTop: ms(4),
+    alignItems: 'center',
+  },
+  modalSecondaryText: {
+    fontSize: ms(13.5),
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.textSecondary,
   },
 });

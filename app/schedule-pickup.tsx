@@ -59,8 +59,8 @@ export default function SchedulePickupScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const availableDates = useMemo(() => generateDates(30), []);
-  const [selectedDateId, setSelectedDateId] = useState(availableDates[0].id);
-  const [selectedSlot, setSelectedSlot] = useState('evening');
+  const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const { addresses, defaultAddress, addressesLoading } = useAppData();
   const [editing, setEditing] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export default function SchedulePickupScreen() {
     : chosenSaved
       ? formatAddress(chosenSaved)
       : '';
-  const canContinue = pickupAddress.length > 0;
+  const canContinue = pickupAddress.length > 0 && !!selectedDateId && !!selectedSlot;
 
   const showingCustom = useCustom && customAddress.trim().length > 0;
   const shown = showingCustom

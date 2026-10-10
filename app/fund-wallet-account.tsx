@@ -100,6 +100,10 @@ function formatClock(totalSeconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function makeIdempotencyKey() {
+  return `fund-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function formatAccountNumber(value: string) {
   return value.replace(/\s/g, '').replace(/(\d{4})(?=\d)/g, '$1 ');
 }
@@ -163,6 +167,15 @@ export default function FundWalletAccountScreen() {
     }
   }, [order]);
   const isSubscription = isEwash && parsedDraft.kind === 'subscription';
+  const paymentPurpose = isEplan
+    ? 'eplan'
+    : isSubscription
+      ? 'subscription'
+      : isEwash
+        ? 'ewash'
+        : isEchop
+          ? 'echop'
+          : 'funding';
   const { clear: clearCart } = useCart();
   const { refresh: refreshReferrals } = useReferral();
   const { resetDraft } = useEPlanDraft();
@@ -181,7 +194,10 @@ export default function FundWalletAccountScreen() {
   const orderPlacedRef = useRef(false);
   const handledRef = useRef(false);
   const waitStartRef = useRef(0);
-  const idempotencyKeyRef = useRef(`fund-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  // One key per funding attempt. It stays the same when the user retries the SAME attempt, and is only
+  // replaced when they ask for a genuinely new account.
+  const idempotencyKeyRef = useRef(makeIdempotencyKey());
+  const lastServerCheckRef = useRef(0);
 
   // The screen is locked from the moment the user taps "I've Made the Transfer" until the success
   // modal takes over (or the wait fails and we release it).
@@ -257,11 +273,10 @@ export default function FundWalletAccountScreen() {
       try {
         const { data, error: fnError } = await Promise.race([
           supabase.functions.invoke('fund-wallet', {
-            body:
-              // E-Plan pays as a plain top-up: the full amount lands in the wallet, then the plan locks from it.
-              isOrder && !isEplan
-                ? { amount: Number(amount), purpose: isSubscription ? 'ewash' : service }
-                : { amount: Number(amount) },
+            // The server saves the purpose when the payment is created and decides from it what the money
+            // is for. E-Plan and plain funding credit the wallet (E-Plan then locks from it); E-Chop,
+            // E-Wash and subscriptions pay the order directly and never touch the wallet.
+            body: { amount: Number(amount), purpose: paymentPurpose },
             headers: { 'Idempotency-Key': idempotencyKeyRef.current },
           }),
           timeout,
@@ -312,10 +327,38 @@ export default function FundWalletAccountScreen() {
     };
   }, [amount, attempt]);
 
+  // Retry the SAME attempt (same key): the server returns the account it already created, or finishes creating it.
   const handleRetry = () => {
     setError('');
     setDetails(null);
     setAttempt((a) => a + 1);
+  };
+
+  // The previous account has expired and the user wants to pay again: this is a genuinely new attempt,
+  // so it gets a new key. A late payment to the old account is still matched by the server.
+  const handleNewAccount = () => {
+    idempotencyKeyRef.current = makeIdempotencyKey();
+    setError('');
+    setDetails(null);
+    setSecondsLeft(0);
+    setAttempt((a) => a + 1);
+  };
+
+  // Asks the server to check this payment with Flutterwave. The app never changes a payment's status
+  // itself: if the payment was made, the server finishes it, and the status change reaches this screen
+  // through the same listener and polling as always.
+  const checkWithServer = async (reference: string) => {
+    lastServerCheckRef.current = Date.now();
+    try {
+      const { data, error: checkError } = await withTimeout(
+        supabase.functions.invoke('reconcile-payments', { body: { reference } }),
+        'payment status check',
+        15000
+      );
+      console.log('[fund-wallet] server check:', reference, data?.status ?? null, checkError?.message ?? null);
+    } catch (e: any) {
+      console.log('[fund-wallet] server check failed:', e?.message ?? e);
+    }
   };
 
   useEffect(() => {
@@ -360,6 +403,12 @@ export default function FundWalletAccountScreen() {
     let stopped = false;
     const interval = setInterval(async () => {
       if (stopped || handledRef.current) return;
+
+      // Don't wait for the webhook alone: every 10 seconds, ask the server to check with Flutterwave.
+      if (Date.now() - lastServerCheckRef.current > 10000) {
+        await checkWithServer(details.reference);
+        if (stopped || handledRef.current) return;
+      }
 
       const { data: txn, error: pollError } = await supabase
         .from('wallet_transactions')
@@ -438,7 +487,12 @@ export default function FundWalletAccountScreen() {
 
     if (rpcError) {
       orderPlacedRef.current = false;
-      Alert.alert('Subscription failed', rpcError.message);
+      Alert.alert(
+        'Subscription failed',
+        /payment_not_verified/.test(rpcError.message)
+          ? `We couldn't match your payment to this plan. Your payment was received, so please contact support with this reference: ${details?.reference ?? ''}`
+          : rpcError.message
+      );
       return false;
     }
 
@@ -560,7 +614,12 @@ export default function FundWalletAccountScreen() {
 
     if (insertError) {
       orderPlacedRef.current = false;
-      Alert.alert('Order failed', insertError.message);
+      Alert.alert(
+        'Order failed',
+        /payment_not_verified/.test(insertError.message)
+          ? `We couldn't match your payment to this order. Your payment was received, so please contact support with this reference: ${reference}`
+          : insertError.message
+      );
       return false;
     }
     return true;
@@ -718,6 +777,9 @@ export default function FundWalletAccountScreen() {
     waitStartRef.current = Date.now();
     setProcessing(true);
 
+    // The button never marks anything as paid. It only asks the server to check with Flutterwave.
+    await checkWithServer(details.reference);
+
     const { data: txn, error: checkError } = await supabase
       .from('wallet_transactions')
       .select('status')
@@ -788,6 +850,9 @@ export default function FundWalletAccountScreen() {
   const accountName = details.accountName ?? derivedName;
   const fraction = details.expiresInSeconds > 0 ? secondsLeft / details.expiresInSeconds : 0;
   const confirmDisabled = processing;
+  // The local timer ending does not mean the payment failed: a transfer may still be arriving, so we keep
+  // listening and checking. We only offer the user a way to start over.
+  const expired = secondsLeft <= 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -923,9 +988,13 @@ export default function FundWalletAccountScreen() {
         <View style={styles.expiryBanner}>
           <ExpiryRing fraction={fraction} label={formatClock(secondsLeft)} />
           <View style={styles.expiryTextBlock}>
-            <Text style={styles.expiryTitle}>Account expires in {formatClock(secondsLeft)}</Text>
+            <Text style={styles.expiryTitle}>
+              {expired ? 'This account has expired' : `Account expires in ${formatClock(secondsLeft)}`}
+            </Text>
             <Text style={styles.expirySubtitle}>
-              This account will expire if we don't detect your payment.
+              {expired
+                ? "If you've already sent the money, tap the button below and we'll check for it. Otherwise, get a new account."
+                : "This account will expire if we don't detect your payment."}
             </Text>
           </View>
         </View>
@@ -950,6 +1019,17 @@ export default function FundWalletAccountScreen() {
           <Text style={styles.confirmButtonText}>I've Made the Transfer</Text>
           <Feather name="arrow-right" size={18} color="#fff" style={styles.confirmArrow} />
         </TouchableOpacity>
+
+        {expired && (
+          <TouchableOpacity
+            style={[styles.newAccountBtn, confirmDisabled && styles.confirmButtonDisabled]}
+            activeOpacity={0.85}
+            disabled={confirmDisabled}
+            onPress={handleNewAccount}
+          >
+            <Text style={styles.newAccountBtnText}>Get a New Account</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.helpLink}
@@ -1254,6 +1334,16 @@ const styles = StyleSheet.create({
   confirmButtonDisabled: { opacity: 0.7 },
   confirmButtonText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: '#fff' },
   confirmArrow: { position: 'absolute', right: 18 },
+  newAccountBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    borderColor: ui.blue,
+    marginTop: 10,
+  },
+  newAccountBtnText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: ui.blue },
 
   helpLink: { alignItems: 'center', paddingVertical: 14 },
   helpText: { fontSize: 13, fontFamily: fonts.poppins.semiBold, color: ui.blue },

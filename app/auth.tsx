@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Redirect } from 'expo-router';
 import {
+  Animated,
+  Easing,
+  Modal,
   View,
   Text,
   StyleSheet,
@@ -149,6 +152,96 @@ async function emailExists(email: string): Promise<boolean | null> {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Confirms the backend finished creating the account (profile row exists).
+ * Retries briefly in case the signup trigger is still finishing.
+ */
+async function confirmAccountReady(userId: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (data) return true;
+    if (error) console.warn('[Auth] profile check failed:', error);
+    await sleep(700);
+  }
+  return false;
+}
+
+const SUCCESS_GREEN = '#22C55E';
+const SUCCESS_GREEN_LIGHT = 'rgba(34,197,94,0.12)';
+
+function AccountCreatedModal({
+  visible,
+  firstName,
+  onContinue,
+}: {
+  visible: boolean;
+  firstName: string;
+  onContinue: () => void;
+}) {
+  const cardScale = useRef(new Animated.Value(0.9)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    cardScale.setValue(0.9);
+    checkScale.setValue(0);
+    Animated.sequence([
+      Animated.timing(cardScale, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.back(1.4)),
+        useNativeDriver: true,
+      }),
+      Animated.spring(checkScale, {
+        toValue: 1,
+        friction: 4,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [visible, cardScale, checkScale]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onContinue}
+    >
+      <View style={styles.successBackdrop}>
+        <Animated.View style={[styles.successCard, { transform: [{ scale: cardScale }] }]}>
+          <View style={styles.successBadgeOuter}>
+            <Animated.View
+              style={[styles.successBadgeInner, { transform: [{ scale: checkScale }] }]}
+            >
+              <Feather name="check" size={ms(34)} color="#fff" />
+            </Animated.View>
+          </View>
+
+          <Text style={styles.successTitle}>Account Created Successfully!</Text>
+          <Text style={styles.successBody}>
+            {firstName ? `Welcome to Hemera, ${firstName}! ` : 'Welcome to Hemera! '}
+            Your email has been verified and your account is ready to use. You can now order
+            food and schedule laundry pickups.
+          </Text>
+
+          <TouchableOpacity style={styles.successBtn} onPress={onContinue} activeOpacity={0.85}>
+            <Text style={styles.successBtnText}>Continue</Text>
+            <Feather name="arrow-right" size={ms(16)} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function AuthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -171,8 +264,18 @@ export default function AuthScreen() {
   const [termsRead, setTermsRead] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  // Keeps the user on this screen while OTP verification finishes and the success modal shows.
+  const [holdRedirect, setHoldRedirect] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
 
   const isSignUp = mode === 'signup';
+
+  const firstName = (
+    name ||
+    ((session?.user?.user_metadata?.full_name as string | undefined) ?? '')
+  )
+    .trim()
+    .split(/\s+/)[0];
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -266,20 +369,59 @@ export default function AuthScreen() {
 
   const handleVerify = async () => {
     if (busy) return;
-    if (otp.length !== OTP_LENGTH) {
+
+    // If a previous attempt already verified the code (session exists) but the
+    // account check failed, skip straight to re-checking the account.
+    const alreadyVerified = !!session && holdRedirect;
+
+    if (!alreadyVerified && otp.length !== OTP_LENGTH) {
       setError(`Enter the ${OTP_LENGTH}-digit code sent to your email.`);
       return;
     }
+
     setBusy(true);
     setError('');
+    setHoldRedirect(true);
+
+    let verified = alreadyVerified;
     try {
-      await verifyOtp(email.trim(), otp);
-      router.replace('/(tabs)' as any);
+      if (!alreadyVerified) {
+        await verifyOtp(email.trim(), otp);
+        verified = true;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user.id;
+      if (!userId) {
+        throw new Error('We could not confirm your session. Please sign in to continue.');
+      }
+
+      const ready = await confirmAccountReady(userId);
+      if (!ready) {
+        throw new Error(
+          "Your email is verified, but we couldn't finish setting up your account. Tap Verify & Continue to try again."
+        );
+      }
+
+      setSuccessOpen(true);
     } catch (e: any) {
-      setError(friendlyAuthError(e, 'Invalid or expired code. Please try again.'));
+      console.warn('[Auth] verify failed:', e);
+      setError(
+        verified
+          ? e?.message ?? 'Something went wrong. Please try again.'
+          : friendlyAuthError(e, 'Invalid or expired code. Please try again.')
+      );
+      // Code itself failed: release the hold so normal behaviour resumes.
+      if (!verified) setHoldRedirect(false);
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleSuccessContinue = () => {
+    setSuccessOpen(false);
+    setHoldRedirect(false);
+    router.replace('/(tabs)' as any);
   };
 
   const handleResend = async () => {
@@ -323,7 +465,7 @@ export default function AuthScreen() {
     setError('');
   };
 
-  if (session) return <Redirect href={'/(tabs)' as any} />;
+  if (session && !holdRedirect && !successOpen) return <Redirect href={'/(tabs)' as any} />;
 
   return (
     <KeyboardAvoidingView
@@ -618,13 +760,13 @@ export default function AuthScreen() {
               <Text style={styles.submitText}>
                 {busy ? 'Please wait...' : isSignUp ? 'Send Code' : 'Sign In'}
               </Text>
-              {!busy && (
+              {/* {!busy && (
                 <Feather
                   name={isSignUp ? 'send' : 'arrow-right'}
                   size={ms(16)}
                   color="#fff"
                 />
-              )}
+              )} */}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -655,6 +797,12 @@ export default function AuthScreen() {
         visible={privacyOpen}
         doc={privacyPolicy}
         onClose={() => setPrivacyOpen(false)}
+      />
+
+      <AccountCreatedModal
+        visible={successOpen}
+        firstName={firstName}
+        onContinue={handleSuccessContinue}
       />
     </KeyboardAvoidingView>
   );
@@ -870,6 +1018,76 @@ const styles = StyleSheet.create({
     color: foodColors.primary,
   },
   resendDisabled: { color: foodColors.textMuted },
+
+  successBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(11,16,32,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: ms(28),
+  },
+  successCard: {
+    width: '100%',
+    maxWidth: ms(360),
+    backgroundColor: foodColors.background,
+    borderRadius: ms(24),
+    paddingHorizontal: ms(22),
+    paddingTop: ms(30),
+    paddingBottom: ms(22),
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  successBadgeOuter: {
+    width: ms(96),
+    height: ms(96),
+    borderRadius: ms(48),
+    backgroundColor: SUCCESS_GREEN_LIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: ms(18),
+  },
+  successBadgeInner: {
+    width: ms(66),
+    height: ms(66),
+    borderRadius: ms(33),
+    backgroundColor: SUCCESS_GREEN,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successTitle: {
+    fontSize: ms(19),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: ms(8),
+  },
+  successBody: {
+    fontSize: ms(13),
+    lineHeight: ms(19),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: ms(24),
+  },
+  successBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: ms(8),
+    backgroundColor: foodColors.primary,
+    paddingVertical: ms(15),
+    borderRadius: ms(26),
+  },
+  successBtnText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
+  },
 
   backLink: { alignItems: 'center', paddingVertical: ms(6) },
   backText: {
