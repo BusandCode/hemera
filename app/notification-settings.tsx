@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Switch, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Switch, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from 'expo-router';
@@ -7,6 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { useDialog } from '../src/components/ui/DialogProvider';
 import { useAuth } from '../src/context/AuthContext';
 import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
@@ -28,7 +29,6 @@ type ToggleDef = {
   subtitle: string;
 };
 
-// Same as the column defaults in Supabase: everything on, SMS off.
 const DEFAULTS: Values = {
   order_updates: true,
   promotions: true,
@@ -41,6 +41,7 @@ const DEFAULTS: Values = {
 const COLUMNS = Object.keys(DEFAULTS).join(', ');
 
 export default function NotificationSettingsScreen() {
+  const dialog = useDialog();
   const { session } = useAuth();
   const userId = session?.user.id;
   const email = session?.user.email ?? '';
@@ -49,7 +50,6 @@ export default function NotificationSettingsScreen() {
   const [values, setValues] = useState<Values>(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
-  // Load the user's saved choices every time the screen opens.
   useFocusEffect(
     useCallback(() => {
       if (!userId) return;
@@ -70,8 +70,6 @@ export default function NotificationSettingsScreen() {
     }, [userId])
   );
 
-  // Save only the toggle the user tapped. Show the change straight away,
-  // and put it back if saving fails.
   const toggle = async (key: ToggleKey) => {
     if (!userId) return;
     const next = !values[key];
@@ -84,7 +82,11 @@ export default function NotificationSettingsScreen() {
     if (error) {
       console.log('notification save error:', error);
       setValues((prev) => ({ ...prev, [key]: !next }));
-      Alert.alert('Not saved', 'We couldn’t save that change. Please check your connection and try again.');
+      await dialog.alert({
+        title: 'Not saved',
+        message: 'We couldn’t save that change. Please check your connection and try again.',
+        icon: 'wifi-off',
+      });
     }
   };
 

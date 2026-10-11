@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Modal,
   Animated,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { ms } from '../../src/utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { Avatar } from '../../src/components/profile/Avatar';
+import { useDialog } from '../../src/components/ui/DialogProvider';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useFavorites } from '../../src/context/FavoritesContext';
@@ -141,6 +141,7 @@ function MenuSection({
 export default function FoodProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const dialog = useDialog();
   const { profile } = useProfile();
   const { signOut, displayName } = useAuth();
   const { favoriteIds } = useFavorites();
@@ -169,18 +170,17 @@ export default function FoodProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          router.replace('/auth' as any);
-        },
-      },
-    ]);
+  const handleLogout = async () => {
+    const confirmed = await dialog.confirm({
+      title: 'Log Out',
+      message: 'Are you sure you want to log out?',
+      confirmText: 'Log Out',
+      destructive: true,
+      icon: 'log-out',
+    });
+    if (!confirmed) return;
+    await signOut();
+    router.replace('/auth' as any);
   };
 
   const fullName = profile?.fullName?.trim() || displayName || 'Your name';
@@ -209,7 +209,6 @@ export default function FoodProfileScreen() {
         >
           <View style={styles.profileRow}>
             <View style={styles.avatarWrapper}>
-              {/* <Avatar uri={profile.photoUri} name={fullName} size={60} /> */}
               <Avatar uri={profile.photoUri} name={profile.fullName?.trim() || displayName} size={60} />
               <View style={styles.verifiedBadge}>
                 <Feather name="check" size={10} color="#fff" />
