@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -16,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
+import { useDialog } from '../src/components/ui/DialogProvider';
 import { useAuth } from '../src/context/AuthContext';
 import { useCart } from '../src/context/CartContext';
 import { useLocation } from '../src/context/LocationContext';
@@ -63,6 +63,7 @@ function formatNaira(amount: number) {
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const dialog = useDialog();
   const params = useLocalSearchParams<{ promoApplied?: string; discount?: string }>();
   const { session } = useAuth();
   const { lines, itemCount, total: itemsTotal } = useCart();
@@ -96,6 +97,19 @@ export default function CheckoutScreen() {
 
   const canPlace =
     lines.length > 0 && !!selectedAddress && !!selectedPayment && !placing;
+
+  const handleSelectPayment = (method: PaymentMethod) => {
+    if (method.id === 'cash') {
+      void dialog.alert({
+        title: 'Coming Soon',
+        message: 'Pay with Cash will be available in a future update.',
+        confirmText: 'Got it',
+        icon: 'clock',
+      });
+      return;
+    }
+    setSelectedPaymentId(method.id);
+  };
 
   const handlePlaceOrder = () => {
     if (!canPlace) return;
@@ -189,7 +203,6 @@ export default function CheckoutScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Delivery Address */}
         <Text style={styles.sectionLabel}>Deliver to</Text>
         <View style={styles.group}>
           {addresses.map((addr, i) => {
@@ -236,7 +249,6 @@ export default function CheckoutScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Delivery time */}
         <Text style={styles.sectionLabel}>Delivery time</Text>
         <View style={styles.slotRow}>
           {TIME_SLOTS.map((s) => {
@@ -256,7 +268,6 @@ export default function CheckoutScreen() {
           })}
         </View>
 
-        {/* Payment method */}
         <Text style={styles.sectionLabel}>Payment method</Text>
         <View style={styles.group}>
           {PAYMENT_METHODS.map((method, i) => {
@@ -266,13 +277,7 @@ export default function CheckoutScreen() {
               <TouchableOpacity
                 key={method.id}
                 style={[styles.row, isLast && styles.rowLast]}
-                onPress={() => {
-                  if (method.id === 'cash') {
-                    Alert.alert('Coming Soon', 'Pay with Cash will be available in a future update.');
-                    return;
-                  }
-                  setSelectedPaymentId(method.id);
-                }}
+                onPress={() => handleSelectPayment(method)}
                 activeOpacity={0.7}
               >
                 <View style={styles.iconWrap}>
@@ -294,7 +299,6 @@ export default function CheckoutScreen() {
           })}
         </View>
 
-        {/* Items preview */}
         <Text style={styles.sectionLabel}>Items ({itemCount})</Text>
         <View style={styles.group}>
           {lines.map(({ item, qty }, i) => {
@@ -320,7 +324,6 @@ export default function CheckoutScreen() {
           })}
         </View>
 
-        {/* Summary */}
         <Text style={styles.sectionLabel}>Order summary</Text>
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
