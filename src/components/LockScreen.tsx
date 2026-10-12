@@ -32,6 +32,13 @@ type Mode = 'pin' | 'password';
 type BiometricKind = 'face' | 'fingerprint' | null;
 const PIN_LENGTH = 4;
 
+/**
+ * Face ID / fingerprint unlock isn't live yet.
+ * While false, tapping the biometric key shows a "not available yet" sheet
+ * instead of starting a scan. Flip to true when biometric unlock ships.
+ */
+const BIOMETRIC_ENABLED = false;
+
 const KEY_SIZE = ms(76);
 const KEY_GAP_X = ms(28);
 const KEY_GAP_Y = ms(16);
@@ -94,9 +101,9 @@ function FaceIdIcon({ size, color, strokeWidth = 1.7 }: { size: number; color: s
   );
 }
 
-type BioStatus = 'scanning' | 'failed' | 'idle';
+type BioStatus = 'scanning' | 'failed' | 'idle' | 'unavailable';
 
-/** Bottom sheet shown while biometric unlock runs. */
+/** Bottom sheet shown while biometric unlock runs (or when it isn't available yet). */
 function BiometricSheet({
   visible,
   kind,
@@ -104,6 +111,7 @@ function BiometricSheet({
   bottomInset,
   onRetry,
   onUsePin,
+  onUsePassword,
 }: {
   visible: boolean;
   kind: Exclude<BiometricKind, null>;
@@ -111,6 +119,7 @@ function BiometricSheet({
   bottomInset: number;
   onRetry: () => void;
   onUsePin: () => void;
+  onUsePassword: () => void;
 }) {
   const { height: screenHeight } = useWindowDimensions();
   const progress = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
@@ -159,9 +168,17 @@ function BiometricSheet({
   }, [visible, status]);
 
   const isFace = kind === 'face';
-  const title = isFace ? 'Unlock with Face ID' : 'Unlock with fingerprint';
-  const subtitle =
-    status === 'failed'
+  const unavailable = status === 'unavailable';
+
+  const title = unavailable
+    ? 'Not available yet'
+    : isFace
+      ? 'Unlock with Face ID'
+      : 'Unlock with fingerprint';
+
+  const subtitle = unavailable
+    ? 'Face ID and fingerprint are not available yet. For now, use your PIN or password to open the app.'
+    : status === 'failed'
       ? "We couldn't verify you. Try again or use your PIN."
       : isFace
         ? 'Look at your phone to confirm it’s you.'
@@ -169,14 +186,15 @@ function BiometricSheet({
 
   return (
     <Modal visible={mounted} transparent animationType="none" statusBarTranslucent onRequestClose={onUsePin}>
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: progress }]} pointerEvents="none">
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: progress }]}>
         <BlurView
           style={StyleSheet.absoluteFill}
           intensity={25}
           tint="dark"
           blurMethod="dimezisBlurView"
         />
-        <View style={styles.sheetBackdrop} />
+        {/* Tapping the backdrop closes the sheet */}
+        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={onUsePin} />
       </Animated.View>
       <Animated.View
         style={[
@@ -188,13 +206,21 @@ function BiometricSheet({
       >
         <View style={styles.sheetHandle} />
 
-        <View style={styles.scanTile}>
+        <View style={[styles.scanTile, unavailable && styles.scanTileMuted]}>
           {isFace ? (
-            <FaceIdIcon size={ms(60)} color={foodColors.primary} strokeWidth={1.3} />
+            <FaceIdIcon
+              size={ms(60)}
+              color={unavailable ? foodColors.textMuted : foodColors.primary}
+              strokeWidth={1.3}
+            />
           ) : (
-            <MaterialCommunityIcons name="fingerprint" size={ms(60)} color={foodColors.primary} />
+            <MaterialCommunityIcons
+              name="fingerprint"
+              size={ms(60)}
+              color={unavailable ? foodColors.textMuted : foodColors.primary}
+            />
           )}
-          {status !== 'failed' && (
+          {status === 'scanning' && (
             <Animated.View
               style={[
                 styles.scanLine,
@@ -207,32 +233,61 @@ function BiometricSheet({
           )}
         </View>
 
-        <Text style={styles.sheetTitle} accessibilityRole="header">
+        {unavailable && (
+          <View style={styles.sheetPill}>
+            <Text style={styles.sheetPillText}>COMING SOON</Text>
+          </View>
+        )}
+
+        <Text style={[styles.sheetTitle, unavailable && styles.sheetTitleTight]} accessibilityRole="header">
           {title}
         </Text>
         <Text style={[styles.sheetSubtitle, status === 'failed' && styles.sheetSubtitleError]}>{subtitle}</Text>
 
-        <TouchableOpacity
-          style={styles.sheetPrimaryBtn}
-          onPress={onRetry}
-          activeOpacity={0.85}
-          disabled={status === 'scanning'}
-          accessibilityRole="button"
-        >
-          {status === 'scanning' ? (
-            <ActivityIndicator color={foodColors.background} />
-          ) : (
-            <Text style={styles.sheetPrimaryText}>Try again</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.sheetSecondaryBtn}
-          onPress={onUsePin}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-        >
-          <Text style={styles.sheetSecondaryText}>Use PIN instead</Text>
-        </TouchableOpacity>
+        {unavailable ? (
+          <>
+            <TouchableOpacity
+              style={styles.sheetPrimaryBtn}
+              onPress={onUsePin}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <Text style={styles.sheetPrimaryText}>Use PIN</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sheetSecondaryBtn}
+              onPress={onUsePassword}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={styles.sheetSecondaryText}>Use password instead</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.sheetPrimaryBtn}
+              onPress={onRetry}
+              activeOpacity={0.85}
+              disabled={status === 'scanning'}
+              accessibilityRole="button"
+            >
+              {status === 'scanning' ? (
+                <ActivityIndicator color={foodColors.background} />
+              ) : (
+                <Text style={styles.sheetPrimaryText}>Try again</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sheetSecondaryBtn}
+              onPress={onUsePin}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={styles.sheetSecondaryText}>Use PIN instead</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </Animated.View>
     </Modal>
   );
@@ -310,7 +365,13 @@ function NumPad({
           disabled={disabled}
           activeOpacity={0.6}
           accessibilityRole="button"
-          accessibilityLabel={biometric === 'face' ? 'Unlock with Face ID' : 'Unlock with fingerprint'}
+          accessibilityLabel={
+            BIOMETRIC_ENABLED
+              ? biometric === 'face'
+                ? 'Unlock with Face ID'
+                : 'Unlock with fingerprint'
+              : 'Face ID and fingerprint unlock, not available yet'
+          }
         >
           {biometric === 'face' ? (
             <FaceIdIcon size={ms(30)} color={foodColors.primary} />
@@ -390,6 +451,7 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
   const [bioStatus, setBioStatus] = useState<BioStatus>('idle');
 
   const runBiometric = async () => {
+    if (!BIOMETRIC_ENABLED) return;
     setBioStatus('scanning');
     try {
       const result = await LocalAuthentication.authenticateAsync({
@@ -411,22 +473,32 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
     }
   };
 
-  // Tapping the key opens the sheet, then starts the scan once it's on screen.
+  // Tapping the key opens the sheet. While biometrics aren't live, it explains
+  // that and offers PIN/password; otherwise it starts the scan once on screen.
   const handleBiometric = () => {
     if (loading || !biometric) return;
     setError('');
+
+    if (!BIOMETRIC_ENABLED) {
+      setBioStatus('unavailable');
+      setSheetOpen(true);
+      return;
+    }
+
     setSheetOpen(true);
     setTimeout(runBiometric, 350);
   };
 
   const closeSheet = () => {
     // Android-only: dismiss the system prompt if it's still up.
-    if (Platform.OS === 'android') {
+    if (BIOMETRIC_ENABLED && Platform.OS === 'android') {
       LocalAuthentication.cancelAuthenticate().catch(() => {});
     }
     setSheetOpen(false);
-    setBioStatus('idle');
+    // Keep the current status until the slide-out finishes so the content doesn't swap mid-animation.
+    setTimeout(() => setBioStatus('idle'), 260);
   };
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -523,6 +595,12 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
     setMode('pin');
     setPassword('');
     setError('');
+  };
+
+  const usePasswordFromSheet = () => {
+    closeSheet();
+    // Let the sheet slide away before the password field autofocuses and raises the keyboard.
+    setTimeout(switchToPassword, 260);
   };
 
   return (
@@ -698,6 +776,7 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
           bottomInset={insets.bottom}
           onRetry={runBiometric}
           onUsePin={closeSheet}
+          onUsePassword={usePasswordFromSheet}
         />
       )}
     </KeyboardAvoidingView>
@@ -912,6 +991,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  scanTileMuted: { opacity: 0.85 },
   scanLine: {
     position: 'absolute',
     left: ms(18),
@@ -921,6 +1001,19 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: foodColors.primary,
   },
+  sheetPill: {
+    marginTop: ms(20),
+    backgroundColor: 'rgba(255,107,53,0.1)',
+    paddingHorizontal: ms(10),
+    paddingVertical: ms(4),
+    borderRadius: ms(10),
+  },
+  sheetPillText: {
+    fontSize: ms(10),
+    fontFamily: fonts.poppins.bold,
+    color: foodColors.primary,
+    letterSpacing: 0.8,
+  },
   sheetTitle: {
     marginTop: ms(24),
     fontSize: ms(22),
@@ -928,6 +1021,7 @@ const styles = StyleSheet.create({
     color: foodColors.textPrimary,
     textAlign: 'center',
   },
+  sheetTitleTight: { marginTop: ms(10) },
   sheetSubtitle: {
     marginTop: ms(8),
     fontSize: ms(15),
@@ -935,7 +1029,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.poppins.regular,
     color: foodColors.textMuted,
     textAlign: 'center',
-    maxWidth: ms(280),
+    maxWidth: ms(300),
   },
   sheetSubtitleError: { color: foodColors.error },
   sheetPrimaryBtn: {

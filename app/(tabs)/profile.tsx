@@ -21,6 +21,7 @@ import { useDialog } from '../../src/components/ui/DialogProvider';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { useFavorites } from '../../src/context/FavoritesContext';
+import { useResetOnFocus } from '../../src/hooks/useResetOnFocus';
 
 type MenuItem = {
   id: string;
@@ -145,6 +146,7 @@ export default function FoodProfileScreen() {
   const { profile } = useProfile();
   const { signOut, displayName } = useAuth();
   const { favoriteIds } = useFavorites();
+  const scrollRef = useResetOnFocus<ScrollView>();
   const [comingSoonItem, setComingSoonItem] = useState<MenuItem | null>(null);
   const popAnim = useRef(new Animated.Value(0)).current;
 
@@ -190,6 +192,7 @@ export default function FoodProfileScreen() {
       <StatusBar style="dark" />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + ms(12) }]}
         showsVerticalScrollIndicator={false}

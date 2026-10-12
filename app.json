@@ -22,15 +22,18 @@
       },
       "package": "com.busandcode.hemera",
       "allowBackup": false,
-      "versionCode": 1,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "versionCode": 1
     },
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E23A2E"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -44,7 +47,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Hemera to access your photos so you can set a profile picture.",
-          "cameraPermission": "Allow Hemera to use your camera so you can take a profile picture."
+          "cameraPermission": "Allow Hemera to use your camera so you can take a profile picture.",
+          "microphonePermission": false
         }
       ],
       [
