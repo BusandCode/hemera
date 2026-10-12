@@ -372,7 +372,7 @@ export default function CheckoutScreen() {
           ) : (
             <>
               <Text style={styles.placeBtnText}>Place Order</Text>
-              <Feather name="check" size={ms(16)} color="#fff" />
+              {/* <Feather name="check" size={ms(16)} color="#fff" /> */}
             </>
           )}
         </TouchableOpacity>

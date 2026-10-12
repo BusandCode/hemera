@@ -278,7 +278,7 @@ export default function OrderSuccessScreen() {
             } as any)
           }
         >
-          <Feather name="package" size={ms(16)} color="#fff" />
+          {/* <Feather name="package" size={ms(16)} color="#fff" /> */}
           <Text style={styles.primaryBtnText}>Track Order</Text>
         </TouchableOpacity>
         <TouchableOpacity

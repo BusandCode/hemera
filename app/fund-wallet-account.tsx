@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
-import { useProfile } from '../src/context/ProfileContext';
 import { useCart } from '../src/context/CartContext';
 import { useReferral } from '../src/context/ReferralContext';
 import { useEPlanDraft } from '../src/context/EPlanDraftContext';
@@ -149,7 +148,6 @@ export default function FundWalletAccountScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { profile } = useProfile();
   const { amount, service, order } = useLocalSearchParams<{
     amount: string;
     service?: string;
@@ -843,11 +841,9 @@ export default function FundWalletAccountScreen() {
     );
   }
 
-  const nameParts = profile.fullName.trim().split(/\s+/).filter(Boolean);
-  const derivedName = nameParts.length
-    ? `Hemera • ${nameParts[0]}${nameParts.length > 1 ? ` ${nameParts[nameParts.length - 1][0].toUpperCase()}.` : ''}`
-    : 'Hemera';
-  const accountName = details.accountName ?? derivedName;
+  // Only a name the server really returned is shown. The app no longer makes one up: the customer's bank app
+  // shows the account's real name, and a different name on this screen would look like a scam.
+  const accountName = details.accountName ?? null;
   const fraction = details.expiresInSeconds > 0 ? secondsLeft / details.expiresInSeconds : 0;
   const confirmDisabled = processing;
   // The local timer ending does not mean the payment failed: a transfer may still be arriving, so we keep
@@ -949,17 +945,21 @@ export default function FundWalletAccountScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.detailDivider} />
+          {!!accountName && (
+            <>
+              <View style={styles.detailDivider} />
 
-          <View style={styles.detailRow}>
-            <View style={styles.iconTile}>
-              <Feather name="user" size={18} color={ui.blue} />
-            </View>
-            <View style={styles.detailBody}>
-              <Text style={styles.detailLabel}>ACCOUNT NAME</Text>
-              <Text style={styles.detailValue}>{accountName}</Text>
-            </View>
-          </View>
+              <View style={styles.detailRow}>
+                <View style={styles.iconTile}>
+                  <Feather name="user" size={18} color={ui.blue} />
+                </View>
+                <View style={styles.detailBody}>
+                  <Text style={styles.detailLabel}>ACCOUNT NAME</Text>
+                  <Text style={styles.detailValue}>{accountName}</Text>
+                </View>
+              </View>
+            </>
+          )}
 
           <View style={styles.detailDivider} />
 
@@ -984,6 +984,11 @@ export default function FundWalletAccountScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        <Text style={styles.nameNote}>
+          Your bank app may show the account name as our company's name or Flutterwave. Just make sure the
+          account number and amount match what you see here.
+        </Text>
 
         <View style={styles.expiryBanner}>
           <ExpiryRing fraction={fraction} label={formatClock(secondsLeft)} />
@@ -1286,6 +1291,15 @@ const styles = StyleSheet.create({
   copyBtnText: { fontSize: 12, fontFamily: fonts.poppins.semiBold, color: ui.blue },
   copyBtnDone: { borderColor: ui.green, backgroundColor: 'rgba(34,163,90,0.08)' },
   copyBtnTextDone: { color: ui.green },
+
+  nameNote: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: fonts.poppins.regular,
+    color: ui.textSecondary,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
 
   expiryBanner: {
     flexDirection: 'row',
