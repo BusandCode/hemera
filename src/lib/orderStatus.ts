@@ -4,28 +4,32 @@
 
 /**
  * The order number shown everywhere in the app.
- * Uses the order's reference (e.g. "WSH-482913" — the same number shown on
- * checkout, schedule and tracking); older orders without one fall back to the
- * first 6 characters of their id.
  */
 export function orderNumber(ref: string | null | undefined, id: string) {
   const r = (ref ?? '').trim();
   return r ? r.toUpperCase() : id.replace(/-/g, '').slice(0, 6).toUpperCase();
 }
 
-/** Turns whatever is stored in orders.status into one timeline step key. */
+/**
+ * Turns whatever is stored in orders.status into one timeline step key.
+ * Both E-Chop and E-Wash timelines now include an `approved` step, and
+ * `confirmed` (written by the admin dashboard when an admin approves)
+ * maps to `approved`.
+ */
 export function normalizeStatus(raw: string, orderType: string) {
   const status = (raw ?? '').toLowerCase().trim().replace(/[\s_]+/g, '-');
   const ewash = orderType === 'ewash';
+
   const aliases: Record<string, string> = {
     'in-progress': ewash ? 'processing' : 'preparing',
     'on-the-way': 'out-for-delivery',
     completed: 'delivered',
     placed: ewash ? 'scheduled' : 'received',
     pending: ewash ? 'scheduled' : 'received',
-    confirmed: ewash ? 'scheduled' : 'received',
+    confirmed: 'approved',
     active: ewash ? 'processing' : 'preparing',
   };
+
   return aliases[status] ?? status;
 }
 

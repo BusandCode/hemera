@@ -28,41 +28,14 @@ const ACCOUNT_NUMBER_LENGTH = 10;
 
 type Bank = { name: string; code: string };
 
-// Verify these codes against your payment provider's bank list before going live.
-const BANKS: Bank[] = [
-  { name: 'Access Bank', code: '044' },
-  { name: 'Ecobank Nigeria', code: '050' },
-  { name: 'FCMB', code: '214' },
-  { name: 'Fidelity Bank', code: '070' },
-  { name: 'First Bank of Nigeria', code: '011' },
-  { name: 'Globus Bank', code: '00103' },
-  { name: 'Guaranty Trust Bank', code: '058' },
-  { name: 'Heritage Bank', code: '030' },
-  { name: 'Jaiz Bank', code: '301' },
-  { name: 'Keystone Bank', code: '082' },
-  { name: 'Kuda Bank', code: '50211' },
-  { name: 'Moniepoint MFB', code: '50515' },
-  { name: 'OPay', code: '999992' },
-  { name: 'PalmPay', code: '999991' },
-  { name: 'Polaris Bank', code: '076' },
-  { name: 'Providus Bank', code: '101' },
-  { name: 'Stanbic IBTC Bank', code: '221' },
-  { name: 'Standard Chartered Bank', code: '068' },
-  { name: 'Sterling Bank', code: '232' },
-  { name: 'SunTrust Bank', code: '100' },
-  { name: 'Taj Bank', code: '000026' },
-  { name: 'Titan Trust Bank', code: '000025' },
-  { name: 'Union Bank of Nigeria', code: '032' },
-  { name: 'United Bank for Africa', code: '033' },
-  { name: 'Unity Bank', code: '215' },
-  { name: 'Wema Bank', code: '035' },
-  { name: 'Zenith Bank', code: '057' },
-];
-
 export default function AddBankAccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
+
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [banksLoading, setBanksLoading] = useState(true);
+  const [banksError, setBanksError] = useState<string | null>(null);
 
   const [bank, setBank] = useState<Bank | null>(null);
   const [accountNumber, setAccountNumber] = useState('');
@@ -77,10 +50,36 @@ export default function AddBankAccountScreen() {
   // Guards against a slow lookup for an old number overwriting a newer one
   const resolveRequestId = useRef(0);
 
+  // Load the banks list from Supabase (managed in the admin dashboard)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setBanksLoading(true);
+      setBanksError(null);
+      const { data, error } = await supabase
+        .from('banks')
+        .select('code, name')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (cancelled) return;
+      if (error) {
+        setBanksError(error.message);
+      } else if (data) {
+        setBanks(data as Bank[]);
+      }
+      setBanksLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredBanks = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? BANKS.filter((b) => b.name.toLowerCase().includes(q)) : BANKS;
-  }, [search]);
+    return q ? banks.filter((b) => b.name.toLowerCase().includes(q)) : banks;
+  }, [search, banks]);
 
   // Try to auto-fill the account name once we have a bank and a full account number.
   // This calls an optional Supabase Edge Function named "resolve-bank-account".
@@ -287,29 +286,35 @@ export default function AddBankAccountScreen() {
               />
             </View>
 
-            <FlatList
-              data={filteredBanks}
-              keyExtractor={(item) => item.code}
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={<Text style={styles.emptyText}>No banks match your search.</Text>}
-              renderItem={({ item }) => {
-                const selected = bank?.code === item.code;
-                return (
-                  <TouchableOpacity
-                    style={styles.bankOption}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setBank(item);
-                      setPickerOpen(false);
-                      setSearch('');
-                    }}
-                  >
-                    <Text style={[styles.bankOptionText, selected && styles.bankOptionTextSelected]}>{item.name}</Text>
-                    {selected ? <Feather name="check" size={ms(18)} color={WALLET_BLUE} /> : null}
-                  </TouchableOpacity>
-                );
-              }}
-            />
+            {banksLoading ? (
+              <ActivityIndicator style={{ paddingVertical: 24 }} color={WALLET_BLUE} />
+            ) : banksError ? (
+              <Text style={styles.emptyText}>Couldn't load banks. Please try again.</Text>
+            ) : (
+              <FlatList
+                data={filteredBanks}
+                keyExtractor={(item) => item.code}
+                keyboardShouldPersistTaps="handled"
+                ListEmptyComponent={<Text style={styles.emptyText}>No banks match your search.</Text>}
+                renderItem={({ item }) => {
+                  const selected = bank?.code === item.code;
+                  return (
+                    <TouchableOpacity
+                      style={styles.bankOption}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setBank(item);
+                        setPickerOpen(false);
+                        setSearch('');
+                      }}
+                    >
+                      <Text style={[styles.bankOptionText, selected && styles.bankOptionTextSelected]}>{item.name}</Text>
+                      {selected ? <Feather name="check" size={ms(18)} color={WALLET_BLUE} /> : null}
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
           </View>
         </View>
       </Modal>

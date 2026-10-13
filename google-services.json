@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "108648145854",
+    "project_id": "hemera-4982b",
+    "storage_bucket": "hemera-4982b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108648145854:android:4f07c42499c7797ff50fef",
+        "android_client_info": {
+          "package_name": "com.busandcode.hemera8"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7-jv8iesHO0hGj5MVzSLVBeOBtX05bhY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

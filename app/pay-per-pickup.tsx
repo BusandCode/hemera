@@ -15,6 +15,8 @@ import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ms } from '../src/utils/responsive';
+// import { usePricingSettings } from '../src/hooks/usePricingSettings';
+import { usePricingSettings, type PricingSettings } from '../src/hooks/usePricingSettings';
 
 type Gender = 'men' | 'women';
 
@@ -22,34 +24,49 @@ type LaundryItem = {
   id: string;
   gender: Gender;
   name: string;
-  price: number;
-  icon: { lib: 'feather'; name: keyof typeof Feather.glyphMap } | { lib: 'mci'; name: keyof typeof MaterialCommunityIcons.glyphMap };
+  icon:
+    | { lib: 'feather'; name: keyof typeof Feather.glyphMap }
+    | { lib: 'mci'; name: keyof typeof MaterialCommunityIcons.glyphMap };
 };
 
 const coreItems: LaundryItem[] = [
-  { id: 'men-shirt', gender: 'men', name: 'Men\'s Shirt', price: 700, icon: { lib: 'mci', name: 'hanger' } },
-  { id: 'men-trousers', gender: 'men', name: 'Men\'s Trousers', price: 800, icon: { lib: 'feather', name: 'user' } },
-  { id: 'men-native', gender: 'men', name: 'Men\'s Native', price: 1200, icon: { lib: 'mci', name: 'hanger' } },
-  { id: 'men-tshirt', gender: 'men', name: 'Men\'s T-shirt', price: 500, icon: { lib: 'feather', name: 'layers' } },
-  { id: 'women-dress', gender: 'women', name: 'Women\'s Dress', price: 900, icon: { lib: 'mci', name: 'hanger' } },
-  { id: 'women-blouse', gender: 'women', name: 'Women\'s Blouse', price: 650, icon: { lib: 'mci', name: 'hanger' } },
-  { id: 'women-trousers', gender: 'women', name: 'Women\'s Trousers', price: 800, icon: { lib: 'feather', name: 'user' } },
-  { id: 'women-gown', gender: 'women', name: 'Women\'s Gown', price: 1500, icon: { lib: 'mci', name: 'hanger' } },
+  { id: 'men-shirt', gender: 'men', name: "Men's Shirt", icon: { lib: 'mci', name: 'hanger' } },
+  { id: 'men-trousers', gender: 'men', name: "Men's Trousers", icon: { lib: 'feather', name: 'user' } },
+  { id: 'men-native', gender: 'men', name: "Men's Native", icon: { lib: 'mci', name: 'hanger' } },
+  { id: 'men-tshirt', gender: 'men', name: "Men's T-shirt", icon: { lib: 'feather', name: 'layers' } },
+  { id: 'women-dress', gender: 'women', name: "Women's Dress", icon: { lib: 'mci', name: 'hanger' } },
+  { id: 'women-blouse', gender: 'women', name: "Women's Blouse", icon: { lib: 'mci', name: 'hanger' } },
+  { id: 'women-trousers', gender: 'women', name: "Women's Trousers", icon: { lib: 'feather', name: 'user' } },
+  { id: 'women-gown', gender: 'women', name: "Women's Gown", icon: { lib: 'mci', name: 'hanger' } },
 ];
 
 const sharedItems: LaundryItem[] = [
-  { id: 'suit', gender: 'men', name: "Men's Suit (per piece)", price: 1500, icon: { lib: 'feather', name: 'briefcase' } },
-  { id: 'underwear', gender: 'men', name: 'Underwear', price: 300, icon: { lib: 'feather', name: 'layers' } },
+  { id: 'suit', gender: 'men', name: "Men's Suit (per piece)", icon: { lib: 'feather', name: 'briefcase' } },
+  { id: 'underwear', gender: 'men', name: 'Underwear', icon: { lib: 'feather', name: 'layers' } },
 ];
 
 const extraItems: LaundryItem[] = [
-  { id: 'blanket', gender: 'men', name: 'Blanket', price: 2500, icon: { lib: 'mci', name: 'bed-outline' } },
-  { id: 'duvet', gender: 'men', name: 'Duvet', price: 3500, icon: { lib: 'mci', name: 'bed-king-outline' } },
-  { id: 'curtains', gender: 'men', name: 'Curtains', price: 2000, icon: { lib: 'mci', name: 'blinds' } },
+  { id: 'blanket', gender: 'men', name: 'Blanket', icon: { lib: 'mci', name: 'bed-outline' } },
+  { id: 'duvet', gender: 'men', name: 'Duvet', icon: { lib: 'mci', name: 'bed-king-outline' } },
+  { id: 'curtains', gender: 'men', name: 'Curtains', icon: { lib: 'mci', name: 'blinds' } },
 ];
 
-const DISPATCH_FEE = 2500;
-const EXPRESS_FEE = 1500;
+// Maps each laundry item id to the pricing_settings key that holds its price.
+const PRICE_KEY: Record<string, keyof PricingSettings> = {
+  'men-shirt': 'wash_men_shirt',
+  'men-trousers': 'wash_men_trousers',
+  'men-native': 'wash_men_native',
+  'men-tshirt': 'wash_men_tshirt',
+  'women-dress': 'wash_women_dress',
+  'women-blouse': 'wash_women_blouse',
+  'women-trousers': 'wash_women_trousers',
+  'women-gown': 'wash_women_gown',
+  suit: 'wash_suit',
+  underwear: 'wash_underwear',
+  blanket: 'wash_blanket',
+  duvet: 'wash_duvet',
+  curtains: 'wash_curtains',
+};
 
 function ItemIcon({ icon, size = 18 }: { icon: LaundryItem['icon']; size?: number }) {
   return icon.lib === 'feather' ? (
@@ -61,10 +78,12 @@ function ItemIcon({ icon, size = 18 }: { icon: LaundryItem['icon']; size?: numbe
 
 function ItemRow({
   item,
+  price,
   qty,
   onChange,
 }: {
   item: LaundryItem;
+  price: number;
   qty: number;
   onChange: (id: string, qty: number) => void;
 }) {
@@ -75,7 +94,7 @@ function ItemRow({
       </View>
       <View style={styles.itemTextBlock}>
         <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemPrice}>₦{item.price.toLocaleString('en-US')} / pc</Text>
+        <Text style={styles.itemPrice}>₦{price.toLocaleString('en-US')} / pc</Text>
       </View>
       <View style={styles.stepper}>
         <TouchableOpacity
@@ -96,6 +115,8 @@ function ItemRow({
 export default function PayPerPickupScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { settings: pricing } = usePricingSettings();
+
   const [gender, setGender] = useState<Gender>('men');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [showExtras, setShowExtras] = useState(false);
@@ -103,6 +124,11 @@ export default function PayPerPickupScreen() {
   const [agreed, setAgreed] = useState(false);
 
   const visibleCoreItems = coreItems.filter((i) => i.gender === gender);
+
+  const priceOf = (id: string): number => {
+    const key = PRICE_KEY[id];
+    return key ? (pricing[key] as number) : 0;
+  };
 
   const setQty = (id: string, qty: number) => {
     setQuantities((prev) => ({ ...prev, [id]: qty }));
@@ -115,12 +141,15 @@ export default function PayPerPickupScreen() {
     allItems.forEach((item) => {
       const qty = quantities[item.id] ?? 0;
       count += qty;
-      total += qty * item.price;
+      total += qty * priceOf(item.id);
     });
     return { totalItems: count, itemsTotal: total };
-  }, [quantities]);
+  }, [quantities, pricing]);
 
-  const grandTotal = DISPATCH_FEE + itemsTotal + (express ? EXPRESS_FEE : 0);
+  const grandTotal =
+    pricing.laundry_dispatch_fee +
+    itemsTotal +
+    (express ? pricing.laundry_express_fee : 0);
   const canContinue = totalItems > 0 && agreed;
 
   return (
@@ -144,7 +173,9 @@ export default function PayPerPickupScreen() {
             <Feather name="truck" size={ms(16)} color={washColors.red} />
           </View>
           <Text style={styles.dispatchText}>
-            <Text style={styles.dispatchTextBold}>DISPATCH FEE: ₦{DISPATCH_FEE.toLocaleString('en-US')}</Text>
+            <Text style={styles.dispatchTextBold}>
+              DISPATCH FEE: ₦{pricing.laundry_dispatch_fee.toLocaleString('en-US')}
+            </Text>
             {' '}(covers your pickup and delivery).
           </Text>
         </View>
@@ -173,10 +204,22 @@ export default function PayPerPickupScreen() {
 
         <View style={styles.itemsList}>
           {visibleCoreItems.map((item) => (
-            <ItemRow key={item.id} item={item} qty={quantities[item.id] ?? 0} onChange={setQty} />
+            <ItemRow
+              key={item.id}
+              item={item}
+              price={priceOf(item.id)}
+              qty={quantities[item.id] ?? 0}
+              onChange={setQty}
+            />
           ))}
           {sharedItems.map((item) => (
-            <ItemRow key={item.id} item={item} qty={quantities[item.id] ?? 0} onChange={setQty} />
+            <ItemRow
+              key={item.id}
+              item={item}
+              price={priceOf(item.id)}
+              qty={quantities[item.id] ?? 0}
+              onChange={setQty}
+            />
           ))}
         </View>
 
@@ -195,7 +238,13 @@ export default function PayPerPickupScreen() {
         {showExtras && (
           <View style={styles.itemsList}>
             {extraItems.map((item) => (
-              <ItemRow key={item.id} item={item} qty={quantities[item.id] ?? 0} onChange={setQty} />
+              <ItemRow
+                key={item.id}
+                item={item}
+                price={priceOf(item.id)}
+                qty={quantities[item.id] ?? 0}
+                onChange={setQty}
+              />
             ))}
           </View>
         )}
@@ -211,7 +260,8 @@ export default function PayPerPickupScreen() {
           <View style={styles.expressTextBlock}>
             <Text style={styles.expressTitle}>Faster delivery (Express)</Text>
             <Text style={styles.expressSubtitle}>
-              We pick up sooner and deliver back within 24 hrs · +₦{EXPRESS_FEE.toLocaleString('en-US')}
+              We pick up sooner and deliver back within 24 hrs · +₦
+              {pricing.laundry_express_fee.toLocaleString('en-US')}
             </Text>
           </View>
           <View style={[styles.toggleTrack, express && styles.toggleTrackActive]}>
@@ -246,11 +296,13 @@ export default function PayPerPickupScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         {totalItems > 0 && (
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{totalItems} item{totalItems > 1 ? 's' : ''}</Text>
+            <Text style={styles.totalLabel}>
+              {totalItems} item{totalItems > 1 ? 's' : ''}
+            </Text>
             <Text style={styles.totalValue}>₦{grandTotal.toLocaleString('en-US')}</Text>
           </View>
         )}
-       <TouchableOpacity
+        <TouchableOpacity
           style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
           disabled={!canContinue}
           onPress={() => {
@@ -259,7 +311,7 @@ export default function PayPerPickupScreen() {
               .map((item) => ({
                 name: item.name,
                 qty: quantities[item.id],
-                price: item.price * quantities[item.id],
+                price: priceOf(item.id) * quantities[item.id],
               }));
             router.push({
               pathname: '/schedule-pickup',

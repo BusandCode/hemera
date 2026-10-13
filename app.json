@@ -21,6 +21,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.busandcode.hemera",
+      "googleServicesFile": "./google-services.json",
       "allowBackup": false,
       "versionCode": 1
     },

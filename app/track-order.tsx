@@ -43,96 +43,24 @@ type TrackedOrder = {
   placedAt: string;
 };
 
-// ============ E-CHOP STEPS ============
 const ECHOP_STEPS: OrderStep[] = [
-  {
-    key: 'received',
-    label: 'Order Received',
-    description: 'We have your order.',
-    icon: 'receipt',
-    color: '#5F6B77',
-  },
-  {
-    key: 'preparing',
-    label: 'Preparing',
-    description: 'Your meal is being cooked.',
-    icon: 'chef-hat',
-    color: '#E0A91F',
-  },
-  {
-    key: 'ready',
-    label: 'Ready',
-    description: 'Your order is ready for pickup.',
-    icon: 'check-circle-outline',
-    color: '#4A90E2',
-  },
-  {
-    key: 'picked-up',
-    label: 'Picked Up',
-    description: 'Rider has picked up your order.',
-    icon: 'moped',
-    color: '#2E9E5B',
-  },
-  {
-    key: 'out-for-delivery',
-    label: 'Out for Delivery',
-    description: 'On the way to you.',
-    icon: 'moped',
-    color: '#1E7A3E',
-  },
-  {
-    key: 'delivered',
-    label: 'Delivered',
-    description: 'Enjoy your meal!',
-    icon: 'check-circle',
-    color: '#3A3F45',
-  },
+  { key: 'received', label: 'Order Received', description: 'We have your order.', icon: 'receipt', color: '#5F6B77' },
+  { key: 'approved', label: 'Approved', description: 'Your order has been accepted.', icon: 'check', color: '#2E9E5B' },
+  { key: 'preparing', label: 'Preparing', description: 'Your meal is being cooked.', icon: 'chef-hat', color: '#E0A91F' },
+  { key: 'ready', label: 'Ready', description: 'Your order is ready for pickup.', icon: 'check-circle-outline', color: '#4A90E2' },
+  { key: 'picked-up', label: 'Picked Up', description: 'Rider has picked up your order.', icon: 'moped', color: '#2E9E5B' },
+  { key: 'out-for-delivery', label: 'Out for Delivery', description: 'On the way to you.', icon: 'moped', color: '#1E7A3E' },
+  { key: 'delivered', label: 'Delivered', description: 'Enjoy your meal!', icon: 'check-circle', color: '#3A3F45' },
 ];
 
-// ============ E-WASH STEPS ============
 const EWASH_STEPS: OrderStep[] = [
-  {
-    key: 'scheduled',
-    label: 'Scheduled',
-    description: 'Your pickup is booked.',
-    icon: 'calendar',
-    color: '#5F6B77',
-  },
-  {
-    key: 'picked-up',
-    label: 'Picked Up',
-    description: 'Your laundry has been picked up.',
-    icon: 'truck',
-    color: '#4A90E2',
-  },
-  {
-    key: 'processing',
-    label: 'Processing',
-    description: 'Your clothes are being washed.',
-    icon: 'washing-machine',
-    color: '#E0A91F',
-  },
-  {
-    key: 'ready',
-    label: 'Ready',
-    description: 'Clean, folded, and ready.',
-    icon: 'check-circle-outline',
-    color: '#2E9E5B',
-  },
-  {
-    key: 'out-for-delivery',
-    label: 'Out for Delivery',
-    description: 'On its way back to you.',
-    icon: 'moped',
-    color: '#1E7A3E',
-  },
-  {
-    key: 'delivered',
-    label: 'Delivered',
-    description: 'Delivered. Enjoy!',
-    icon: 'check-circle',
-    color: '#3A3F45',
-  },
+  { key: 'scheduled', label: 'Scheduled', description: 'Your pickup is booked.', icon: 'calendar', color: '#5F6B77' },
+  { key: 'approved', label: 'Approved', description: 'Your pickup has been accepted.', icon: 'check', color: '#2E9E5B' },
+  { key: 'picked-up', label: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck', color: '#4A90E2' },
+  { key: 'processing', label: 'Processing', description: 'Your clothes are being washed.', icon: 'washing-machine', color: '#E0A91F' },
+  { key: 'ready', label: 'Ready', description: 'Clean, folded, and ready.', icon: 'check-circle-outline', color: '#2E9E5B' },
+  { key: 'out-for-delivery', label: 'Out for Delivery', description: 'On its way back to you.', icon: 'moped', color: '#1E7A3E' },
+  { key: 'delivered', label: 'Delivered', description: 'Delivered. Enjoy!', icon: 'check-circle', color: '#3A3F45' },
 ];
 
 function normalizeStatus(raw: string, type: OrderType): string {
@@ -143,8 +71,9 @@ function normalizeStatus(raw: string, type: OrderType): string {
     out_for_delivery: 'out-for-delivery',
     'on-the-way': 'out-for-delivery',
     completed: 'delivered',
-    placed: 'received',
-    confirmed: 'received',
+    placed: type === 'echop' ? 'received' : 'scheduled',
+    pending: type === 'echop' ? 'received' : 'scheduled',
+    confirmed: 'approved',
     active: type === 'echop' ? 'preparing' : 'processing',
   };
   return aliases[s] ?? s;
@@ -275,9 +204,7 @@ export default function TrackOrderScreen() {
       if (err) throw err;
 
       if (!data) {
-        setError(
-          "We couldn't find an order with that ID. Please double-check and try again."
-        );
+        setError("We couldn't find an order with that ID. Please double-check and try again.");
         setLoading(false);
         return;
       }
@@ -286,9 +213,7 @@ export default function TrackOrderScreen() {
       const metaEmail = String(meta.customer_email ?? '').toLowerCase();
 
       if (metaEmail && metaEmail !== inputEmail) {
-        setError(
-          "We couldn't find an order with that ID and email. Please double-check and try again."
-        );
+        setError("We couldn't find an order with that ID and email. Please double-check and try again.");
         setLoading(false);
         return;
       }
@@ -309,10 +234,7 @@ export default function TrackOrderScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <StatusBar style="dark" />
 
@@ -324,9 +246,7 @@ export default function TrackOrderScreen() {
           >
             <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.title}>
-            {order ? 'Order Status' : 'Track Order'}
-          </Text>
+          <Text style={styles.title}>{order ? 'Order Status' : 'Track Order'}</Text>
         </View>
 
         <ScrollView
@@ -340,17 +260,11 @@ export default function TrackOrderScreen() {
               <ActivityIndicator style={styles.loader} color={foodColors.primary} />
             ) : (
             <>
-              <Text style={styles.subtitle}>
-                Enter your Order ID and the email you used at checkout.
-              </Text>
+              <Text style={styles.subtitle}>Enter your Order ID and the email you used at checkout.</Text>
 
               <View style={styles.heroIconWrap}>
                 <View style={styles.heroIconCircle}>
-                  <MaterialCommunityIcons
-                    name="map-marker-path"
-                    size={ms(34)}
-                    color={foodColors.primary}
-                  />
+                  <MaterialCommunityIcons name="map-marker-path" size={ms(34)} color={foodColors.primary} />
                 </View>
               </View>
 
@@ -363,10 +277,7 @@ export default function TrackOrderScreen() {
                   <TextInput
                     style={styles.input}
                     value={orderId}
-                    onChangeText={(t) => {
-                      setOrderId(t);
-                      if (error) setError('');
-                    }}
+                    onChangeText={(t) => { setOrderId(t); if (error) setError(''); }}
                     placeholder="e.g. CHP-1001 or WSH-1234"
                     placeholderTextColor={foodColors.textMuted}
                     autoCapitalize="characters"
@@ -382,10 +293,7 @@ export default function TrackOrderScreen() {
                   <TextInput
                     style={styles.input}
                     value={email}
-                    onChangeText={(t) => {
-                      setEmail(t);
-                      if (error) setError('');
-                    }}
+                    onChangeText={(t) => { setEmail(t); if (error) setError(''); }}
                     placeholder="you@example.com"
                     placeholderTextColor={foodColors.textMuted}
                     keyboardType="email-address"
@@ -424,35 +332,18 @@ export default function TrackOrderScreen() {
             )
           ) : (
             <>
-              {/* Summary card */}
               <View style={styles.summaryCard}>
                 <View style={styles.summaryTop}>
-                  <View
-                    style={[
-                      styles.typeBadge,
-                      order.type === 'echop'
-                        ? styles.typeBadgeEchop
-                        : styles.typeBadgeEwash,
-                    ]}
-                  >
+                  <View style={[styles.typeBadge, order.type === 'echop' ? styles.typeBadgeEchop : styles.typeBadgeEwash]}>
                     <Feather
                       name={order.type === 'echop' ? 'coffee' : 'droplet'}
                       size={ms(12)}
-                      color={
-                        order.type === 'echop'
-                          ? foodColors.primary
-                          : foodColors.badgeBlue
-                      }
+                      color={order.type === 'echop' ? foodColors.primary : foodColors.badgeBlue}
                     />
                     <Text
                       style={[
                         styles.typeBadgeText,
-                        {
-                          color:
-                            order.type === 'echop'
-                              ? foodColors.primary
-                              : foodColors.badgeBlue,
-                        },
+                        { color: order.type === 'echop' ? foodColors.primary : foodColors.badgeBlue },
                       ]}
                     >
                       {order.type === 'echop' ? 'E-CHOP' : 'E-WASH'}
@@ -461,15 +352,11 @@ export default function TrackOrderScreen() {
                   <Text style={styles.summaryId}>#{order.id}</Text>
                 </View>
 
-                <Text style={styles.summaryTitle} numberOfLines={2}>
-                  {order.title}
-                </Text>
+                <Text style={styles.summaryTitle} numberOfLines={2}>{order.title}</Text>
 
                 <View style={styles.summaryRow}>
                   <Feather name="clock" size={ms(13)} color={foodColors.textMuted} />
-                  <Text style={styles.summaryMeta}>
-                    Placed {formatDate(order.placedAt)}
-                  </Text>
+                  <Text style={styles.summaryMeta}>Placed {formatDate(order.placedAt)}</Text>
                 </View>
               </View>
 
@@ -480,7 +367,6 @@ export default function TrackOrderScreen() {
                 </View>
               )}
 
-              {/* Timeline */}
               <Text style={styles.sectionLabel}>STATUS</Text>
               <View style={styles.timelineCard}>
                 {order.steps.map((step, index) => {
@@ -510,27 +396,13 @@ export default function TrackOrderScreen() {
                           />
                         </View>
                         {!isLast && (
-                          <View
-                            style={[styles.stepLine, { backgroundColor: lineColor }]}
-                          />
+                          <View style={[styles.stepLine, { backgroundColor: lineColor }]} />
                         )}
                       </View>
 
-                      <View
-                        style={[
-                          styles.stepBody,
-                          !isLast && styles.stepBodySpacing,
-                        ]}
-                      >
-                        <Text style={[styles.stepTitle, { color: titleColor }]}>
-                          {step.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.stepDescription,
-                            !reached && styles.stepDescriptionMuted,
-                          ]}
-                        >
+                      <View style={[styles.stepBody, !isLast && styles.stepBodySpacing]}>
+                        <Text style={[styles.stepTitle, { color: titleColor }]}>{step.label}</Text>
+                        <Text style={[styles.stepDescription, !reached && styles.stepDescriptionMuted]}>
                           {step.description}
                         </Text>
                       </View>
@@ -539,11 +411,7 @@ export default function TrackOrderScreen() {
                 })}
               </View>
 
-              <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={reset}
-                activeOpacity={0.85}
-              >
+              <TouchableOpacity style={styles.secondaryBtn} onPress={reset} activeOpacity={0.85}>
                 <Feather name="search" size={ms(15)} color={foodColors.textPrimary} />
                 <Text style={styles.secondaryBtnText}>Track another order</Text>
               </TouchableOpacity>
@@ -553,9 +421,7 @@ export default function TrackOrderScreen() {
                 onPress={() => router.push('/contact-support' as any)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.helpLinkText}>
-                  Need help with this order?
-                </Text>
+                <Text style={styles.helpLinkText}>Need help with this order?</Text>
               </TouchableOpacity>
             </>
           )}
@@ -587,11 +453,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: ms(22),
-    fontFamily: fonts.poppins.bold,
-    color: foodColors.textPrimary,
-  },
+  title: { fontSize: ms(22), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
 
   subtitle: {
     fontSize: ms(13),
@@ -673,13 +535,8 @@ const styles = StyleSheet.create({
     minHeight: ms(52),
   },
   primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: {
-    fontSize: ms(14),
-    fontFamily: fonts.poppins.bold,
-    color: '#fff',
-  },
+  primaryBtnText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
 
-  // Summary card
   summaryCard: {
     backgroundColor: foodColors.surface,
     borderRadius: ms(18),
@@ -708,11 +565,7 @@ const styles = StyleSheet.create({
   },
   typeBadgeEchop: { backgroundColor: foodColors.primaryLight },
   typeBadgeEwash: { backgroundColor: 'rgba(46,90,172,0.10)' },
-  typeBadgeText: {
-    fontSize: ms(9.5),
-    fontFamily: fonts.poppins.bold,
-    letterSpacing: 0.5,
-  },
+  typeBadgeText: { fontSize: ms(9.5), fontFamily: fonts.poppins.bold, letterSpacing: 0.5 },
   summaryId: {
     flexShrink: 1,
     fontSize: ms(11.5),
@@ -732,7 +585,6 @@ const styles = StyleSheet.create({
     color: foodColors.textMuted,
   },
 
-  // Timeline
   timelineCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: ms(20),
@@ -780,9 +632,7 @@ const styles = StyleSheet.create({
     lineHeight: ms(17),
     marginTop: ms(1),
   },
-  stepDescriptionMuted: {
-    color: '#A0A6AE',
-  },
+  stepDescriptionMuted: { color: '#A0A6AE' },
 
   secondaryBtn: {
     flexDirection: 'row',

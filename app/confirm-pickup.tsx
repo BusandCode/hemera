@@ -11,11 +11,13 @@ import { ms } from '../src/utils/responsive';
 import { supabase } from '../src/lib/supabase';
 import { planErrorMessage } from '../src/lib/planLimits';
 import { AppDialog } from '../src/components/AppDialog';
+import { usePricingSettings } from '../src/hooks/usePricingSettings';
 
 export default function ConfirmPickupScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { settings: pricing } = usePricingSettings();
 
   const pickupTime = (params.pickupTime as string) ?? '';
   const pickupDate = (params.pickupDate as string) ?? '';
@@ -35,9 +37,9 @@ export default function ConfirmPickupScreen() {
   } catch {}
 
   const subtotal = covered ? 0 : orderItems.reduce((acc, item) => acc + item.price, 0);
-  const deliveryFee = covered ? 0 : 2500;
-  const serviceCharge = covered ? 0 : 500;
-  const expressFee = express ? 1500 : 0;
+  const deliveryFee = covered ? 0 : pricing.laundry_dispatch_fee;
+  const serviceCharge = covered ? 0 : pricing.laundry_service_charge;
+  const expressFee = express ? pricing.laundry_express_fee : 0;
   const total = subtotal + deliveryFee + serviceCharge + expressFee;
 
   const callSchedule = (dryRun: boolean) =>

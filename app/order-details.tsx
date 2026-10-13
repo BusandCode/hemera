@@ -57,6 +57,7 @@ const ui = {
 const statusSteps: Record<string, Step[]> = {
   echop: [
     { key: 'received', title: 'Order Received', description: 'We have your order.', icon: 'receipt' },
+    { key: 'approved', title: 'Approved', description: 'Your order has been accepted.', icon: 'check' },
     { key: 'preparing', title: 'Preparing', description: 'Your meal is being cooked.', icon: 'chef-hat' },
     { key: 'ready', title: 'Ready', description: 'Your order is ready for pickup.', icon: 'check-circle-outline' },
     { key: 'picked-up', title: 'Picked Up', description: 'Rider has picked up your order.', icon: 'moped' },
@@ -65,6 +66,7 @@ const statusSteps: Record<string, Step[]> = {
   ],
   ewash: [
     { key: 'scheduled', title: 'Scheduled', description: 'Your pickup is booked.', icon: 'calendar' },
+    { key: 'approved', title: 'Approved', description: 'Your pickup has been accepted.', icon: 'check' },
     { key: 'picked-up', title: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck' },
     { key: 'processing', title: 'Processing', description: 'Your clothes are being cleaned.', icon: 'washing-machine' },
     { key: 'ready', title: 'Ready', description: 'Clean and ready for pickup.', icon: 'check-circle-outline' },
@@ -138,9 +140,6 @@ export default function OrderDetailsScreen() {
         return;
       }
 
-      // The id is normally the order's uuid. Short order numbers (like 239604) are
-      // matched against the order reference instead, because Postgres rejects a
-      // non-uuid value on the uuid id column.
       const orderId = String(Array.isArray(id) ? id[0] : id).trim();
       const base = supabase
         .from('orders')
@@ -182,7 +181,7 @@ export default function OrderDetailsScreen() {
 
   const currentStep = useMemo(() => {
     if (!order) return 0;
-    if (cancelled) return -1; // nothing on the timeline was reached
+    if (cancelled) return -1;
     const statusKey = normalizeStatus(order.status, order.order_type);
     const index = steps.findIndex((step) => step.key === statusKey);
     return index >= 0 ? index : 0;
@@ -195,9 +194,9 @@ export default function OrderDetailsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + 12 }]}> 
+      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <StatusBar style="dark" />
-        <View style={styles.headerRow}> 
+        <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Feather name="arrow-left" size={ms(24)} color={washColors.textPrimary} />
           </TouchableOpacity>
@@ -213,9 +212,9 @@ export default function OrderDetailsScreen() {
 
   if (error || !order) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + 12 }]}> 
+      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <StatusBar style="dark" />
-        <View style={styles.headerRow}> 
+        <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Feather name="arrow-left" size={ms(24)} color={washColors.textPrimary} />
           </TouchableOpacity>
@@ -232,7 +231,7 @@ export default function OrderDetailsScreen() {
   const statusLabel = cancelled ? 'Cancelled' : statusStep.title;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 12 }]}> 
+    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <StatusBar style="dark" />
 
       <View style={styles.headerRow}>

@@ -22,9 +22,9 @@ import { fonts } from '../src/constants/typography';
 import { useCart } from '../src/context/CartContext';
 import type { MenuItem } from '../src/constants/foodData';
 import { useAllMenuItems } from '../src/hooks/useFood';
+import { usePricingSettings } from '../src/hooks/usePricingSettings';
 import { useReferral } from '../src/context/ReferralContext';
 import { useLocation } from '../src/context/LocationContext';
-import { REFERRAL_FOOD_DISCOUNT } from '../src/constants/referral';
 import { findPromo, type PromoCode } from '../src/constants/promoCodes';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -35,9 +35,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = SCREEN_WIDTH * 0.055;
 const ITEM_IMAGE_SIZE = SCREEN_WIDTH * 0.18;
 const SUGGESTION_IMAGE_SIZE = SCREEN_WIDTH * 0.24;
-
-const DELIVERY_FEE = 500;
-const SERVICE_FEE = 200;
 
 const STOP_WORDS = new Set(['with', 'and', 'the', 'plus', 'combo', 'pack', 'meal', 'portion']);
 
@@ -112,6 +109,7 @@ export default function CartScreen() {
   const { items: allMenuItems, error: menuError } = useAllMenuItems();
   const { rewards } = useReferral();
   const { location } = useLocation();
+  const { settings: pricing } = usePricingSettings();
 
   useEffect(() => {
     if (menuError) console.warn('[Cart] suggestions query failed:', menuError);
@@ -133,19 +131,19 @@ export default function CartScreen() {
   const { discount, referralDiscount, total } = useMemo(() => {
     const discount = appliedPromo ? Math.round(itemsTotal * (appliedPromo.percent / 100)) : 0;
     const referralDiscount = hasFoodReward
-      ? Math.min(REFERRAL_FOOD_DISCOUNT, Math.max(itemsTotal - discount, 0))
+      ? Math.min(pricing.referral_food_discount, Math.max(itemsTotal - discount, 0))
       : 0;
     const total =
       Math.max(itemsTotal - discount - referralDiscount, 0) +
-      (lines.length > 0 ? DELIVERY_FEE + SERVICE_FEE : 0);
+      (lines.length > 0 ? pricing.echop_delivery_fee + pricing.echop_service_fee : 0);
     return { discount, referralDiscount, total };
-  }, [itemsTotal, appliedPromo, lines.length, hasFoodReward]);
+  }, [itemsTotal, appliedPromo, lines.length, hasFoodReward, pricing]);
 
   const dismissPromoNotice = () => {
     setPromoNotice(null);
   };
 
-  const applyPromo = () => {
+  const applyPromo = async () => {
     Keyboard.dismiss();
     animateLayout();
 
@@ -160,19 +158,21 @@ export default function CartScreen() {
       return;
     }
 
-    const found = findPromo(promoCode);
+    setPromoError(null);
+    setPromoNotice(null);
+
+    const found = await findPromo(promoCode);
     if (!found) {
       setAppliedPromo(null);
       setPromoError('Invalid promo code');
       setPromoNotice({
         type: 'error',
         title: 'Invalid promo code',
-        message: 'Please try a different promo code.',
+        message: 'This code is not valid, has expired, or has reached its limit.',
       });
       return;
     }
 
-    setPromoError(null);
     setAppliedPromo(found);
     setPromoNotice({
       type: 'success',
@@ -363,13 +363,13 @@ export default function CartScreen() {
                     placeholderTextColor={foodColors.textMuted}
                     value={promoCode}
                     onChangeText={handlePromoChange}
-                    onSubmitEditing={applyPromo}
+                    onSubmitEditing={() => { void applyPromo(); }}
                     returnKeyType="done"
                     autoCapitalize="characters"
                     autoCorrect={false}
                   />
                 </View>
-                <TouchableOpacity style={styles.promoApplyButton} onPress={applyPromo}>
+                <TouchableOpacity style={styles.promoApplyButton} onPress={() => { void applyPromo(); }}>
                   <Text style={styles.promoApplyText}>Apply</Text>
                 </TouchableOpacity>
               </View>
@@ -397,12 +397,12 @@ export default function CartScreen() {
 
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Delivery Fee</Text>
-                  <Text style={styles.summaryValue}>{formatNaira(DELIVERY_FEE)}</Text>
+                  <Text style={styles.summaryValue}>{formatNaira(pricing.echop_delivery_fee)}</Text>
                 </View>
 
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Service Fee</Text>
-                  <Text style={styles.summaryValue}>{formatNaira(SERVICE_FEE)}</Text>
+                  <Text style={styles.summaryValue}>{formatNaira(pricing.echop_service_fee)}</Text>
                 </View>
 
                 <View style={styles.summaryDivider} />
