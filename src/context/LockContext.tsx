@@ -24,6 +24,12 @@ export const SIGN_OUT_AFTER_MS = 5 * 24 * 60 * 60 * 1000;
 // When the user last left the app. Survives the OS killing the app.
 const LEFT_AT_KEY = 'hemera.leftAt';
 
+// Last known PIN status per user, so a fresh launch opens the right lock mode immediately.
+const PIN_STATUS_KEY_PREFIX = 'hemera.pinStatus.';
+
+// Stop waiting for the server after this long and use whatever we know.
+const PIN_STATUS_WAIT_MS = 2500;
+
 type LockContextValue = {
   locked: boolean;
   /** True while an inactivity sign-out is in progress (overlay hides the app). */
@@ -32,6 +38,8 @@ type LockContextValue = {
   hasPin: boolean | null;
   /** True only when a PIN exists and the user turned Login with PIN on. */
   pinLoginActive: boolean;
+  /** True once we know (or have given up waiting for) the PIN status. */
+  pinStatusReady: boolean;
   unlock: () => void;
   lockNow: () => void;
   /** Call after the user sets or removes a PIN, or changes the Login with PIN toggle. */
@@ -52,22 +60,34 @@ export function LockProvider({ children }: { children: ReactNode }) {
   const [signingOut, setSigningOut] = useState(false);
   const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [pinLoginEnabled, setPinLoginEnabled] = useState(false);
+  const [pinStatusReady, setPinStatusReady] = useState(false);
 
   const leftAtRef = useRef<number | null>(null);
   const skipNextRef = useRef(false);
   const bootHandledRef = useRef(false);
+  const statusLoadedRef = useRef(false);
 
   const refreshPinStatus = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_pin_status');
       if (error) throw error;
       const exists = data?.has_pin === true;
+      const enabled = exists && data?.pin_login_enabled === true;
+      statusLoadedRef.current = true;
       setHasPin(exists);
-      setPinLoginEnabled(exists && data?.pin_login_enabled === true);
+      setPinLoginEnabled(enabled);
+      if (userId) {
+        AsyncStorage.setItem(
+          PIN_STATUS_KEY_PREFIX + userId,
+          JSON.stringify({ hasPin: exists, pinLoginEnabled: enabled })
+        ).catch(() => {});
+      }
     } catch {
       // Offline etc. — keep the last known value.
+    } finally {
+      setPinStatusReady(true);
     }
-  }, []);
+  }, [userId]);
 
   const lockNow = useCallback(() => setLocked(true), []);
   const unlock = useCallback(() => setLocked(false), []);
@@ -118,14 +138,35 @@ export function LockProvider({ children }: { children: ReactNode }) {
     if (!userId) {
       leftAtRef.current = null;
       skipNextRef.current = false;
+      statusLoadedRef.current = false;
       setHasPin(null);
       setPinLoginEnabled(false);
+      setPinStatusReady(false);
       setLocked(false);
       AsyncStorage.removeItem(LEFT_AT_KEY).catch(() => {});
       return;
     }
 
+    let cancelled = false;
+    statusLoadedRef.current = false;
+
+    // Use the cached answer straight away so the lock screen opens in the right mode.
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(PIN_STATUS_KEY_PREFIX + userId);
+        if (!raw || cancelled || statusLoadedRef.current) return;
+        const cached = JSON.parse(raw) as { hasPin?: boolean; pinLoginEnabled?: boolean };
+        const exists = cached.hasPin === true;
+        setHasPin(exists);
+        setPinLoginEnabled(exists && cached.pinLoginEnabled === true);
+        setPinStatusReady(true);
+      } catch {
+        // No usable cache — wait for the server answer.
+      }
+    })();
+
     refreshPinStatus();
+    const waitTimer = setTimeout(() => setPinStatusReady(true), PIN_STATUS_WAIT_MS);
 
     const handle = (next: AppStateStatus) => {
       // 'inactive' is ignored on purpose (Face ID, permission dialogs, pulling down
@@ -160,7 +201,11 @@ export function LockProvider({ children }: { children: ReactNode }) {
     };
 
     const sub = AppState.addEventListener('change', handle);
-    return () => sub.remove();
+    return () => {
+      cancelled = true;
+      clearTimeout(waitTimer);
+      sub.remove();
+    };
   }, [userId, refreshPinStatus]);
 
   const pinLoginActive = hasPin === true && pinLoginEnabled;
@@ -171,12 +216,23 @@ export function LockProvider({ children }: { children: ReactNode }) {
       signingOut,
       hasPin,
       pinLoginActive,
+      pinStatusReady,
       unlock,
       lockNow,
       refreshPinStatus,
       skipNextLock,
     }),
-    [locked, signingOut, hasPin, pinLoginActive, unlock, lockNow, refreshPinStatus, skipNextLock]
+    [
+      locked,
+      signingOut,
+      hasPin,
+      pinLoginActive,
+      pinStatusReady,
+      unlock,
+      lockNow,
+      refreshPinStatus,
+      skipNextLock,
+    ]
   );
 
   return <LockContext.Provider value={value}>{children}</LockContext.Provider>;

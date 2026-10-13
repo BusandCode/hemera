@@ -13,6 +13,7 @@ import {
   Keyboard,
   Modal,
   Easing,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,6 +32,9 @@ import { ms } from '../utils/responsive';
 type Mode = 'pin' | 'password';
 type BiometricKind = 'face' | 'fingerprint' | null;
 const PIN_LENGTH = 4;
+
+/** Space above the centred "Switch account" link when the user has no PIN. */
+const NO_PIN_FOOTER_GAP = 3;
 
 /**
  * Face ID / fingerprint unlock isn't live yet.
@@ -335,13 +339,19 @@ function NumPad({
   onBiometric: () => void;
 }) {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  // Shorter (common on Android) screens get slightly smaller keys so the footer stays visible.
+  // Shorter (common on Android) screens get smaller keys so the whole screen fits.
   const { height } = useWindowDimensions();
+  const tiny = height < 600;
   const compact = height < 720;
-  const size = compact ? ms(62) : KEY_SIZE;
+  const size = tiny ? ms(54) : compact ? ms(62) : KEY_SIZE;
   const keyBox = { width: size, height: size, borderRadius: size / 2 };
   return (
-    <View style={[styles.numPad, { width: size * 3 + KEY_GAP_X * 2, rowGap: compact ? ms(10) : KEY_GAP_Y }]}>
+    <View
+      style={[
+        styles.numPad,
+        { width: size * 3 + KEY_GAP_X * 2, rowGap: tiny ? ms(8) : compact ? ms(10) : KEY_GAP_Y },
+      ]}
+    >
       {keys.map((k) => (
         <TouchableOpacity
           key={k}
@@ -410,8 +420,12 @@ function NumPad({
 
 export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
   const { session } = useAuth();
   const { profile } = useProfile();
+
+  const compact = screenHeight < 720;
+  const avatarSize = compact ? ms(76) : ms(92);
 
   const [mode, setMode] = useState<Mode>(hasPin ? 'pin' : 'password');
   const [pin, setPin] = useState('');
@@ -610,162 +624,206 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
     >
       <Animated.View
         style={[
-          styles.inner,
+          styles.animatedFill,
           {
-            paddingTop: insets.top + ms(40),
-            paddingBottom: insets.bottom + ms(16),
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
           },
         ]}
       >
-        <View style={styles.top}>
-          {/* Avatar with accent ring + lock badge */}
-          <View style={styles.avatarRing}>
-            {profile.photoUri ? (
-              <Image
-                source={{ uri: profile.photoUri }}
-                style={styles.avatarImg}
-                accessibilityLabel={`${fullName}'s profile picture`}
-              />
-            ) : (
-              <View style={styles.avatarFallback} accessibilityLabel={`${fullName}'s profile picture`}>
-                <Text style={styles.avatarText}>{initials}</Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.inner,
+            {
+              paddingTop: insets.top + (compact ? ms(12) : ms(40)),
+              paddingBottom: insets.bottom + (Platform.OS === 'android' ? ms(24) : ms(16)),
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.top}>
+            {/* Avatar with accent ring + lock badge */}
+            <View
+              style={[
+                styles.avatarRing,
+                {
+                  width: avatarSize,
+                  height: avatarSize,
+                  borderRadius: avatarSize / 2,
+                  marginBottom: compact ? ms(12) : ms(20),
+                },
+              ]}
+            >
+              {profile.photoUri ? (
+                <Image
+                  source={{ uri: profile.photoUri }}
+                  style={[styles.avatarImg, { borderRadius: avatarSize / 2 }]}
+                  accessibilityLabel={`${fullName}'s profile picture`}
+                />
+              ) : (
+                <View
+                  style={[styles.avatarFallback, { borderRadius: avatarSize / 2 }]}
+                  accessibilityLabel={`${fullName}'s profile picture`}
+                >
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              )}
+              <View style={styles.lockBadge}>
+                <Feather name="lock" size={ms(13)} color={foodColors.primary} />
               </View>
-            )}
-            <View style={styles.lockBadge}>
-              <Feather name="lock" size={ms(13)} color={foodColors.primary} />
             </View>
+
+            <Text style={[styles.title, compact && styles.titleCompact]} accessibilityRole="header">
+              Welcome back, {firstName}
+            </Text>
+            <Text style={styles.subtitle}>
+              {mode === 'pin'
+                ? `Enter your ${PIN_LENGTH}-digit PIN to unlock`
+                : 'Enter your password to unlock'}
+            </Text>
+
+            {mode === 'pin' ? (
+              <View style={[styles.pinArea, compact && styles.areaCompact]}>
+                <PinDots filled={pin.length} shakeAnim={shakeAnim} hasError={!!error} />
+                <View style={[styles.messageSlot, compact && styles.messageSlotCompact]}>
+                  {loading ? (
+                    <ActivityIndicator color={foodColors.primary} />
+                  ) : !!error ? (
+                    <Text style={styles.errorText}>{error}</Text>
+                  ) : null}
+                </View>
+                <NumPad
+                  onKey={handlePinKey}
+                  disabled={loading}
+                  biometric={biometric}
+                  onBiometric={handleBiometric}
+                />
+              </View>
+            ) : (
+              <Animated.View
+                style={[
+                  styles.passArea,
+                  compact && styles.areaCompact,
+                  { transform: [{ translateX: shakeAnim }] },
+                ]}
+              >
+                <View style={[styles.passWrap, !!error && styles.passWrapError]}>
+                  <Feather name="lock" size={ms(16)} color={foodColors.textMuted} />
+                  <TextInput
+                    style={styles.passInput}
+                    placeholder="Password"
+                    placeholderTextColor={foodColors.textMuted}
+                    secureTextEntry={!showPass}
+                    value={password}
+                    onChangeText={(t) => {
+                      setPassword(t);
+                      setError('');
+                    }}
+                    autoFocus
+                    onSubmitEditing={submitPassword}
+                    returnKeyType="go"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    accessibilityLabel="Password"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPass((v) => !v)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
+                  >
+                    <Feather
+                      name={showPass ? 'eye-off' : 'eye'}
+                      size={ms(18)}
+                      color={foodColors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.messageSlot, compact && styles.messageSlotCompact]}>
+                  {!!error && <Text style={styles.errorText}>{error}</Text>}
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.unlockBtn, loading && styles.unlockBtnOff]}
+                  onPress={submitPassword}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Unlock"
+                >
+                  {loading ? (
+                    <ActivityIndicator color={foodColors.background} />
+                  ) : (
+                    <Text style={styles.unlockBtnText}>Unlock</Text>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+            )}
           </View>
 
-          <Text style={styles.title} accessibilityRole="header">
-            Welcome back, {firstName}
-          </Text>
-          <Text style={styles.subtitle}>
-            {mode === 'pin'
-              ? `Enter your ${PIN_LENGTH}-digit PIN to unlock`
-              : 'Enter your password to unlock'}
-          </Text>
-
-          {mode === 'pin' ? (
-            <View style={styles.pinArea}>
-              <PinDots filled={pin.length} shakeAnim={shakeAnim} hasError={!!error} />
-              <View style={styles.messageSlot}>
-                {loading ? (
-                  <ActivityIndicator color={foodColors.primary} />
-                ) : !!error ? (
-                  <Text style={styles.errorText}>{error}</Text>
-                ) : null}
-              </View>
-              <NumPad
-                onKey={handlePinKey}
-                disabled={loading}
-                biometric={biometric}
-                onBiometric={handleBiometric}
-              />
-            </View>
-          ) : (
-            <Animated.View style={[styles.passArea, { transform: [{ translateX: shakeAnim }] }]}>
-              <View style={[styles.passWrap, !!error && styles.passWrapError]}>
-                <Feather name="lock" size={ms(16)} color={foodColors.textMuted} />
-                <TextInput
-                  style={styles.passInput}
-                  placeholder="Password"
-                  placeholderTextColor={foodColors.textMuted}
-                  secureTextEntry={!showPass}
-                  value={password}
-                  onChangeText={(t) => {
-                    setPassword(t);
-                    setError('');
-                  }}
-                  autoFocus
-                  onSubmitEditing={submitPassword}
-                  returnKeyType="go"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  accessibilityLabel="Password"
-                />
+          {hasPin ? (
+            // With a PIN set: unchanged layout.
+            <View style={styles.footer}>
+              {mode === 'pin' && (
                 <TouchableOpacity
-                  onPress={() => setShowPass((v) => !v)}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={styles.centerLink}
+                  onPress={switchToPassword}
+                  activeOpacity={0.6}
                   accessibilityRole="button"
-                  accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
                 >
-                  <Feather
-                    name={showPass ? 'eye-off' : 'eye'}
-                    size={ms(18)}
-                    color={foodColors.textMuted}
-                  />
+                  <Text style={styles.centerLinkText}>Use password instead</Text>
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.footerRow}>
+                {mode === 'pin' ? (
+                  <TouchableOpacity
+                    onPress={onForgotPin}
+                    activeOpacity={0.6}
+                    style={styles.footerLink}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.linkAccent}>Forgot PIN?</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={switchToPin}
+                    activeOpacity={0.6}
+                    style={styles.footerLink}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.linkAccent}>Use PIN</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  onPress={onSwitchAccount}
+                  activeOpacity={0.6}
+                  style={styles.footerLink}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.linkMuted}>Switch account</Text>
                 </TouchableOpacity>
               </View>
-
-              <View style={styles.messageSlot}>
-                {!!error && <Text style={styles.errorText}>{error}</Text>}
-              </View>
-
+            </View>
+          ) : (
+            // No PIN: Switch account sits alone, centred.
+            <View style={[styles.footer, styles.footerNoPin]}>
               <TouchableOpacity
-                style={[styles.unlockBtn, loading && styles.unlockBtnOff]}
-                onPress={submitPassword}
-                disabled={loading}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel="Unlock"
-              >
-                {loading ? (
-                  <ActivityIndicator color={foodColors.background} />
-                ) : (
-                  <Text style={styles.unlockBtnText}>Unlock</Text>
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </View>
-
-        <View style={styles.footer}>
-          {hasPin && mode === 'pin' && (
-            <TouchableOpacity
-              style={styles.centerLink}
-              onPress={switchToPassword}
-              activeOpacity={0.6}
-              accessibilityRole="button"
-            >
-              <Text style={styles.centerLinkText}>Use password instead</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.footerRow}>
-            {hasPin && mode === 'pin' ? (
-              <TouchableOpacity
-                onPress={onForgotPin}
+                onPress={onSwitchAccount}
                 activeOpacity={0.6}
                 style={styles.footerLink}
                 accessibilityRole="button"
               >
-                <Text style={styles.linkAccent}>Forgot PIN?</Text>
+                <Text style={styles.linkMuted}>Switch account</Text>
               </TouchableOpacity>
-            ) : hasPin && mode === 'password' ? (
-              <TouchableOpacity
-                onPress={switchToPin}
-                activeOpacity={0.6}
-                style={styles.footerLink}
-                accessibilityRole="button"
-              >
-                <Text style={styles.linkAccent}>Use PIN</Text>
-              </TouchableOpacity>
-            ) : (
-              <View />
-            )}
-
-            <TouchableOpacity
-              onPress={onSwitchAccount}
-              activeOpacity={0.6}
-              style={styles.footerLink}
-              accessibilityRole="button"
-            >
-              <Text style={styles.linkMuted}>Switch account</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </View>
+          )}
+        </ScrollView>
       </Animated.View>
 
       {biometric && (
@@ -785,8 +843,10 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
+  animatedFill: { flex: 1 },
+  scroll: { flex: 1 },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: ms(32),
     justifyContent: 'space-between',
   },
@@ -842,6 +902,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     textAlign: 'center',
   },
+  titleCompact: { fontSize: ms(21) },
   subtitle: {
     fontSize: ms(14),
     fontFamily: fonts.poppins.regular,
@@ -852,6 +913,7 @@ const styles = StyleSheet.create({
 
   // PIN
   pinArea: { alignItems: 'center', width: '100%', marginTop: ms(36) },
+  areaCompact: { marginTop: ms(18) },
   dotsRow: { flexDirection: 'row', gap: ms(20) },
   dot: {
     width: ms(14),
@@ -874,6 +936,10 @@ const styles = StyleSheet.create({
     marginBottom: ms(8),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  messageSlotCompact: {
+    marginTop: ms(8),
+    marginBottom: ms(4),
   },
   errorText: {
     fontSize: ms(13),
@@ -1063,7 +1129,8 @@ const styles = StyleSheet.create({
   },
 
   // Footer
-  footer: { width: '100%', alignItems: 'center', gap: ms(4) },
+  footer: { width: '100%', alignItems: 'center', gap: ms(4), marginTop: ms(16) },
+  footerNoPin: { marginTop: NO_PIN_FOOTER_GAP },
   centerLink: { paddingVertical: ms(10), paddingHorizontal: ms(12) },
   centerLinkText: {
     fontSize: ms(14),

@@ -32,6 +32,7 @@ type Gender = 'Male' | 'Female' | '';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
+const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 type AuthErr = { message?: string; code?: string; status?: number; name?: string };
@@ -291,7 +292,9 @@ export default function AuthScreen() {
       if (name.trim().length < 2) return 'Please enter your full name.';
       if (!EMAIL_RE.test(email.trim())) return 'Enter a valid email address.';
       if (phone.length !== 11) return 'Phone number must be 11 digits.';
-      if (password.trim().length < 4) return 'Password must be at least 4 characters.';
+      if (password.trim().length < MIN_PASSWORD_LENGTH) {
+        return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+      }
       if (!agreed) return 'Please agree to the Terms of Use and Privacy Policy to continue.';
       return '';
     }
@@ -685,7 +688,9 @@ export default function AuthScreen() {
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="At least 4 characters"
+                  placeholder={
+                    isSignUp ? `At least ${MIN_PASSWORD_LENGTH} characters` : 'Your password'
+                  }
                   placeholderTextColor={foodColors.textMuted}
                   secureTextEntry={secure}
                   autoCapitalize="none"
@@ -760,13 +765,6 @@ export default function AuthScreen() {
               <Text style={styles.submitText}>
                 {busy ? 'Please wait...' : isSignUp ? 'Send Code' : 'Sign In'}
               </Text>
-              {/* {!busy && (
-                <Feather
-                  name={isSignUp ? 'send' : 'arrow-right'}
-                  size={ms(16)}
-                  color="#fff"
-                />
-              )} */}
             </TouchableOpacity>
 
             <TouchableOpacity

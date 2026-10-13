@@ -1,32 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-/**
- * Fetches platform fees from the admin-managed pricing_settings table.
- *
- * Values are cached in memory for 30 seconds, so navigating between screens
- * doesn't hammer the DB, but admin changes reach users quickly without
- * needing a full app restart.
- *
- * If loading fails, the FALLBACKS below are used so the app never breaks.
- * The fallbacks should match the current DB values.
- */
-
 export type PricingSettings = {
-  // E-Chop
   echop_delivery_fee: number;
   echop_service_fee: number;
-
-  // E-Wash fees
   laundry_dispatch_fee: number;
   laundry_express_fee: number;
   laundry_service_charge: number;
-
-  // Referrals
   referral_food_discount: number;
   referral_laundry_percent: number;
-
-  // E-Wash per-item prices
   wash_men_shirt: number;
   wash_men_trousers: number;
   wash_men_native: number;
@@ -65,7 +47,6 @@ const FALLBACKS: PricingSettings = {
   wash_curtains: 2000,
 };
 
-// Cache expires after 30 seconds.
 const CACHE_TTL_MS = 30_000;
 
 let cached: { value: PricingSettings; at: number } | null = null;
@@ -80,12 +61,20 @@ async function loadPricing(): Promise<PricingSettings> {
   if (inflight) return inflight;
 
   inflight = (async () => {
-    const { data, error } = await supabase
+    const { data, error, status, statusText } = await supabase
       .from('pricing_settings')
       .select('key, value');
 
+    // console.log('[pricing] raw response:', {
+    //   error: error?.message ?? null,
+    //   status,
+    //   statusText,
+    //   rowCount: data?.length ?? null,
+    //   firstRows: data?.slice(0, 5) ?? null,
+    //   supabaseUrl: (supabase as any)?.supabaseUrl ?? (supabase as any)?.rest?.url ?? 'unknown',
+    // });
+
     if (error || !data) {
-      // Keep whatever we had; do not cache the fallback so a retry can succeed.
       inflight = null;
       return cached?.value ?? FALLBACKS;
     }
@@ -99,6 +88,11 @@ async function loadPricing(): Promise<PricingSettings> {
         }
       }
     }
+
+    // console.log('[pricing] after merge:', {
+    //   laundry_service_charge: out.laundry_service_charge,
+    //   echop_delivery_fee: out.echop_delivery_fee,
+    // });
 
     cached = { value: out, at: Date.now() };
     inflight = null;
@@ -118,15 +112,12 @@ export function usePricingSettings() {
     let cancelled = false;
 
     (async () => {
-      // If the cache is fresh, use it immediately.
       if (isCacheFresh() && cached) {
         setSettings(cached.value);
         setLoading(false);
         return;
       }
 
-      // Otherwise fetch in the background (screen keeps rendering with
-      // whatever it has — fallbacks or the previous cached value).
       const s = await loadPricing();
       if (cancelled) return;
       setSettings(s);
@@ -145,7 +136,6 @@ export async function getPricingSettings(): Promise<PricingSettings> {
   return loadPricing();
 }
 
-/** Force the next screen to fetch fresh values. */
 export function invalidatePricingCache() {
   cached = null;
 }

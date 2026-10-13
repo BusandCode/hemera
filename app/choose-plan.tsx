@@ -9,6 +9,7 @@ import {
   BackHandler,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,108 +21,19 @@ import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
 import { useAuth } from '../src/context/AuthContext';
 import { useReferral } from '../src/context/ReferralContext';
-import { REFERRAL_LAUNDRY_PERCENT } from '../src/constants/referral';
+import { usePricingSettings } from '../src/hooks/usePricingSettings';
+import {
+  useWashPlans,
+  durationTotal,
+  type WashPlan,
+  type WashDuration,
+  type PlanId,
+  type DurationKey,
+} from '../src/hooks/useWashPlans';
 import { ms } from '../src/utils/responsive';
 
-type PlanId = 'basic' | 'standard' | 'premium' | 'vip';
 type PaymentMethod = 'transfer' | 'card';
-type DurationKey = '1m' | '3m' | '6m' | '12m';
 type Step = 'plans' | 'duration';
-
-type Plan = {
-  id: PlanId;
-  name: string;
-  tagline: string;
-  price: number;
-  accent: string;
-  image: string;
-  recommended?: boolean;
-  features: string[];
-};
-
-type Duration = {
-  key: DurationKey;
-  label: string;
-  months: number;
-  savePct: number;
-};
-
-const plans: Plan[] = [
-  {
-    id: 'basic',
-    name: 'Basic',
-    tagline: 'For small households or single professionals',
-    price: 17000,
-    accent: '#255DDE',
-    image: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=800&q=80',
-    features: [
-      '2 pickups per month',
-      '14 items per month',
-      '2 large items max (blanket, duvet, curtain)',
-      'Wash, dry, iron & fold',
-      'Standard turnaround (24 hrs)',
-    ],
-  },
-  {
-    id: 'standard',
-    name: 'Standard',
-    tagline: 'Most popular plan for couples & busy homes',
-    price: 26000,
-    accent: '#255DDE',
-    recommended: true,
-    image: 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?w=800&q=80',
-    features: [
-      'Up to 3 pickups per month',
-      '25 items per month',
-      '3 large items max (blanket, duvet, curtain)',
-      'Wash, dry, iron & fold',
-      'Priority 24 hr turnaround',
-      'Personal branded bag',
-    ],
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    tagline: 'White glove care for families & high volume needs',
-    price: 35000,
-    accent: '#D64545',
-    image: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800&q=80',
-    features: [
-      'Up to 4 pickups per month',
-      '45 items per month',
-      '4 large items max (blanket, duvet, curtain)',
-      'Wash, dry, iron & fold',
-      'Same day express turnaround',
-      'Personal Hemera premium bag',
-      'Dedicated support line',
-    ],
-  },
-  {
-    id: 'vip',
-    name: 'VIP',
-    tagline: 'Our highest tier with priority everything',
-    price: 110000,
-    accent: '#E0B43F',
-    image: 'https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=800&q=80',
-    features: [
-      'Up to 6 pickups per month',
-      '85 items per month',
-      '6 large items max (blanket, duvet, curtain)',
-      'Wash, dry, iron & fold',
-      'Same day express turnaround (24 hrs)',
-      'Personal Hemera VIP bag',
-      'Fast pickup and delivery',
-      'Dedicated support line',
-    ],
-  },
-];
-
-const durations: Duration[] = [
-  { key: '1m', label: '1 Month', months: 1, savePct: 0 },
-  { key: '3m', label: '3 Months', months: 3, savePct: 11 },
-  { key: '6m', label: '6 Months', months: 6, savePct: 19 },
-  { key: '12m', label: '12 Months', months: 12, savePct: 28 },
-];
 
 const savingsPoints = [
   'Enjoy consistent clean with monthly plans',
@@ -138,11 +50,6 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
 }
 
-function durationTotal(monthly: number, d: Duration) {
-  const raw = monthly * d.months * (1 - d.savePct / 100);
-  return Math.round(raw / 100) * 100;
-}
-
 export default function ChoosePlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -150,19 +57,29 @@ export default function ChoosePlanScreen() {
   const isSwitch = mode === 'switch';
   const { session } = useAuth();
   const { rewards } = useReferral();
+  const { settings: pricing } = usePricingSettings();
+  const { plans, durations, loading } = useWashPlans();
+
   const [step, setStep] = useState<Step>('plans');
   const [selectedId, setSelectedId] = useState<PlanId>('standard');
   const [method, setMethod] = useState<PaymentMethod>('transfer');
   const [durationKey, setDurationKey] = useState<DurationKey>('3m');
   const [agreed, setAgreed] = useState(false);
 
-  const selectedPlan = plans.find((p) => p.id === selectedId)!;
-  const selectedDuration = durations.find((d) => d.key === durationKey)!;
+  const selectedPlan: WashPlan | undefined = plans.find((p) => p.id === selectedId);
+  const selectedDuration: WashDuration | undefined = durations.find(
+    (d) => d.key === durationKey,
+  );
   const methodLabel = paymentMethods.find((m) => m.id === method)!.label;
-  const subtotal = durationTotal(selectedPlan.price, selectedDuration);
+
+  const subtotal =
+    selectedPlan && selectedDuration
+      ? durationTotal(selectedPlan.price, selectedDuration)
+      : 0;
+
   const laundryReward = rewards.laundry;
   const referralDiscount = laundryReward
-    ? Math.round((subtotal * REFERRAL_LAUNDRY_PERCENT) / 100)
+    ? Math.round((subtotal * pricing.referral_laundry_percent) / 100)
     : 0;
   const total = subtotal - referralDiscount;
 
@@ -175,11 +92,18 @@ export default function ChoosePlanScreen() {
     return () => sub.remove();
   }, [step]);
 
+  // Keep selectedId valid if plans changed.
+  useEffect(() => {
+    if (plans.length > 0 && !plans.some((p) => p.id === selectedId)) {
+      setSelectedId(plans[0].id);
+    }
+  }, [plans, selectedId]);
+
   const selectMethod = (m: { id: PaymentMethod; label: string; comingSoon?: boolean }) => {
     if (m.comingSoon) {
       Alert.alert(
         'Coming soon',
-        `${m.label} payments are coming soon. Please use Transfer for now.`
+        `${m.label} payments are coming soon. Please use Transfer for now.`,
       );
       return;
     }
@@ -187,7 +111,7 @@ export default function ChoosePlanScreen() {
   };
 
   const handlePay = () => {
-    if (!agreed) return;
+    if (!agreed || !selectedPlan || !selectedDuration) return;
 
     const ref = `WSH-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -221,7 +145,17 @@ export default function ChoosePlanScreen() {
     } as any);
   };
 
-  if (step === 'duration') {
+  // While loading, show a spinner instead of the plan cards.
+  if (loading || plans.length === 0) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color={foodColors.badgeBlue} />
+      </View>
+    );
+  }
+
+  if (step === 'duration' && selectedPlan && selectedDuration) {
     return (
       <View style={[styles.dContainer, { paddingTop: insets.top + 12 }]}>
         <StatusBar style="dark" />
@@ -281,7 +215,9 @@ export default function ChoosePlanScreen() {
 
                   <View style={styles.durationInfo}>
                     <Text style={styles.durationLabel}>{d.label}</Text>
-                    <Text style={styles.durationSub}>{formatNaira(perMonthValue)} / month</Text>
+                    <Text style={styles.durationSub}>
+                      {formatNaira(perMonthValue)} / month
+                    </Text>
                   </View>
 
                   <View style={styles.durationRight}>
@@ -343,7 +279,9 @@ export default function ChoosePlanScreen() {
           <View style={styles.dFooterSummary}>
             <Text style={styles.dFooterLabel}>
               Total · {methodLabel}
-              {referralDiscount > 0 ? ` · ${REFERRAL_LAUNDRY_PERCENT}% referral reward` : ''}
+              {referralDiscount > 0
+                ? ` · ${pricing.referral_laundry_percent}% referral reward`
+                : ''}
             </Text>
             <Text style={styles.dFooterPrice}>{formatNaira(total)}</Text>
           </View>
@@ -409,6 +347,7 @@ export default function ChoosePlanScreen() {
 
         {plans.map((plan) => {
           const selected = plan.id === selectedId;
+          const accent = plan.accent || foodColors.badgeBlue;
           return (
             <TouchableOpacity
               key={plan.id}
@@ -416,7 +355,10 @@ export default function ChoosePlanScreen() {
               activeOpacity={0.9}
               onPress={() => setSelectedId(plan.id)}
             >
-              <ImageBackground source={{ uri: plan.image }} style={styles.planImage}>
+              <ImageBackground
+                source={{ uri: plan.image || undefined }}
+                style={styles.planImage}
+              >
                 <LinearGradient
                   colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)']}
                   style={StyleSheet.absoluteFill}
@@ -439,14 +381,14 @@ export default function ChoosePlanScreen() {
               <View style={styles.planBody}>
                 <Text style={styles.planTagline}>{plan.tagline}</Text>
                 <View style={styles.priceRow}>
-                  <Text style={[styles.price, { color: plan.accent }]}>
+                  <Text style={[styles.price, { color: accent }]}>
                     {formatNaira(plan.price)}
                   </Text>
                   <Text style={styles.perMonth}> / month</Text>
                 </View>
                 {plan.features.map((feature) => (
                   <View key={feature} style={styles.featureRow}>
-                    <Feather name="check" size={ms(17)} color={plan.accent} style={styles.featureIcon} />
+                    <Feather name="check" size={ms(17)} color={accent} style={styles.featureIcon} />
                     <Text style={styles.featureText}>{feature}</Text>
                   </View>
                 ))}
@@ -519,6 +461,7 @@ export default function ChoosePlanScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
+  centered: { alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { paddingHorizontal: ms(20), paddingTop: ms(8), paddingBottom: ms(20) },
 

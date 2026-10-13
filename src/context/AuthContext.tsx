@@ -4,6 +4,7 @@ import { AuthError, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getPendingReferral, clearPendingReferral } from '../lib/referralLink';
 import { ensureFreshInstallHandled } from '../lib/freshInstall';
+import { unregisterPushNotifications } from '../lib/pushNotifications';
 
 type SignUpDetails = {
   fullName: string;
@@ -28,6 +29,8 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const PUSH_CLEANUP_TIMEOUT_MS = 3000;
+
 /**
  * True when the server says this session/user no longer exists
  * (account deleted, sessions revoked). Network errors return false
@@ -48,6 +51,22 @@ function isDeadSessionError(error: AuthError | null): boolean {
     msg.includes('session not found') ||
     msg.includes('invalid refresh token')
   );
+}
+
+/**
+ * Stops this device receiving the user's pushes. Best effort: it never throws and
+ * never waits longer than the timeout, so sign-out is not held up by a bad network.
+ */
+async function removeDevicePushToken(userId: string | undefined): Promise<void> {
+  if (!userId) return;
+  try {
+    await Promise.race([
+      unregisterPushNotifications(userId),
+      new Promise<void>((resolve) => setTimeout(resolve, PUSH_CLEANUP_TIMEOUT_MS)),
+    ]);
+  } catch (error) {
+    console.warn('[Auth] Could not remove push token on sign-out:', error);
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -161,6 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Must happen while still signed in, so the token delete passes row-level security.
+    await removeDevicePushToken(session?.user.id);
+
     const { error } = await supabase.auth.signOut();
     if (error) {
       // Server-side session already gone (deleted user, revoked session) or offline:
@@ -177,6 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) throw new Error('Incorrect password');
+
+    await removeDevicePushToken(session?.user.id);
 
     const { error: rpcError } = await supabase.rpc('delete_my_account', {
       p_reason: reason.trim(),

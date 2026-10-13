@@ -17,7 +17,9 @@ export default function ConfirmPickupScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
+  // const { settings: pricing } = usePricingSettings();
   const { settings: pricing } = usePricingSettings();
+  // console.log('[confirm-pickup] pricing =', pricing);
 
   const pickupTime = (params.pickupTime as string) ?? '';
   const pickupDate = (params.pickupDate as string) ?? '';

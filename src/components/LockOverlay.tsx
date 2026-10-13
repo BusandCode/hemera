@@ -10,7 +10,8 @@ import { foodColors } from '../constants/foodColors';
 
 export function LockOverlay() {
   const router = useRouter();
-  const { locked, signingOut, pinLoginActive, unlock, refreshPinStatus } = useLock();
+  const { locked, signingOut, pinLoginActive, pinStatusReady, unlock, refreshPinStatus } =
+    useLock();
   const { signOut } = useAuth();
   const [view, setView] = useState<'lock' | 'reset'>('lock');
 
@@ -23,6 +24,23 @@ export function LockOverlay() {
     return <View style={[StyleSheet.absoluteFill, { backgroundColor: foodColors.background }]} />;
   }
   if (!locked) return null;
+
+  // Hold a blank screen until we know whether this user has a PIN, so the lock
+  // screen never opens in password mode and then jumps to PIN mode.
+  if (!pinStatusReady) {
+    return <View style={[StyleSheet.absoluteFill, { backgroundColor: foodColors.background }]} />;
+  }
+
+  // Navigate home while the overlay still covers the screen, then reveal it.
+  const goHomeAndUnlock = () => {
+    try {
+      if (router.canDismiss()) router.dismissAll();
+      router.replace('/(tabs)' as any);
+    } catch (error) {
+      console.warn('[LockOverlay] Could not navigate home after unlock:', error);
+    }
+    unlock();
+  };
 
   const handleSwitchAccount = () => {
     Alert.alert('Switch account', 'This will sign you out. Continue?', [
@@ -47,13 +65,13 @@ export function LockOverlay() {
           onDone={() => {
             // Password was verified and a new PIN set, so it's safe to unlock.
             refreshPinStatus();
-            unlock();
+            goHomeAndUnlock();
           }}
         />
       ) : (
         <LockScreen
           key={pinLoginActive ? 'pin' : 'password'}
-          onUnlock={unlock}
+          onUnlock={goHomeAndUnlock}
           onForgotPin={() => setView('reset')}
           onSwitchAccount={handleSwitchAccount}
           hasPin={pinLoginActive}

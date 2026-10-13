@@ -14,7 +14,11 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { washColors } from '../src/constants/washColors';
 import { fonts } from '../src/constants/typography';
-import { WASH_DURATIONS, durationTotal, planFromName } from '../src/constants/washPlans';
+import {
+  useWashPlans,
+  durationTotal,
+  planFromName,
+} from '../src/hooks/useWashPlans';
 import { useAuth } from '../src/context/AuthContext';
 import { usePlanStatus } from '../src/hooks/usePlanStatus';
 import { ms } from '../src/utils/responsive';
@@ -28,12 +32,13 @@ export default function RenewPlanScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { status, planName, renewsOn, expiredOn, allowance, isLoading } = usePlanStatus();
+  const { plans, durations, loading: plansLoading } = useWashPlans();
   const [selected, setSelected] = useState<string>('3m');
 
-  const plan = planFromName(planName);
-  const duration = WASH_DURATIONS.find((d) => d.key === selected) ?? WASH_DURATIONS[0];
+  const plan = planFromName(plans, planName);
+  const duration = durations.find((d) => d.key === selected) ?? durations[0];
 
-  if (isLoading) {
+  if (isLoading || plansLoading || !duration) {
     return (
       <View style={[styles.container, styles.centered]}>
         <StatusBar style="dark" />
@@ -153,7 +158,7 @@ export default function RenewPlanScreen() {
 
         <Text style={styles.sectionLabel}>CHOOSE DURATION</Text>
         <View style={styles.durationList}>
-          {WASH_DURATIONS.map((d) => {
+          {durations.map((d) => {
             const isSelected = d.key === selected;
             const dTotal = durationTotal(plan.price, d);
             return (

@@ -27,11 +27,11 @@ import { useProfile } from '../src/context/ProfileContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ms } from '../src/utils/responsive';
 
-const BUCKET = 'support-attachments';
+// Matches the admin bucket referenced by the Next.js support module.
+const BUCKET = 'admin-media';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 2000;
 
-// A message as stored in the support_messages table.
 type Row = {
   id: string;
   sender: 'user' | 'agent';
@@ -41,7 +41,6 @@ type Row = {
   created_at: string;
 };
 
-// What the list shows. The welcome bubble is local and is never saved.
 type Item = Row & { local?: boolean };
 
 function formatTime(iso: string) {
@@ -53,8 +52,11 @@ function formatTime(iso: string) {
 
 function friendlyError(e: any): string {
   const message = String(e?.message ?? '');
-  if (message.includes('rate_limited')) return "You're sending messages too quickly. Please wait a moment and try again.";
+  if (message.includes('rate_limited'))
+    return "You're sending messages too quickly. Please wait a moment and try again.";
   if (message.includes('too large')) return message;
+  if (message.includes('row-level security') || message.includes('permission'))
+    return "We couldn't reach support right now. Please try again in a moment.";
   return 'Please check your connection and try again.';
 }
 
@@ -66,6 +68,7 @@ export default function LiveChatScreen() {
   const firstName = profile.fullName?.trim().split(/\s+/)[0] ?? '';
 
   const listRef = useRef<FlatList<Item>>(null);
+  const welcomeTime = useRef(new Date().toISOString()).current;
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -79,7 +82,6 @@ export default function LiveChatScreen() {
     listRef.current?.scrollToEnd({ animated: true });
   };
 
-  // Keep the newest message in view when the keyboard opens.
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -96,7 +98,7 @@ export default function LiveChatScreen() {
     };
   }, []);
 
-  // Load the conversation every time the screen is opened, so nothing missed while away is lost.
+  // Load the real conversation for this user.
   const load = useCallback(async () => {
     if (!userId) return;
     setLoadError(false);
@@ -108,6 +110,7 @@ export default function LiveChatScreen() {
       .limit(300);
 
     if (error) {
+      console.error('[live-chat load]', error);
       setLoadError(true);
       setLoading(false);
       return;
@@ -122,7 +125,7 @@ export default function LiveChatScreen() {
     }, [load])
   );
 
-  // New messages (including replies from support) arrive while the chat is open.
+  // Realtime: agent replies + anything inserted server-side land here instantly.
   useEffect(() => {
     if (!userId) return;
 
@@ -130,7 +133,12 @@ export default function LiveChatScreen() {
       .channel(`support-chat-${userId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `user_id=eq.${userId}`,
+        },
         (payload: any) => {
           const row = payload.new as Row;
           setRows((prev) => (prev.some((r) => r.id === row.id) ? prev : [...prev, row]));
@@ -143,7 +151,7 @@ export default function LiveChatScreen() {
     };
   }, [userId]);
 
-  // Photos are private, so each one is shown through a temporary link.
+  // Sign private attachment URLs on demand.
   useEffect(() => {
     const missing = rows
       .map((r) => r.image_path)
@@ -152,7 +160,13 @@ export default function LiveChatScreen() {
 
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.storage.from(BUCKET).createSignedUrls(missing, 6 * 3600);
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrls(missing, 6 * 3600);
+      if (error) {
+        console.warn('[live-chat signed urls]', error);
+        return;
+      }
       if (cancelled || !data) return;
       setImageUrls((prev) => {
         const next = { ...prev };
@@ -166,7 +180,7 @@ export default function LiveChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [rows]);
+  }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -181,7 +195,8 @@ export default function LiveChatScreen() {
   const uploadImage = async (uri: string): Promise<string> => {
     const rawExt = (uri.split('?')[0].split('.').pop() ?? 'jpg').toLowerCase();
     const ext = rawExt === 'png' || rawExt === 'webp' ? rawExt : 'jpg';
-    const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    const contentType =
+      ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
 
     const response = await fetch(uri);
     const bytes = await response.arrayBuffer();
@@ -189,9 +204,13 @@ export default function LiveChatScreen() {
       throw new Error('That photo is too large. Please choose one under 5 MB.');
     }
 
-    // The first part of the path is the customer's id. The storage rules rely on it.
-    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false });
+    // admin-media/support/<userId>/<timestamp>-<rand>.<ext>
+    const path = `support/${userId}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, bytes, { contentType, upsert: false });
     if (error) throw error;
     return path;
   };
@@ -207,7 +226,12 @@ export default function LiveChatScreen() {
 
       const { data, error } = await supabase
         .from('support_messages')
-        .insert({ user_id: userId, sender: 'user', body: text || null, image_path: imagePath })
+        .insert({
+          user_id: userId,
+          sender: 'user',
+          body: text || null,
+          image_path: imagePath,
+        })
         .select('id, sender, body, image_path, agent_name, created_at')
         .single();
       if (error) throw error;
@@ -217,7 +241,6 @@ export default function LiveChatScreen() {
       setDraft('');
       setPendingImage(null);
     } catch (e: any) {
-      // The draft stays in the box so nothing the person typed is lost.
       Alert.alert('Message not sent', friendlyError(e));
     } finally {
       setSending(false);
@@ -229,10 +252,10 @@ export default function LiveChatScreen() {
       id: 'welcome',
       local: true,
       sender: 'agent',
-      body: `Hi${firstName ? ` ${firstName}` : ''} 👋 Welcome to Hemera support. Send us a message and we'll reply here as soon as we can.`,
+      body: `Hi${firstName ? ` ${firstName}` : ''} 👋, I'm Ada from Hemera support. How can I help you today?`,
       image_path: null,
       agent_name: null,
-      created_at: '',
+      created_at: welcomeTime,
     },
     ...rows,
   ];
@@ -242,21 +265,22 @@ export default function LiveChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      // iOS: lift the screen by the keyboard height.
-      // Android: handled natively by "softwareKeyboardLayoutMode": "pan" in app.json, so adding a behavior
-      // here as well would move the input twice.
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
     >
       <StatusBar style="dark" />
       <ScreenHeader title="Live Chat" />
 
-      <View style={styles.agentBar}>
+     <View style={styles.agentBar}>
         <View style={styles.agentAvatar}>
-          <Text style={styles.agentAvatarText}>H</Text>
+          <Text style={styles.agentAvatarText}>A</Text>
         </View>
         <View>
-          <Text style={styles.agentName}>Hemera Support</Text>
-          <Text style={styles.agentSubtitle}>We usually reply within a few hours</Text>
+          <Text style={styles.agentName}>Ada · Support Agent</Text>
+          <View style={styles.onlineRow}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>Online</Text>
+          </View>
         </View>
       </View>
 
@@ -328,12 +352,10 @@ export default function LiveChatScreen() {
                     </Text>
                   )}
                 </View>
-                {!item.local && (
-                  <Text style={styles.timeText}>
-                    {item.sender === 'agent' && item.agent_name ? `${item.agent_name} · ` : ''}
-                    {formatTime(item.created_at)}
-                  </Text>
-                )}
+                <Text style={styles.timeText}>
+                  {item.sender === 'agent' && item.agent_name ? `${item.agent_name} · ` : ''}
+                  {formatTime(item.created_at)}
+                </Text>
               </View>
             );
           }}
@@ -407,6 +429,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: '5.5%',
     paddingBottom: ms(14),
   },
+  agentAvatarText: {
+  fontSize: ms(14),
+  fontFamily: fonts.poppins.bold,
+  color: '#fff',
+},
   agentAvatar: {
     width: ms(36),
     height: ms(36),
@@ -415,21 +442,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  agentAvatarText: {
-    fontSize: ms(14),
-    fontFamily: fonts.poppins.bold,
-    color: '#fff',
-  },
   agentName: {
     fontSize: ms(13),
     fontFamily: fonts.poppins.bold,
     color: foodColors.textPrimary,
   },
-  agentSubtitle: {
+  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: ms(5), marginTop: ms(2) },
+  onlineDot: { width: 6, height: 6, borderRadius: ms(3), backgroundColor: foodColors.success },
+  onlineText: {
     fontSize: ms(11),
     fontFamily: fonts.poppins.regular,
     color: foodColors.textSecondary,
-    marginTop: ms(2),
   },
 
   centerState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: ms(12) },
