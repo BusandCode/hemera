@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import type { FixedPlan } from '../lib/eplanTiers';
+import { useOnUserChange } from '../hooks/useOnUserChange';
 
 export type EPlanDraft = {
   amount: number;
@@ -36,6 +37,7 @@ export function EPlanDraftProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<EPlanDraft>(DEFAULT_DRAFT);
   const updateDraft = (next: Partial<EPlanDraft>) => setDraft((prev) => ({ ...prev, ...next }));
   const resetDraft = () => setDraft(DEFAULT_DRAFT);
+  useOnUserChange(resetDraft);
   return (
     <EPlanDraftContext.Provider value={{ draft, updateDraft, resetDraft }}>
       {children}

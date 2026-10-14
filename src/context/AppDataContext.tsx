@@ -5,12 +5,14 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   ReactNode,
 } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useLocation } from './LocationContext';
+import { useOnUserChange } from '../hooks/useOnUserChange';
 export type Address = {
   id: string;
   label: string;
@@ -109,8 +111,10 @@ function mapRow(row: any): Address {
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
-  const { setLocation } = useLocation();
+  const { setLocation, resetLocation } = useLocation();
   const userId = session?.user.id;
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
   const meta = session?.user.user_metadata as Record<string, any> | undefined;
   const savedPasswordChangedAt: string | undefined = meta?.password_changed_at;
   const savedPinChangedAt: string | undefined = meta?.pin_changed_at;
@@ -126,6 +130,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [pinChangedAt, setPinChangedAt] = useState<string | null>(null);
   const [biometric, setBiometricState] = useState(false);
   const [twoFactor, setTwoFactorState] = useState(false);
+
+  useOnUserChange(() => {
+    setCards(initialCards);
+    setBiometricState(false);
+    setTwoFactorState(false);
+    resetLocation();
+  });
 
   // Load the saved dates for the signed-in user. If a date was never saved
   // (an account that hasn't changed it yet), fall back to when the account was created.
@@ -162,6 +173,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
+    if (userIdRef.current !== userId) return;
     if (error) {
       setAddressesError(error.message);
     } else {
@@ -203,10 +215,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .select()
       .single();
     if (error) throw new Error(error.message);
+    if (userIdRef.current !== userId) return;
     setAddresses((prev) => [...prev, mapRow(data)]);
   };
 
   const removeAddress = async (id: string) => {
+    const owner = userIdRef.current;
     const target = addresses.find((a) => a.id === id);
     const { error } = await supabase.from('addresses').delete().eq('id', id);
     if (error) throw new Error(error.message);
@@ -224,6 +238,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         remaining = remaining.map((a) => (a.id === next.id ? { ...a, isDefault: true } : a));
       }
     }
+    if (userIdRef.current !== owner) return;
     setAddresses(remaining);
   };
 
@@ -242,6 +257,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       await loadAddresses(); // put the screen back in sync with the database
       throw new Error(error.message);
     }
+    if (userIdRef.current !== userId) return;
     setAddresses((prev) => prev.map((a) => ({ ...a, isDefault: a.id === id })));
   };
 

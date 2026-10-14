@@ -1,3 +1,4 @@
+import { requestAccountDeletion } from '../services/accountDeletion';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { AuthError, Session } from '@supabase/supabase-js';
@@ -44,6 +45,7 @@ function isDeadSessionError(error: AuthError | null): boolean {
     error.status === 401 ||
     error.status === 403 ||
     code === 'user_not_found' ||
+    code === 'user_banned' ||
     code === 'session_not_found' ||
     code === 'refresh_token_not_found' ||
     code === 'bad_jwt' ||
@@ -194,18 +196,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteAccount = async (password: string, reason: string) => {
-    const email = session?.user?.email;
-    if (!email) throw new Error('No active session');
+    const userId = session?.user?.id;
+    if (!userId) throw new Error('No active session');
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) throw new Error('Incorrect password');
+    // The server verifies the password, re-checks every deletion restriction under a
+    // lock, marks the account deleted, and revokes all sessions. Throws AccountDeletionError.
+    await requestAccountDeletion(password, reason.trim());
 
-    await removeDevicePushToken(session?.user.id);
-
-    const { error: rpcError } = await supabase.rpc('delete_my_account', {
-      p_reason: reason.trim(),
-    });
-    if (rpcError) throw new Error('Could not delete your account. Please try again.');
+    try {
+      await removeDevicePushToken(userId);
+    } catch {
+      // best effort: the account is already deleted and its sessions revoked
+    }
 
     await supabase.auth.signOut({ scope: 'local' });
     setSession(null);

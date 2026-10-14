@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useOnUserChange } from '../hooks/useOnUserChange';
 
 const STORAGE_KEY = 'echop:favorites';
 
@@ -46,6 +47,8 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   };
 
   const clearFavorites = () => persist([]);
+
+  useOnUserChange(clearFavorites);
 
   const value = useMemo<FavoritesContextValue>(
     () => ({ favoriteIds, isFavorite, toggleFavorite, clearFavorites }),

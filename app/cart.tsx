@@ -11,8 +11,9 @@ import {
   LayoutAnimation,
   UIManager,
   Keyboard,
+  type KeyboardEvent,
 } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -35,6 +36,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = SCREEN_WIDTH * 0.055;
 const ITEM_IMAGE_SIZE = SCREEN_WIDTH * 0.18;
 const SUGGESTION_IMAGE_SIZE = SCREEN_WIDTH * 0.24;
+
+// Breathing room left above the promo section when it is scrolled into view.
+const PROMO_SCROLL_GAP = 12;
+const IS_IOS = Platform.OS === 'ios';
 
 const STOP_WORDS = new Set(['with', 'and', 'the', 'plus', 'combo', 'pack', 'meal', 'portion']);
 
@@ -95,6 +100,15 @@ function animateLayout() {
   });
 }
 
+// Matches the native iOS keyboard curve so the checkout bar rides up/down with the keyboard.
+function animateWithKeyboard(duration?: number) {
+  if (!IS_IOS) return;
+  LayoutAnimation.configureNext({
+    duration: duration && duration > 0 ? duration : 250,
+    update: { type: LayoutAnimation.Types.keyboard },
+  });
+}
+
 export default function CartScreen() {
   const router = useRouter();
   const {
@@ -125,6 +139,81 @@ export default function CartScreen() {
   } | null>(null);
 
   const [addedFromSuggestions, setAddedFromSuggestions] = useState<string[]>([]);
+
+  // ---- Keyboard handling -------------------------------------------------
+  const containerRef = useRef<View>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const promoSectionY = useRef(0);
+  const promoFocused = useRef(false);
+  const keyboardVisible = useRef(false);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  const scrollPromoIntoView = useCallback((delay = 0) => {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(promoSectionY.current - PROMO_SCROLL_GAP, 0),
+        animated: true,
+      });
+    }, delay);
+  }, []);
+
+  useEffect(() => {
+    const showEvent = IS_IOS ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = IS_IOS ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (e: KeyboardEvent) => {
+      keyboardVisible.current = true;
+      const keyboardTop = e.endCoordinates.screenY;
+      const keyboardHeight = e.endCoordinates.height;
+
+      // Measure how much of this screen the keyboard actually covers. If the OS has
+      // already resized the window (Android adjustResize), the overlap is 0 and we
+      // don't add any extra space — so the layout is never shifted twice.
+      containerRef.current?.measureInWindow((_x, y, _w, h) => {
+        const overlap = Math.min(Math.max(y + h - keyboardTop, 0), keyboardHeight);
+        animateWithKeyboard(e.duration);
+        setKeyboardOffset(overlap);
+
+        if (promoFocused.current) {
+          // Wait for the layout to settle so the scroll range includes the new space.
+          scrollPromoIntoView(IS_IOS ? (e.duration || 250) : 80);
+        }
+      });
+    };
+
+    const onHide = (e: KeyboardEvent) => {
+      keyboardVisible.current = false;
+      animateWithKeyboard(e?.duration);
+      setKeyboardOffset(0);
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    };
+  }, [scrollPromoIntoView]);
+
+  const handlePromoFocus = () => {
+    promoFocused.current = true;
+    // The floating notice sits above the checkout bar and would cover the field while typing.
+    if (promoNotice) {
+      animateLayout();
+      setPromoNotice(null);
+    }
+    // Keyboard already open (e.g. refocusing) — no show event will fire, so scroll now.
+    if (keyboardVisible.current) scrollPromoIntoView(0);
+  };
+
+  const handlePromoBlur = () => {
+    promoFocused.current = false;
+  };
+  // ------------------------------------------------------------------------
 
   const hasFoodReward = !!rewards.food;
 
@@ -250,9 +339,13 @@ export default function CartScreen() {
   }, [allMenuItems, lines, addedFromSuggestions, location.state, location.lga]);
 
   const isEmpty = lines.length === 0;
+  const keyboardOpen = keyboardOffset > 0;
 
   return (
-    <View style={styles.container}>
+    <View
+      ref={containerRef}
+      style={[styles.container, keyboardOpen && { paddingBottom: keyboardOffset }]}
+    >
       <StatusBar style="dark" />
 
       <View style={styles.header}>
@@ -293,6 +386,7 @@ export default function CartScreen() {
       ) : (
         <>
           <ScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
@@ -352,7 +446,12 @@ export default function CartScreen() {
               ))}
             </View>
 
-            <View style={styles.promoSection}>
+            <View
+              style={styles.promoSection}
+              onLayout={(e) => {
+                promoSectionY.current = e.nativeEvent.layout.y;
+              }}
+            >
               <Text style={styles.sectionLabel}>Promo Code</Text>
               <View style={styles.promoRow}>
                 <View style={[styles.promoInputWrap, !!promoError && styles.promoInputWrapError]}>
@@ -363,6 +462,8 @@ export default function CartScreen() {
                     placeholderTextColor={foodColors.textMuted}
                     value={promoCode}
                     onChangeText={handlePromoChange}
+                    onFocus={handlePromoFocus}
+                    onBlur={handlePromoBlur}
                     onSubmitEditing={() => { void applyPromo(); }}
                     returnKeyType="done"
                     autoCapitalize="characters"
@@ -424,6 +525,7 @@ export default function CartScreen() {
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.suggestionsRow}
+                  keyboardShouldPersistTaps="handled"
                 >
                   {suggestions.map((item) => {
                     const inCart = quantityOf(item.id) > 0;
@@ -476,7 +578,7 @@ export default function CartScreen() {
             <View style={styles.bottomSpacer} />
           </ScrollView>
 
-          <View style={styles.checkoutBar}>
+          <View style={[styles.checkoutBar, keyboardOpen && styles.checkoutBarKeyboardOpen]}>
             <View style={styles.checkoutTotalBlock}>
               <Text style={styles.checkoutTotalLabel}>Total</Text>
               <Text style={styles.checkoutTotalValue}>{formatNaira(total)}</Text>
@@ -484,7 +586,8 @@ export default function CartScreen() {
             <TouchableOpacity
               style={styles.checkoutButton}
               activeOpacity={0.85}
-              onPress={() =>
+              onPress={() => {
+                Keyboard.dismiss();
                 router.push({
                   pathname: '/checkout',
                   params: {
@@ -492,8 +595,8 @@ export default function CartScreen() {
                     promoCode: appliedPromo?.code ?? '',
                     discount: String(discount),
                   },
-                } as any)
-              }
+                } as any);
+              }}
             >
               <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
               <Feather name="arrow-right" size={16} color="#fff" />
@@ -915,6 +1018,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)',
   },
+  // The keyboard already covers the home-indicator area, so trim the extra bottom inset.
+  checkoutBarKeyboardOpen: { paddingBottom: 14 },
   checkoutTotalBlock: { flexShrink: 0 },
   checkoutTotalLabel: {
     fontSize: 11,

@@ -20,6 +20,11 @@ import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
+const MIN_PASSWORD_LENGTH = 8;
+/** New passwords must begin with an uppercase letter (A–Z), same rule as sign-up. */
+const STARTS_WITH_CAPITAL_RE = /^[A-Z]/;
+const SUCCESS_GREEN = '#22C55E';
+
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -30,11 +35,29 @@ export default function ResetPasswordScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const canSubmit =
-    password.length >= 8 && password === confirm && !busy;
+  const startsCapital = STARTS_WITH_CAPITAL_RE.test(password);
+  const longEnough = password.length >= MIN_PASSWORD_LENGTH;
+  const matches = confirm.length > 0 && password === confirm;
+
+  const canSubmit = startsCapital && longEnough && matches && !busy;
 
   const handleUpdate = async () => {
-    if (!canSubmit) return;
+    if (busy) return;
+
+    // Belt and braces: the button is disabled until these pass, but say why if it's ever reached.
+    if (!startsCapital) {
+      setError('Password must start with a capital letter (A–Z).');
+      return;
+    }
+    if (!longEnough) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (!matches) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     setBusy(true);
     setError('');
 
@@ -43,7 +66,12 @@ export default function ResetPasswordScreen() {
     setBusy(false);
 
     if (err) {
-      setError(err.message ?? 'Could not update password. Try again.');
+      const msg = (err.message ?? '').toLowerCase();
+      if ((err as any).code === 'same_password' || msg.includes('should be different')) {
+        setError('Your new password must be different from your old one.');
+      } else {
+        setError(err.message || 'Could not update password. Try again.');
+      }
       return;
     }
 
@@ -64,7 +92,8 @@ export default function ResetPasswordScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
         <Text style={styles.title}>Set a new password</Text>
         <Text style={styles.subtitle}>
-          Choose a strong password you haven't used before. At least 8 characters.
+          Choose a strong password you haven't used before. It must start with a capital letter
+          and be at least {MIN_PASSWORD_LENGTH} characters.
         </Text>
 
         <View style={styles.field}>
@@ -74,19 +103,30 @@ export default function ResetPasswordScreen() {
             <TextInput
               style={styles.input}
               value={password}
-              onChangeText={setPassword}
-              placeholder="At least 8 characters"
+              onChangeText={(t) => {
+                setPassword(t);
+                if (error) setError('');
+              }}
+              placeholder="Start with a capital letter"
               placeholderTextColor={foodColors.textMuted}
               secureTextEntry={secure}
               autoCapitalize="none"
             />
-            <TouchableOpacity onPress={() => setSecure((s) => !s)}>
+            <TouchableOpacity
+              onPress={() => setSecure((s) => !s)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Feather
                 name={secure ? 'eye-off' : 'eye'}
                 size={ms(16)}
                 color={foodColors.textMuted}
               />
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.pwRules}>
+            <PasswordRule ok={startsCapital} label="Starts with a capital letter (A–Z)" />
+            <PasswordRule ok={longEnough} label={`At least ${MIN_PASSWORD_LENGTH} characters`} />
           </View>
         </View>
 
@@ -97,13 +137,24 @@ export default function ResetPasswordScreen() {
             <TextInput
               style={styles.input}
               value={confirm}
-              onChangeText={setConfirm}
+              onChangeText={(t) => {
+                setConfirm(t);
+                if (error) setError('');
+              }}
               placeholder="Re-enter password"
               placeholderTextColor={foodColors.textMuted}
               secureTextEntry={secure}
               autoCapitalize="none"
+              returnKeyType="done"
+              onSubmitEditing={handleUpdate}
             />
           </View>
+
+          {confirm.length > 0 && (
+            <View style={styles.pwRules}>
+              <PasswordRule ok={matches} label={matches ? 'Passwords match' : 'Passwords do not match'} />
+            </View>
+          )}
         </View>
 
         {error ? (
@@ -130,6 +181,20 @@ export default function ResetPasswordScreen() {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+/** One line of the password checklist: grey until met, then green with a tick. */
+function PasswordRule({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <View style={styles.pwRule}>
+      <Feather
+        name={ok ? 'check-circle' : 'circle'}
+        size={ms(12)}
+        color={ok ? SUCCESS_GREEN : foodColors.textMuted}
+      />
+      <Text style={[styles.pwRuleText, ok && styles.pwRuleTextOk]}>{label}</Text>
+    </View>
   );
 }
 
@@ -175,6 +240,15 @@ const styles = StyleSheet.create({
     padding: 0,
     minWidth: 0,
   },
+
+  pwRules: { marginTop: ms(8), gap: ms(4) },
+  pwRule: { flexDirection: 'row', alignItems: 'center', gap: ms(6) },
+  pwRuleText: {
+    fontSize: ms(11.5),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textMuted,
+  },
+  pwRuleTextOk: { color: SUCCESS_GREEN, fontFamily: fonts.poppins.medium },
 
   errorBox: {
     flexDirection: 'row',

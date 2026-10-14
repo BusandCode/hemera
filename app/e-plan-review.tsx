@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Platform, ActivityIndicator, Modal } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -43,6 +43,10 @@ export default function EPlanReviewScreen() {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('wallet');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
+  // State updates are async, so a fast double tap could slip past `submitting`.
+  // This ref blocks a second wallet request synchronously.
+  const inFlight = useRef(false);
 
   const fixed = draft.fixedPlan;
   const durationDays = fixed ? fixed.durationDays : draft.duration === '1w' ? 7 : 14;
@@ -60,8 +64,10 @@ export default function EPlanReviewScreen() {
   const payAmount = fixed ? fixed.amount : draft.amount;
   const startsLabel = `Today, ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
 
-  const handleActivate = async () => {
-    if (submitting) return;
+  // Step 1: validate, then either go to bank transfer or ask the user to confirm the wallet debit.
+  // Nothing is debited here.
+  const handleActivate = () => {
+    if (submitting || inFlight.current) return;
 
     if (!tier.valid) {
       setError(`The minimum is ${formatNaira(tier.min)} for this duration. Go back and adjust your amount.`);
@@ -96,10 +102,21 @@ export default function EPlanReviewScreen() {
       return;
     }
 
+    setError('');
+    setShowConfirm(true);
+  };
+
+  // Step 2: only runs after the user taps "Yes, Proceed". The server re-checks the price,
+  // the balance and the one-active-plan rule before it debits anything.
+  const confirmWalletPayment = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setShowConfirm(false);
     setSubmitting(true);
     setError('');
 
     let data: string | null = null;
+    let ok = false;
     try {
       // The server owns the prices: fixed plans are looked up by key, custom amounts are
       // re-checked and tiered there, so the amount can't be tampered with from the app.
@@ -119,7 +136,7 @@ export default function EPlanReviewScreen() {
 
       if (result.error) {
         if (/insufficient.*balance/i.test(result.error.message)) {
-          setError('Insufficient wallet balance. Fund your wallet first.');
+          setError('Insufficient wallet balance. Fund your wallet first. No money was deducted.');
         } else if (/active_plan_exists/i.test(result.error.message)) {
           setError('You already have an active E-Plan. You can only run one at a time.');
         } else {
@@ -129,6 +146,7 @@ export default function EPlanReviewScreen() {
       }
 
       data = result.data as string | null;
+      ok = true;
     } catch (paymentError) {
       setError(
         paymentError instanceof Error && paymentError.message
@@ -138,6 +156,8 @@ export default function EPlanReviewScreen() {
       return;
     } finally {
       setSubmitting(false);
+      // Stay locked after success so nothing can fire again while we navigate away.
+      if (!ok) inFlight.current = false;
     }
 
     await refresh();
@@ -251,6 +271,49 @@ export default function EPlanReviewScreen() {
       </ScrollView>
 
       <BottomTabs />
+
+      <Modal
+        visible={showConfirm}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowConfirm(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconRing}>
+              <View style={styles.modalIcon}>
+                <MaterialCommunityIcons name="wallet" size={ms(24)} color="#fff" />
+              </View>
+            </View>
+
+            <Text style={styles.modalTitle}>Confirm Wallet Payment</Text>
+            <Text style={styles.modalBody}>
+              Are you sure you want to proceed with this payment using your wallet?{' '}
+              <Text style={styles.modalAmount}>{formatNaira(tier.locked)}</Text> will be deducted from
+              your available wallet balance of {formatNaira(balanceNaira)}.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalPrimary}
+              activeOpacity={0.85}
+              onPress={confirmWalletPayment}
+              accessibilityRole="button"
+            >
+              <Text style={styles.modalPrimaryText}>Yes, Proceed</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSecondary}
+              activeOpacity={0.7}
+              onPress={() => setShowConfirm(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.modalSecondaryText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -389,4 +452,21 @@ const styles = StyleSheet.create({
   primaryBtnDisabled: { opacity: 0.7 },
   btnIcon: { marginRight: ms(8) },
   primaryBtnText: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: '#fff' },
+
+  // Wallet confirmation — same look as the E-Plan "active plan" modal.
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(11,16,32,0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: ms(28) },
+  modalCard: {
+    width: '100%', backgroundColor: foodColors.surface, borderRadius: ms(26), paddingHorizontal: ms(24),
+    paddingTop: ms(28), paddingBottom: ms(18), alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12,
+  },
+  modalIconRing: { width: ms(84), height: ms(84), borderRadius: ms(42), backgroundColor: 'rgba(30,63,234,0.10)', justifyContent: 'center', alignItems: 'center', marginBottom: ms(18) },
+  modalIcon: { width: ms(54), height: ms(54), borderRadius: ms(27), backgroundColor: ACCENT_BLUE, justifyContent: 'center', alignItems: 'center' },
+  modalTitle: { fontSize: ms(19), lineHeight: ms(26), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, textAlign: 'center', marginBottom: ms(8) },
+  modalBody: { fontSize: ms(13), lineHeight: ms(19), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, textAlign: 'center', marginBottom: ms(22) },
+  modalAmount: { fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  modalPrimary: { width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: ms(8), backgroundColor: foodColors.primary, borderRadius: ms(26), paddingVertical: ms(15) },
+  modalPrimaryText: { fontSize: ms(14.5), fontFamily: fonts.poppins.bold, color: '#fff' },
+  modalSecondary: { paddingVertical: ms(14), paddingHorizontal: ms(20) },
+  modalSecondaryText: { fontSize: ms(13.5), fontFamily: fonts.poppins.semiBold, color: foodColors.textSecondary },
 });

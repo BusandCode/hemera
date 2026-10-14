@@ -102,6 +102,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+
   const profileRef = useRef(profile);
   useEffect(() => {
     profileRef.current = profile;
@@ -202,12 +205,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (photoChanging) {
+        if (photoChanging && userIdRef.current === userId) {
           setProfile((prev) => ({ ...prev, photoUri: photoUrl ?? null }));
         }
       } catch (e) {
         console.warn('[Profile] update error:', e);
-        setProfile(previous);
+        if (userIdRef.current === userId) setProfile(previous);
         throw e;
       } finally {
         setUploadingPhoto(false);

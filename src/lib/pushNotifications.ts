@@ -80,10 +80,6 @@ export async function registerPushNotifications(
   return 'registered';
 }
 
-/**
- * Removes this device's token for the given user. Must run while the user is still
- * signed in, because the delete is protected by row-level security.
- */
 export async function unregisterPushNotifications(userId: string): Promise<void> {
   if (!isPushSupported()) return;
 

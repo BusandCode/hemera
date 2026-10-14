@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   ReactNode,
 } from 'react';
@@ -43,11 +44,14 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
   const userId = session?.user.id;
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
 
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generatedCode, setGeneratedCode] = useState('');
+  const [generated, setGenerated] = useState<{ userId: string; code: string } | null>(null);
 
+  const generatedCode = generated && generated.userId === userId ? generated.code : '';
   const code = profile.referralCode || generatedCode;
 
   const refresh = useCallback(async () => {
@@ -61,6 +65,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
       .select('id, status, reward_type')
       .eq('referrer_id', userId)
       .order('created_at', { ascending: true });
+    if (userIdRef.current !== userId) return;
     if (!error && data) {
       setReferrals(
         data.map((r: any) => ({ id: r.id, status: r.status, rewardType: r.reward_type }))
@@ -76,7 +81,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId || profileLoading || profile.referralCode || generatedCode) return;
     supabase.rpc('ensure_referral_code').then(({ data }) => {
-      if (typeof data === 'string') setGeneratedCode(data);
+      if (typeof data === 'string') setGenerated({ userId, code: data });
     });
   }, [userId, profileLoading, profile.referralCode, generatedCode]);
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
+  Keyboard,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
@@ -21,6 +22,14 @@ import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { Avatar } from '../src/components/profile/Avatar';
 import { useProfile } from '../src/context/ProfileContext';
 import { useAuth } from '../src/context/AuthContext';
+import { useKeyboardAvoidance } from '../src/hooks/useKeyboardOverlap';
+import {
+  AccountDeletionError,
+  checkAccountDeletion,
+  DeletionBlocker,
+  describeDeletionBlockers,
+  DELETION_UNAVAILABLE_TITLE,
+} from '../src/services/accountDeletion';
 import { ms } from '../src/utils/responsive';
 
 type Field = {
@@ -28,6 +37,10 @@ type Field = {
   label: string;
   icon: keyof typeof Feather.glyphMap;
 };
+
+type DeleteField = 'reason' | 'password';
+
+type Dialog = { kind: 'confirm' } | { kind: 'blocked'; blockers: DeletionBlocker[] } | null;
 
 const fields: Field[] = [
   { key: 'fullName', label: 'Full Name', icon: 'user' },
@@ -40,6 +53,7 @@ const DANGER = '#E53935';
 
 export default function PersonalInformationScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile } = useProfile();
   const { deleteAccount } = useAuth();
 
@@ -47,32 +61,124 @@ export default function PersonalInformationScreen() {
   const [password, setPassword] = useState('');
   const [reason, setReason] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [checking, setChecking] = useState(false); // step 1: server pre-check
+  const [submitting, setSubmitting] = useState(false); // step 2: actual deletion
   const [error, setError] = useState('');
+  const [dialog, setDialog] = useState<Dialog>(null);
 
-  const canSubmit = password.length > 0 && reason.trim().length > 0 && !submitting;
+  // Synchronous guard: state updates are async, so a fast double tap can slip past `busy`.
+  const inFlight = useRef(false);
 
-  const closeDelete = () => {
-    if (submitting) return;
-    setDeleteOpen(false);
+  const modalRootRef = useRef<View>(null);
+  const sheetScrollRef = useRef<ScrollView>(null);
+  const fieldY = useRef<Record<DeleteField, number>>({ reason: 0, password: 0 });
+  const focusedField = useRef<DeleteField | null>(null);
+
+  const { overlap: keyboardOverlap, onLayout: remeasureKeyboard } = useKeyboardAvoidance(
+    modalRootRef,
+    deleteOpen,
+  );
+  const keyboardOpen = keyboardOverlap > 0;
+
+  const busy = checking || submitting;
+  const canSubmit = password.length > 0 && reason.trim().length > 0 && !busy;
+
+  const scrollToField = (field: DeleteField) => {
+    requestAnimationFrame(() => {
+      sheetScrollRef.current?.scrollTo({
+        y: Math.max(0, fieldY.current[field] - ms(8)),
+        animated: true,
+      });
+    });
+  };
+
+  const handleFocus = (field: DeleteField) => {
+    focusedField.current = field;
+    scrollToField(field);
+  };
+
+  const handleBlur = (field: DeleteField) => {
+    if (focusedField.current === field) focusedField.current = null;
+  };
+
+  useEffect(() => {
+    if (error) sheetScrollRef.current?.scrollToEnd({ animated: true });
+  }, [error]);
+
+  const resetForm = () => {
     setPassword('');
     setReason('');
     setError('');
     setShowPassword(false);
+    setDialog(null);
+    focusedField.current = null;
   };
 
-  const handleDelete = async () => {
-    if (!canSubmit) return;
+  const closeDelete = () => {
+    if (busy) return;
+    setDeleteOpen(false);
+    resetForm();
+  };
+
+  const handleRequestClose = () => {
+    // Android back: close the dialog first, then the sheet.
+    if (dialog) {
+      if (!submitting) setDialog(null);
+      return;
+    }
+    closeDelete();
+  };
+
+  const handleFailure = (e: unknown) => {
+    if (e instanceof AccountDeletionError && e.code === 'ACCOUNT_DELETION_BLOCKED') {
+      setDialog({ kind: 'blocked', blockers: e.blockers });
+      return;
+    }
+    setDialog(null);
+    setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+  };
+
+  // Step 1: "Delete Account" — verify password + eligibility on the server, then ask to confirm.
+  const handleDeletePress = async () => {
+    if (!canSubmit || inFlight.current) return;
+    inFlight.current = true;
+    Keyboard.dismiss();
+    setChecking(true);
+    setError('');
+    try {
+      await checkAccountDeletion(password, reason.trim());
+      setDialog({ kind: 'confirm' });
+    } catch (e) {
+      handleFailure(e);
+    } finally {
+      inFlight.current = false;
+      setChecking(false);
+    }
+  };
+
+  // Step 2: "Yes" — the server re-checks everything under a lock before deleting.
+  const handleConfirmYes = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSubmitting(true);
     setError('');
     try {
-      await deleteAccount(password, reason);
+      await deleteAccount(password, reason.trim());
       setDeleteOpen(false);
+      resetForm();
       router.replace('/' as any);
+      Alert.alert('Account deleted', 'Your account has been deleted and you have been signed out.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      handleFailure(e);
+    } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
+  };
+
+  const handleConfirmNo = () => {
+    if (submitting) return;
+    setDialog(null); // back to the form with password + reason kept
   };
 
   return (
@@ -123,80 +229,191 @@ export default function PersonalInformationScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <Modal visible={deleteOpen} transparent animationType="slide" onRequestClose={closeDelete}>
-        <KeyboardAvoidingView
-          style={styles.modalRoot}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <Modal
+        visible={deleteOpen}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={handleRequestClose}
+      >
+        <View
+          ref={modalRootRef}
+          collapsable={false}
+          onLayout={remeasureKeyboard}
+          style={[
+            styles.modalRoot,
+            { paddingTop: insets.top + ms(8), paddingBottom: keyboardOverlap },
+          ]}
         >
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={closeDelete} />
-          <View style={styles.sheet}>
+          <View
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: keyboardOpen
+                  ? ms(12)
+                  : Math.max(ms(28), insets.bottom + ms(12)),
+              },
+            ]}
+          >
             <View style={styles.sheetHandle} />
-            <View style={styles.warnIconWrap}>
-              <Feather name="alert-triangle" size={ms(22)} color={DANGER} />
-            </View>
-            <Text style={styles.sheetTitle}>Delete your account?</Text>
-            <Text style={styles.sheetNote}>
-              Your account and all data linked to it, including your profile, orders and
-              subscriptions, will be permanently deleted. This can't be undone.
-            </Text>
 
-            <Text style={styles.inputLabel}>Reason for leaving</Text>
-            <TextInput
-              style={[styles.input, styles.reasonInput]}
-              value={reason}
-              onChangeText={setReason}
-              placeholder="Tell us why you're deleting your account"
-              placeholderTextColor={foodColors.textMuted}
-              multiline
-              editable={!submitting}
-              textAlignVertical="top"
-            />
+            <ScrollView
+              ref={sheetScrollRef}
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.sheetScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              onLayout={() => {
+                if (focusedField.current) scrollToField(focusedField.current);
+              }}
+            >
+              <View style={styles.warnIconWrap}>
+                <Feather name="alert-triangle" size={ms(22)} color={DANGER} />
+              </View>
+              <Text style={styles.sheetTitle}>Delete your account?</Text>
+              <Text style={styles.sheetNote}>
+                You'll be signed out and lose access to your profile, orders and subscriptions.
+                To restore the account later, you'll need to contact Support.
+              </Text>
 
-            <Text style={styles.inputLabel}>Confirm your password</Text>
-            <View style={styles.passwordWrap}>
-              <TextInput
-                style={styles.passwordInput}
-                value={password}
-                onChangeText={(t) => {
-                  setPassword(t);
-                  if (error) setError('');
+              <View
+                onLayout={(e) => {
+                  fieldY.current.reason = e.nativeEvent.layout.y;
                 }}
-                placeholder="Enter your account password"
-                placeholderTextColor={foodColors.textMuted}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!submitting}
-              />
-              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={10}>
-                <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={ms(17)}
-                  color={foodColors.textMuted}
+              >
+                <Text style={styles.inputLabel}>Reason for leaving</Text>
+                <TextInput
+                  style={[styles.input, styles.reasonInput]}
+                  value={reason}
+                  onChangeText={setReason}
+                  placeholder="Tell us why you're deleting your account"
+                  placeholderTextColor={foodColors.textMuted}
+                  multiline
+                  maxLength={1000}
+                  editable={!busy}
+                  textAlignVertical="top"
+                  onFocus={() => handleFocus('reason')}
+                  onBlur={() => handleBlur('reason')}
                 />
+              </View>
+
+              <View
+                onLayout={(e) => {
+                  fieldY.current.password = e.nativeEvent.layout.y;
+                }}
+              >
+                <Text style={styles.inputLabel}>Confirm your password</Text>
+                <View style={styles.passwordWrap}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={password}
+                    onChangeText={(t) => {
+                      setPassword(t);
+                      if (error) setError('');
+                    }}
+                    placeholder="Enter your account password"
+                    placeholderTextColor={foodColors.textMuted}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!busy}
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                    onFocus={() => handleFocus('password')}
+                    onBlur={() => handleBlur('password')}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={10}>
+                    <Feather
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={ms(17)}
+                      color={foodColors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {!!error && <Text style={styles.errorText}>{error}</Text>}
+            </ScrollView>
+
+            <View style={styles.sheetFooter}>
+              <TouchableOpacity
+                style={[styles.confirmBtn, !canSubmit && styles.confirmBtnDisabled]}
+                activeOpacity={0.85}
+                disabled={!canSubmit}
+                onPress={handleDeletePress}
+              >
+                {checking ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Delete Account</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.cancelBtn} onPress={closeDelete} disabled={busy}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-
-            {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-            <TouchableOpacity
-              style={[styles.confirmBtn, !canSubmit && styles.confirmBtnDisabled]}
-              activeOpacity={0.85}
-              disabled={!canSubmit}
-              onPress={handleDelete}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Permanently delete account</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.cancelBtn} onPress={closeDelete} disabled={submitting}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+
+          {dialog && (
+            <View style={styles.dialogOverlay}>
+              <View style={styles.dialogCard} accessibilityViewIsModal>
+                <View style={styles.warnIconWrap}>
+                  <Feather
+                    name={dialog.kind === 'blocked' ? 'slash' : 'alert-triangle'}
+                    size={ms(22)}
+                    color={DANGER}
+                  />
+                </View>
+
+                {dialog.kind === 'confirm' ? (
+                  <>
+                    <Text style={styles.sheetTitle}>Are you sure?</Text>
+                    <Text style={styles.dialogBody}>
+                      Do you want to proceed with deleting your Hemera account? You'll be signed
+                      out immediately.
+                    </Text>
+                    <View style={styles.dialogActions}>
+                      <TouchableOpacity
+                        style={[styles.dialogBtn, styles.dialogBtnSecondary]}
+                        onPress={handleConfirmNo}
+                        disabled={submitting}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.dialogBtnSecondaryText}>No</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.dialogBtn, styles.dialogBtnDanger]}
+                        onPress={handleConfirmYes}
+                        disabled={submitting}
+                        activeOpacity={0.85}
+                      >
+                        {submitting ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.dialogBtnDangerText}>Yes, delete</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.sheetTitle}>{DELETION_UNAVAILABLE_TITLE}</Text>
+                    <Text style={styles.dialogBody}>{describeDeletionBlockers(dialog.blockers)}</Text>
+                    <TouchableOpacity
+                      style={[styles.dialogBtn, styles.dialogBtnSecondary, styles.dialogBtnFull]}
+                      onPress={() => setDialog(null)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.dialogBtnSecondaryText}>OK</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          )}
+        </View>
       </Modal>
     </View>
   );
@@ -276,12 +493,13 @@ const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: {
+    flexShrink: 1,
+    maxHeight: '100%',
     backgroundColor: foodColors.background,
     borderTopLeftRadius: ms(24),
     borderTopRightRadius: ms(24),
     paddingHorizontal: '5.5%',
     paddingTop: ms(10),
-    paddingBottom: ms(28),
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -291,6 +509,9 @@ const styles = StyleSheet.create({
     backgroundColor: foodColors.border,
     marginBottom: ms(16),
   },
+  sheetScroll: { flexGrow: 0, flexShrink: 1 },
+  sheetScrollContent: { paddingBottom: ms(4) },
+  sheetFooter: { flexShrink: 0 },
   warnIconWrap: {
     alignSelf: 'center',
     width: ms(48),
@@ -332,7 +553,7 @@ const styles = StyleSheet.create({
     color: foodColors.textPrimary,
     marginBottom: ms(14),
   },
-  reasonInput: { minHeight: ms(84) },
+  reasonInput: { minHeight: ms(84), maxHeight: ms(140) },
   passwordWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -373,5 +594,52 @@ const styles = StyleSheet.create({
     fontSize: ms(13),
     fontFamily: fonts.poppins.semiBold,
     color: foodColors.textSecondary,
+  },
+
+  dialogOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: '8%',
+  },
+  dialogCard: {
+    width: '100%',
+    maxWidth: ms(380),
+    backgroundColor: foodColors.background,
+    borderRadius: ms(20),
+    paddingHorizontal: ms(20),
+    paddingTop: ms(22),
+    paddingBottom: ms(18),
+  },
+  dialogBody: {
+    textAlign: 'center',
+    fontSize: ms(13),
+    lineHeight: ms(20),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textSecondary,
+    marginTop: ms(8),
+    marginBottom: ms(18),
+  },
+  dialogActions: { flexDirection: 'row', gap: ms(10) },
+  dialogBtn: {
+    flex: 1,
+    minHeight: ms(46),
+    borderRadius: ms(23),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogBtnFull: { flex: 0, alignSelf: 'stretch' },
+  dialogBtnSecondary: { backgroundColor: foodColors.surface },
+  dialogBtnSecondaryText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.semiBold,
+    color: foodColors.textPrimary,
+  },
+  dialogBtnDanger: { backgroundColor: DANGER },
+  dialogBtnDangerText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.semiBold,
+    color: '#fff',
   },
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -12,6 +12,7 @@ import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { useEPlanDraft } from '../src/context/EPlanDraftContext';
+import { useKeyboardAwareScroll } from '../src/hooks/useKeyboardAwareScroll';
 import { ms } from '../src/utils/responsive';
 
 const ACCENT_BLUE = '#1E3FEA';
@@ -117,6 +118,8 @@ export default function EPlanExclusionsScreen() {
   const { profile } = useProfile();
   const { balanceNaira } = useWalletBalance();
   const { draft, updateDraft } = useEPlanDraft();
+  const kb = useKeyboardAwareScroll(ms(16));
+  const noteBoxRef = useRef<View>(null);
 
   const [proteins, setProteins] = useState<string[]>(
     PROTEINS.filter((p) => draft.proteinLabels.includes(p.label)).map((p) => p.key)
@@ -148,54 +151,65 @@ export default function EPlanExclusionsScreen() {
         />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.titleRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
+      <View ref={kb.viewportRef} collapsable={false} style={styles.scroll}>
+        <ScrollView
+          ref={kb.scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={[styles.content, { paddingBottom: 24 + kb.keyboardInset }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          onScroll={kb.onScroll}
+          scrollEventThrottle={16}
+        >
+          <View style={styles.titleRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+              <Feather name="arrow-left" size={ms(18)} color={foodColors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Setup E-Plan</Text>
+          </View>
+
+          <Text style={styles.subtitle}>Step 2 of 3 — Dietary Restrictions</Text>
+
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: '67%' }]} />
+          </View>
+          <Text style={styles.progressLabel}>67%</Text>
+
+          <Text style={styles.sectionLabel}>PROTEINS TO EXCLUDE</Text>
+          <OptionGrid options={PROTEINS} selected={proteins} onToggle={(k) => setProteins((p) => toggle(p, k))} columns={4} />
+
+          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>ALLERGENS & PREFERENCES</Text>
+          <OptionGrid options={ALLERGENS} selected={allergens} onToggle={(k) => setAllergens((a) => toggle(a, k))} columns={4} />
+
+          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>ADDITIONAL NOTE (OPTIONAL)</Text>
+          <View ref={noteBoxRef} collapsable={false} style={styles.noteBox}>
+            <TextInput
+              style={styles.noteInput}
+              value={note}
+              onChangeText={(text) => setNote(text.slice(0, NOTE_MAX_LENGTH))}
+              placeholder="Tell us anything else about your allergies, preferences or dietary needs..."
+              placeholderTextColor={foodColors.textMuted}
+              multiline
+              maxLength={NOTE_MAX_LENGTH}
+              onFocus={kb.focusTarget(noteBoxRef)}
+              // The box grows as the user types new lines; keep its bottom above the keyboard.
+              onContentSizeChange={kb.revealTarget}
+            />
+            <Text style={styles.noteCount}>
+              {note.length}/{NOTE_MAX_LENGTH}
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.reviewBtn} activeOpacity={0.85} onPress={handleReview}>
+            <Text style={styles.reviewBtnText}>Review & Pay</Text>
+            <Feather name="arrow-right" size={ms(16)} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.title}>Setup E-Plan</Text>
-        </View>
+        </ScrollView>
+      </View>
 
-        <Text style={styles.subtitle}>Step 2 of 3 — Dietary Restrictions</Text>
-
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: '67%' }]} />
-        </View>
-        <Text style={styles.progressLabel}>67%</Text>
-
-        <Text style={styles.sectionLabel}>PROTEINS TO EXCLUDE</Text>
-        <OptionGrid options={PROTEINS} selected={proteins} onToggle={(k) => setProteins((p) => toggle(p, k))} columns={4} />
-
-        <Text style={[styles.sectionLabel, styles.sectionSpacing]}>ALLERGENS & PREFERENCES</Text>
-        <OptionGrid options={ALLERGENS} selected={allergens} onToggle={(k) => setAllergens((a) => toggle(a, k))} columns={4} />
-
-        <Text style={[styles.sectionLabel, styles.sectionSpacing]}>ADDITIONAL NOTE (OPTIONAL)</Text>
-        <View style={styles.noteBox}>
-          <TextInput
-            style={styles.noteInput}
-            value={note}
-            onChangeText={(text) => setNote(text.slice(0, NOTE_MAX_LENGTH))}
-            placeholder="Tell us anything else about your allergies, preferences or dietary needs..."
-            placeholderTextColor={foodColors.textMuted}
-            multiline
-            maxLength={NOTE_MAX_LENGTH}
-          />
-          <Text style={styles.noteCount}>
-            {note.length}/{NOTE_MAX_LENGTH}
-          </Text>
-        </View>
-
-        <TouchableOpacity style={styles.reviewBtn} activeOpacity={0.85} onPress={handleReview}>
-          <Text style={styles.reviewBtnText}>Review & Pay</Text>
-          <Feather name="arrow-right" size={ms(16)} color="#fff" />
-        </TouchableOpacity>
-      </ScrollView>
-
-      <BottomTabs />
+      {/* The tab bar would otherwise ride up on the keyboard and eat the space the note needs. */}
+      {!kb.keyboardVisible && <BottomTabs />}
     </View>
   );
 }

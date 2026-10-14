@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -148,6 +149,7 @@ export default function FoodProfileScreen() {
   const { favoriteIds } = useFavorites();
   const scrollRef = useResetOnFocus<ScrollView>();
   const [comingSoonItem, setComingSoonItem] = useState<MenuItem | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const popAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -173,6 +175,7 @@ export default function FoodProfileScreen() {
   };
 
   const handleLogout = async () => {
+    if (loggingOut) return;
     const confirmed = await dialog.confirm({
       title: 'Log Out',
       message: 'Are you sure you want to log out?',
@@ -181,8 +184,13 @@ export default function FoodProfileScreen() {
       icon: 'log-out',
     });
     if (!confirmed) return;
-    await signOut();
-    router.replace('/auth' as any);
+    setLoggingOut(true);
+    try {
+      await signOut();
+      router.replace('/auth' as any);
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   const fullName = profile?.fullName?.trim() || displayName || 'Your name';
@@ -240,9 +248,18 @@ export default function FoodProfileScreen() {
         <MenuSection title="PREFERENCES" items={preferenceItems} onPressItem={handleItemPress} />
         <MenuSection title="HELP & SUPPORT" items={supportItems} onPressItem={handleItemPress} />
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
-          <Feather name="log-out" size={18} color="#FF3B30" />
-          <Text style={styles.logoutText}>Log Out</Text>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          disabled={loggingOut}
+          activeOpacity={0.85}
+        >
+          {loggingOut ? (
+            <ActivityIndicator size="small" color="#FF3B30" />
+          ) : (
+            <Feather name="log-out" size={18} color="#FF3B30" />
+          )}
+          <Text style={styles.logoutText}>{loggingOut ? 'Logging out...' : 'Log Out'}</Text>
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />

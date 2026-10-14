@@ -34,6 +34,8 @@ const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
 const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+/** New passwords must begin with an uppercase letter (A–Z). */
+const STARTS_WITH_CAPITAL_RE = /^[A-Z]/;
 
 type AuthErr = { message?: string; code?: string; status?: number; name?: string };
 
@@ -271,6 +273,10 @@ export default function AuthScreen() {
 
   const isSignUp = mode === 'signup';
 
+  // Live checks for the sign-up password hint.
+  const pwStartsCapital = STARTS_WITH_CAPITAL_RE.test(password);
+  const pwLongEnough = password.length >= MIN_PASSWORD_LENGTH;
+
   const firstName = (
     name ||
     ((session?.user?.user_metadata?.full_name as string | undefined) ?? '')
@@ -292,12 +298,17 @@ export default function AuthScreen() {
       if (name.trim().length < 2) return 'Please enter your full name.';
       if (!EMAIL_RE.test(email.trim())) return 'Enter a valid email address.';
       if (phone.length !== 11) return 'Phone number must be 11 digits.';
+      // Checked on the raw value: a leading space is not a capital letter.
+      if (!STARTS_WITH_CAPITAL_RE.test(password)) {
+        return 'Password must start with a capital letter (A–Z).';
+      }
       if (password.trim().length < MIN_PASSWORD_LENGTH) {
         return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
       }
       if (!agreed) return 'Please agree to the Terms of Use and Privacy Policy to continue.';
       return '';
     }
+    // Sign-in is not checked against the capital-letter rule, so existing passwords still work.
     if (!email.trim() || !password.trim()) return 'Please enter your email and password to continue.';
     if (!EMAIL_RE.test(email.trim())) return 'Enter a valid email address.';
     return '';
@@ -687,9 +698,12 @@ export default function AuthScreen() {
                 <TextInput
                   style={styles.input}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(t) => {
+                    setPassword(t);
+                    if (error) setError('');
+                  }}
                   placeholder={
-                    isSignUp ? `At least ${MIN_PASSWORD_LENGTH} characters` : 'Your password'
+                    isSignUp ? 'Start with a capital letter' : 'Your password'
                   }
                   placeholderTextColor={foodColors.textMuted}
                   secureTextEntry={secure}
@@ -706,6 +720,16 @@ export default function AuthScreen() {
                   />
                 </TouchableOpacity>
               </View>
+
+              {isSignUp && (
+                <View style={styles.pwRules}>
+                  <PasswordRule ok={pwStartsCapital} label="Starts with a capital letter (A–Z)" />
+                  <PasswordRule
+                    ok={pwLongEnough}
+                    label={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                  />
+                </View>
+              )}
 
               {!isSignUp && (
                 <TouchableOpacity
@@ -806,6 +830,20 @@ export default function AuthScreen() {
   );
 }
 
+/** One line of the sign-up password checklist: grey until met, then green with a tick. */
+function PasswordRule({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <View style={styles.pwRule}>
+      <Feather
+        name={ok ? 'check-circle' : 'circle'}
+        size={ms(12)}
+        color={ok ? SUCCESS_GREEN : foodColors.textMuted}
+      />
+      <Text style={[styles.pwRuleText, ok && styles.pwRuleTextOk]}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
   scroll: { flex: 1 },
@@ -895,6 +933,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.poppins.semiBold,
     letterSpacing: 8,
   },
+
+  pwRules: { marginTop: ms(8), gap: ms(4) },
+  pwRule: { flexDirection: 'row', alignItems: 'center', gap: ms(6) },
+  pwRuleText: {
+    fontSize: ms(11.5),
+    fontFamily: fonts.poppins.regular,
+    color: foodColors.textMuted,
+  },
+  pwRuleTextOk: { color: SUCCESS_GREEN, fontFamily: fonts.poppins.medium },
 
   forgotRow: {
     alignItems: 'flex-end',
