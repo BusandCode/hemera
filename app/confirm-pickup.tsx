@@ -57,33 +57,68 @@ export default function ConfirmPickupScreen() {
 
   const scheduleCoveredPickup = async () => {
     setSubmitting(true);
-    const { data, error } = await callSchedule(false);
-    setSubmitting(false);
+    try {
+      const { data, error } = await callSchedule(false);
 
-    if (error) {
-      Alert.alert('Could not schedule pickup', planErrorMessage(error.message));
-      return;
+      if (error) {
+        console.log('[confirm-pickup] schedule_plan_pickup failed:', error.message);
+        Alert.alert('Could not schedule pickup', planErrorMessage(error.message));
+        return;
+      }
+
+      const row: any = Array.isArray(data) ? data[0] : data;
+      setSuccessRef(String(row?.ref ?? (typeof row === 'string' ? row : '')));
+    } catch (e: any) {
+      console.log('[confirm-pickup] schedule threw:', e?.message ?? e);
+      Alert.alert('Could not schedule pickup', 'Network problem. Please check your connection and try again.');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSuccessRef(String((data as any)?.ref ?? ''));
   };
 
   const handlePay = async () => {
-    if (submitting || orderItems.length === 0 || !pickupAddress) return;
+    if (submitting) return;
+
+    // Never fail silently: tell the person what is missing.
+    if (orderItems.length === 0) {
+      Alert.alert('No items', 'We could not find the items for this pickup. Please go back and add them again.');
+      return;
+    }
+    if (!pickupAddress) {
+      Alert.alert('Pickup address missing', 'Please go back and enter a pickup address.');
+      return;
+    }
+    if (!pickupDateId || !pickupTime) {
+      Alert.alert('Pickup time missing', 'Please go back and choose a pickup date and time slot.');
+      return;
+    }
 
     if (covered && total === 0) {
-      scheduleCoveredPickup();
+      await scheduleCoveredPickup();
       return;
     }
 
     if (covered) {
       setSubmitting(true);
-      const { error } = await callSchedule(true);
-      setSubmitting(false);
-      if (error) {
-        Alert.alert('Could not schedule pickup', planErrorMessage(error.message));
+      try {
+        const { error } = await callSchedule(true);
+        if (error) {
+          console.log('[confirm-pickup] dry run failed:', error.message);
+          Alert.alert('Could not schedule pickup', planErrorMessage(error.message));
+          return;
+        }
+      } catch (e: any) {
+        console.log('[confirm-pickup] dry run threw:', e?.message ?? e);
+        Alert.alert('Could not schedule pickup', 'Network problem. Please check your connection and try again.');
         return;
+      } finally {
+        setSubmitting(false);
       }
+    }
+
+    if (!(total > 0)) {
+      Alert.alert('Invalid amount', 'We could not work out the total for this pickup. Please try again.');
+      return;
     }
 
     router.push({

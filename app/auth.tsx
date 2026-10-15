@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Redirect } from 'expo-router';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Modal,
@@ -177,6 +178,8 @@ async function confirmAccountReady(userId: string): Promise<boolean> {
 
 const SUCCESS_GREEN = '#22C55E';
 const SUCCESS_GREEN_LIGHT = 'rgba(34,197,94,0.12)';
+const ERROR_RED = '#FF3B30';
+const ERROR_RED_LIGHT = 'rgba(255,59,48,0.10)';
 
 function AccountCreatedModal({
   visible,
@@ -245,6 +248,33 @@ function AccountCreatedModal({
   );
 }
 
+function ErrorModal({ message, onClose }: { message: string; onClose: () => void }) {
+  const lastMessage = useRef(message);
+  if (message) lastMessage.current = message;
+
+  return (
+    <Modal
+      visible={!!message}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.successBackdrop}>
+        <View style={styles.errorCard}>
+          <View style={styles.errorBadge}>
+            <Feather name="alert-circle" size={ms(30)} color={ERROR_RED} />
+          </View>
+          <Text style={styles.errorBody}>{lastMessage.current}</Text>
+          <TouchableOpacity style={styles.errorBtn} onPress={onClose} activeOpacity={0.85}>
+            <Text style={styles.errorBtnText}>Okay</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function AuthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -272,6 +302,7 @@ export default function AuthScreen() {
   const [successOpen, setSuccessOpen] = useState(false);
 
   const isSignUp = mode === 'signup';
+  const showSignUpLoader = busy && isSignUp && step === 'form';
 
   // Live checks for the sign-up password hint.
   const pwStartsCapital = STARTS_WITH_CAPITAL_RE.test(password);
@@ -534,13 +565,6 @@ export default function AuthScreen() {
               </View>
             </View>
 
-            {error ? (
-              <View style={styles.errorBox}>
-                <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
             <TouchableOpacity
               style={[styles.submit, busy && styles.submitDisabled]}
               onPress={handleVerify}
@@ -773,13 +797,6 @@ export default function AuthScreen() {
               </View>
             )}
 
-            {error ? (
-              <View style={styles.errorBox}>
-                <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
             <TouchableOpacity
               style={[styles.submit, busy && styles.submitDisabled]}
               onPress={handleSubmit}
@@ -826,6 +843,17 @@ export default function AuthScreen() {
         firstName={firstName}
         onContinue={handleSuccessContinue}
       />
+
+      <ErrorModal message={error} onClose={() => setError('')} />
+
+      {showSignUpLoader ? (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={foodColors.primary} />
+            <Text style={styles.loadingText}>Creating your account...</Text>
+          </View>
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -1018,21 +1046,50 @@ const styles = StyleSheet.create({
     marginLeft: ms(30),
   },
 
-  errorBox: {
-    flexDirection: 'row',
+  errorCard: {
+    width: '100%',
+    maxWidth: ms(360),
+    backgroundColor: foodColors.background,
+    borderRadius: ms(24),
+    paddingHorizontal: ms(22),
+    paddingTop: ms(26),
+    paddingBottom: ms(22),
     alignItems: 'center',
-    gap: ms(6),
-    backgroundColor: 'rgba(255,59,48,0.08)',
-    borderRadius: ms(10),
-    paddingVertical: ms(10),
-    paddingHorizontal: ms(12),
-    marginBottom: ms(12),
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
-  errorText: {
-    fontSize: ms(12),
+  errorBadge: {
+    width: ms(64),
+    height: ms(64),
+    borderRadius: ms(32),
+    backgroundColor: ERROR_RED_LIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: ms(14),
+  },
+  errorBody: {
+    fontSize: ms(14),
+    lineHeight: ms(20),
     fontFamily: fonts.poppins.medium,
-    color: '#FF3B30',
-    flexShrink: 1,
+    color: foodColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: ms(22),
+  },
+  errorBtn: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: foodColors.primary,
+    paddingVertical: ms(14),
+    borderRadius: ms(26),
+  },
+  errorBtnText: {
+    fontSize: ms(14),
+    fontFamily: fonts.poppins.bold,
+    color: '#fff',
   },
 
   submit: {
@@ -1137,6 +1194,31 @@ const styles = StyleSheet.create({
   backLink: { alignItems: 'center', paddingVertical: ms(6) },
   backText: {
     fontSize: ms(12.5),
+    fontFamily: fonts.poppins.medium,
+    color: foodColors.textSecondary,
+  },
+
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(11,16,32,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingCard: {
+    backgroundColor: foodColors.background,
+    borderRadius: ms(20),
+    paddingVertical: ms(26),
+    paddingHorizontal: ms(32),
+    alignItems: 'center',
+    gap: ms(14),
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  loadingText: {
+    fontSize: ms(13),
     fontFamily: fonts.poppins.medium,
     color: foodColors.textSecondary,
   },

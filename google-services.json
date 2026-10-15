@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:108648145854:android:1122960c65774fd8f50fef",
+        "android_client_info": {
+          "package_name": "com.busandcode.hemera"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7-jv8iesHO0hGj5MVzSLVBeOBtX05bhY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:108648145854:android:4f07c42499c7797ff50fef",
         "android_client_info": {
           "package_name": "com.busandcode.hemera8"

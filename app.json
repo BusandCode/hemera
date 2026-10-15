@@ -23,7 +23,13 @@
       "package": "com.busandcode.hemera",
       "googleServicesFile": "./google-services.json",
       "allowBackup": false,
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -58,7 +64,8 @@
           "faceIDPermission": "Allow Hemera to use Face ID to unlock the app."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
@@ -66,14 +73,15 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "92a2d1c3-f97e-4713-b213-91a622d9c040"
+        "projectId": "a83557ff-c600-4aec-bb48-61a1814d21b5"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
+    "owner": "hemera-app",
     "updates": {
-      "url": "https://u.expo.dev/92a2d1c3-f97e-4713-b213-91a622d9c040"
+      "url": "https://u.expo.dev/a83557ff-c600-4aec-bb48-61a1814d21b5"
     }
   }
 }

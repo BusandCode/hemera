@@ -40,13 +40,18 @@ const ui = {
   warningBorder: '#FCE7D2',
 };
 
+// Name of the company's Flutterwave account, shown under the account number. Keep it identical to the
+// name on the Flutterwave dashboard so it matches what the customer's bank app shows.
+const FLUTTERWAVE_ACCOUNT_NAME = process.env.EXPO_PUBLIC_PAYMENT_ACCOUNT_NAME || 'Webby Stay';
+
 const RING = 76;
 const RING_STROKE = 4;
 const REQUEST_TIMEOUT_MS = 20000;
-// While the loading overlay is up, we re-check the payment on this interval as a backup to realtime.
 const POLL_INTERVAL_MS = 4000;
 // If nothing has arrived after this long, release the screen so the user is never stuck.
 const WAIT_LIMIT_MS = 90000;
+// The screen keeps watching for the payment on its own until this long after the account expires.
+const AUTO_WATCH_GRACE_SECONDS = 600;
 
 // Statuses we treat as "paid". The webhook is expected to write 'success', but be tolerant of spelling.
 const PAID_STATUSES = ['success', 'successful', 'completed', 'paid'];
@@ -191,14 +196,16 @@ export default function FundWalletAccountScreen() {
   const [copied, setCopied] = useState<'account' | 'reference' | null>(null);
   const orderPlacedRef = useRef(false);
   const handledRef = useRef(false);
+  const pausedRef = useRef(false);
   const waitStartRef = useRef(0);
+  const watchStartRef = useRef(0);
   // One key per funding attempt. It stays the same when the user retries the SAME attempt, and is only
   // replaced when they ask for a genuinely new account.
   const idempotencyKeyRef = useRef(makeIdempotencyKey());
   const lastServerCheckRef = useRef(0);
 
-  // The screen is locked from the moment the user taps "I've Made the Transfer" until the success
-  // modal takes over (or the wait fails and we release it).
+  // The screen is locked from the moment a payment is detected (or the user taps "I've Made the
+  // Transfer") until the success modal takes over (or the wait fails and we release it).
   const blocked = processing && !success;
   const blockedRef = useRef(false);
   blockedRef.current = blocked;
@@ -304,6 +311,7 @@ export default function FundWalletAccountScreen() {
           return;
         }
 
+        watchStartRef.current = Date.now();
         setDetails(result);
         setSecondsLeft(Number(result.expiresInSeconds) || 0);
       } catch (e: any) {
@@ -393,19 +401,21 @@ export default function FundWalletAccountScreen() {
     };
   }, [details, confirmed]);
 
-  // While the overlay is showing, keep checking the payment in the background. Realtime normally
-  // fires first; this is the safety net. It also releases the screen if the wait runs too long.
   useEffect(() => {
-    if (!processing || !details || confirmed) return;
+    if (!details || confirmed) return;
 
     let stopped = false;
     const interval = setInterval(async () => {
-      if (stopped || handledRef.current) return;
+      if (stopped || handledRef.current || pausedRef.current) return;
+
+      const watchEndsAt =
+        watchStartRef.current + (details.expiresInSeconds + AUTO_WATCH_GRACE_SECONDS) * 1000;
+      if (!processing && Date.now() > watchEndsAt) return;
 
       // Don't wait for the webhook alone: every 10 seconds, ask the server to check with Flutterwave.
       if (Date.now() - lastServerCheckRef.current > 10000) {
         await checkWithServer(details.reference);
-        if (stopped || handledRef.current) return;
+        if (stopped || handledRef.current || pausedRef.current) return;
       }
 
       const { data: txn, error: pollError } = await supabase
@@ -416,7 +426,7 @@ export default function FundWalletAccountScreen() {
 
       console.log('[fund-wallet] poll:', details.reference, 'status =', txn?.status ?? null, 'error =', pollError?.message ?? null);
 
-      if (stopped || handledRef.current) return;
+      if (stopped || handledRef.current || pausedRef.current) return;
 
       if (isPaid(txn?.status)) {
         setConfirmed(true);
@@ -424,7 +434,7 @@ export default function FundWalletAccountScreen() {
         return;
       }
 
-      if (Date.now() - waitStartRef.current > WAIT_LIMIT_MS) {
+      if (processing && Date.now() - waitStartRef.current > WAIT_LIMIT_MS) {
         setProcessing(false);
         Alert.alert(
           'Still Processing',
@@ -633,6 +643,7 @@ export default function FundWalletAccountScreen() {
     } catch (e: any) {
       console.log('[fund-wallet] post-payment step failed:', e?.message ?? e);
       handledRef.current = false;
+      pausedRef.current = true;
       orderPlacedRef.current = false;
       setConfirmed(false);
       setProcessing(false);
@@ -651,6 +662,7 @@ export default function FundWalletAccountScreen() {
       const planId = await activateEplan();
       if (!planId) {
         handledRef.current = false;
+        pausedRef.current = true;
         setConfirmed(false);
         setProcessing(false);
         return;
@@ -674,6 +686,7 @@ export default function FundWalletAccountScreen() {
       const ok = await createSubscription();
       if (!ok) {
         handledRef.current = false;
+        pausedRef.current = true;
         setConfirmed(false);
         setProcessing(false);
         return;
@@ -693,6 +706,7 @@ export default function FundWalletAccountScreen() {
       const placed = await placeOrder(reference);
       if (!placed) {
         handledRef.current = false;
+        pausedRef.current = true;
         setConfirmed(false);
         setProcessing(false);
         return;
@@ -772,6 +786,7 @@ export default function FundWalletAccountScreen() {
   const handleConfirm = async () => {
     if (processing || !details || confirmed) return;
 
+    pausedRef.current = false;
     waitStartRef.current = Date.now();
     setProcessing(true);
 
@@ -843,7 +858,9 @@ export default function FundWalletAccountScreen() {
 
   // Only a name the server really returned is shown. The app no longer makes one up: the customer's bank app
   // shows the account's real name, and a different name on this screen would look like a scam.
-  const accountName = details.accountName ?? null;
+  // The name comes from the server when it returns one; otherwise we show the company's name on the
+  // Flutterwave account (set EXPO_PUBLIC_PAYMENT_ACCOUNT_NAME to match it exactly).
+  const accountName = details.accountName?.trim() || FLUTTERWAVE_ACCOUNT_NAME;
   const fraction = details.expiresInSeconds > 0 ? secondsLeft / details.expiresInSeconds : 0;
   const confirmDisabled = processing;
   // The local timer ending does not mean the payment failed: a transfer may still be arriving, so we keep
@@ -986,7 +1003,7 @@ export default function FundWalletAccountScreen() {
         </View>
 
         <Text style={styles.nameNote}>
-          Your bank app may show the account name as our company's name or Flutterwave. Just make sure the
+          Your bank app may show a slightly different name (for example Flutterwave). Just make sure the
           account number and amount match what you see here.
         </Text>
 

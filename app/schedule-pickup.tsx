@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   Platform,
   TextInput,
-  KeyboardAvoidingView,
   Keyboard,
+  Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -57,6 +57,9 @@ export default function SchedulePickupScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const scrollRef = useRef<ScrollView>(null);
+  const addressRef = useRef<View>(null);
+  const scrollY = useRef(0);
+  const keyboardTop = useRef(Dimensions.get('window').height);
 
   const availableDates = useMemo(() => generateDates(30), []);
   const [selectedDateId, setSelectedDateId] = useState<string | null>(null);
@@ -67,10 +70,8 @@ export default function SchedulePickupScreen() {
   const [useCustom, setUseCustom] = useState(false);
   const [customAddress, setCustomAddress] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // With a default address saved, the pickup address starts as that address and the
-  // person can switch to another saved address or type a different one. Without a
-  // default, they simply type the address.
   const hasDefault = !!defaultAddress;
   const chosenSaved =
     (selectedAddressId ? addresses.find((a) => a.id === selectedAddressId) : undefined) ??
@@ -103,23 +104,43 @@ export default function SchedulePickupScreen() {
     setEditing(false);
   };
 
-  // Track the keyboard so the footer can step aside and the address field
-  // is always scrolled into view above the keyboard.
+  const revealAddress = () => {
+    addressRef.current?.measureInWindow((_x, y, _w, h) => {
+      const overlap = y + h + ms(24) - keyboardTop.current;
+      if (overlap > 0) {
+        scrollRef.current?.scrollTo({ y: scrollY.current + overlap, animated: true });
+      }
+    });
+  };
+
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSub = Keyboard.addListener(showEvent, () => {
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      const height = e.endCoordinates?.height ?? 0;
+      const screenY = e.endCoordinates?.screenY ?? 0;
+      keyboardTop.current = screenY > 0 ? screenY : Dimensions.get('window').height - height;
+      setKeyboardHeight(height);
       setKeyboardVisible(true);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
     });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      keyboardTop.current = Dimensions.get('window').height;
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (keyboardHeight <= 0) return;
+    const t = setTimeout(revealAddress, 150);
+    return () => clearTimeout(t);
+  }, [keyboardHeight]);
 
   const handleContinue = () => {
     if (!canContinue) return;
@@ -141,7 +162,7 @@ export default function SchedulePickupScreen() {
   };
 
   const customInput = (
-    <View style={styles.addressCard}>
+    <View ref={addressRef} collapsable={false} style={styles.addressCard}>
       <Feather name="map-pin" size={ms(18)} color={washColors.navySolid} style={styles.addressIcon} />
       <TextInput
         style={styles.addressInput}
@@ -149,7 +170,10 @@ export default function SchedulePickupScreen() {
         placeholderTextColor={washColors.textMuted}
         value={customAddress}
         onChangeText={setCustomAddress}
-        onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250)}
+        onFocus={() => setTimeout(revealAddress, 300)}
+        onContentSizeChange={() => {
+          if (keyboardVisible) setTimeout(revealAddress, 60);
+        }}
         multiline
         textAlignVertical="top"
       />
@@ -157,12 +181,7 @@ export default function SchedulePickupScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      // iOS: lift the whole screen by the keyboard height.
-      // Android: handled natively by "softwareKeyboardLayoutMode": "pan" in app.json.
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.container}>
       <StatusBar style="dark" />
 
       <View style={[styles.header, { paddingTop: insets.top + ms(10) }]}>
@@ -175,10 +194,17 @@ export default function SchedulePickupScreen() {
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          keyboardVisible && { paddingBottom: keyboardHeight + ms(24) },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        onScroll={(e) => {
+          scrollY.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         <Text style={styles.sectionTitle}>Pickup date</Text>
         <ScrollView
@@ -326,7 +352,6 @@ export default function SchedulePickupScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Footer steps aside while typing so it never sits on top of the keyboard */}
       {!keyboardVisible && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
           <TouchableOpacity
@@ -341,7 +366,7 @@ export default function SchedulePickupScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

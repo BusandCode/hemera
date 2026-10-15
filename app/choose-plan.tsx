@@ -67,21 +67,20 @@ export default function ChoosePlanScreen() {
   const [agreed, setAgreed] = useState(false);
 
   const selectedPlan: WashPlan | undefined = plans.find((p) => p.id === selectedId);
-  const selectedDuration: WashDuration | undefined = durations.find(
-    (d) => d.key === durationKey,
-  );
+  const selectedDuration: WashDuration | undefined =
+    durations.find((d) => d.key === durationKey) ?? durations[0];
   const methodLabel = paymentMethods.find((m) => m.id === method)!.label;
 
   const subtotal =
     selectedPlan && selectedDuration
-      ? durationTotal(selectedPlan.price, selectedDuration)
+      ? Math.round(durationTotal(selectedPlan.price, selectedDuration))
       : 0;
 
   const laundryReward = rewards.laundry;
   const referralDiscount = laundryReward
-    ? Math.round((subtotal * pricing.referral_laundry_percent) / 100)
+    ? Math.round((subtotal * Number(pricing.referral_laundry_percent)) / 100)
     : 0;
-  const total = subtotal - referralDiscount;
+  const total = Math.max(0, subtotal - referralDiscount);
 
   useEffect(() => {
     if (step !== 'duration') return;
@@ -92,7 +91,6 @@ export default function ChoosePlanScreen() {
     return () => sub.remove();
   }, [step]);
 
-  // Keep selectedId valid if plans changed.
   useEffect(() => {
     if (plans.length > 0 && !plans.some((p) => p.id === selectedId)) {
       setSelectedId(plans[0].id);
@@ -110,8 +108,38 @@ export default function ChoosePlanScreen() {
     setMethod(m.id);
   };
 
+  const goToDuration = () => {
+    if (!selectedPlan) {
+      Alert.alert('Select a plan', 'Please choose a plan to continue.');
+      return;
+    }
+    if (!selectedDuration) {
+      Alert.alert(
+        'Durations unavailable',
+        'We could not load the plan durations. Please try again in a moment.',
+      );
+      return;
+    }
+    setStep('duration');
+  };
+
   const handlePay = () => {
-    if (!agreed || !selectedPlan || !selectedDuration) return;
+    if (!selectedPlan || !selectedDuration) {
+      Alert.alert('Select a plan', 'Please choose a plan and a duration to continue.');
+      return;
+    }
+    if (!agreed) {
+      Alert.alert('Accept terms', 'Please tick the Terms & Conditions box to continue.');
+      return;
+    }
+    if (!session?.user.id) {
+      Alert.alert('Sign in required', 'Please sign in again to subscribe.');
+      return;
+    }
+    if (!(total > 0)) {
+      Alert.alert('Invalid amount', 'We could not work out the price for this plan. Please try again.');
+      return;
+    }
 
     const ref = `WSH-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -145,7 +173,6 @@ export default function ChoosePlanScreen() {
     } as any);
   };
 
-  // While loading, show a spinner instead of the plan cards.
   if (loading || plans.length === 0) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -199,7 +226,7 @@ export default function ChoosePlanScreen() {
           <Text style={styles.sectionLabel}>CHOOSE DURATION</Text>
           <View style={styles.durationList}>
             {durations.map((d) => {
-              const active = d.key === durationKey;
+              const active = d.key === selectedDuration.key;
               const dTotal = durationTotal(selectedPlan.price, d);
               const perMonthValue = Math.round(dTotal / d.months);
               return (
@@ -226,7 +253,7 @@ export default function ChoosePlanScreen() {
                         <Text style={styles.saveBadgeText}>SAVE {d.savePct}%</Text>
                       </View>
                     ) : null}
-                    <Text style={styles.durationPrice}>{formatNaira(dTotal)}</Text>
+                    <Text style={styles.durationPrice}>{formatNaira(Math.round(dTotal))}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -289,7 +316,6 @@ export default function ChoosePlanScreen() {
             style={[styles.dPayButton, !agreed && styles.dPayButtonDisabled]}
             activeOpacity={0.85}
             onPress={handlePay}
-            disabled={!agreed}
           >
             <Text style={[styles.dPayButtonText, !agreed && styles.dPayButtonTextDisabled]}>
               {isSwitch ? 'Switch Plan' : 'Subscribe Now'}
@@ -447,7 +473,7 @@ export default function ChoosePlanScreen() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + ms(14) }]}>
         <TouchableOpacity
           style={styles.confirmButton}
-          onPress={() => setStep('duration')}
+          onPress={goToDuration}
           activeOpacity={0.9}
         >
           <Text style={styles.confirmText}>
