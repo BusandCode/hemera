@@ -313,6 +313,7 @@ export default function FundWalletAccountScreen() {
 
         watchStartRef.current = Date.now();
         setDetails(result);
+        void savePendingOrder(String(result.reference));
         setSecondsLeft(Number(result.expiresInSeconds) || 0);
       } catch (e: any) {
         if (cancelled) return;
@@ -547,6 +548,72 @@ export default function FundWalletAccountScreen() {
     return String(result.data ?? '') || null;
   };
 
+  // Same WSH- reference for the saved copy and the order.
+  const washRefRef = useRef(`WSH-${Math.floor(100000 + Math.random() * 900000)}`);
+
+  /** The order row for E-Chop and pay-per-order E-Wash. */
+  const buildOrderRow = (reference: string, userId: string | undefined, email: string) => {
+    let draft: any = {};
+    try {
+      draft = JSON.parse(order ?? '{}');
+    } catch {}
+    const total = Number(amount);
+    if (isEchop) {
+      return {
+        user_id: userId,
+        order_type: 'echop',
+        status: 'placed',
+        total_kobo: Math.round(total * 100),
+        metadata: { ...(draft.metadata ?? {}), payment_method: 'transfer', tx_ref: reference },
+      };
+    }
+    const lines: { name: string; qty: number; price: number }[] = draft.lines ?? [];
+    const count = lines.reduce((sum, l) => sum + (Number(l.qty) || 0), 0);
+    return {
+      user_id: userId,
+      order_type: 'ewash',
+      status: 'scheduled',
+      total_kobo: Math.round(total * 100),
+      metadata: {
+        ref: washRefRef.current,
+        title: 'E-Wash Pickup',
+        customer_email: email,
+        total,
+        subtotal: draft.subtotal ?? 0,
+        items: count,
+        lines,
+        express: !!draft.express,
+        slot: draft.pickupTime ?? '',
+        pickup_date: draft.pickupDateId ?? '',
+        address: draft.pickupAddress ?? '',
+        payment_method: 'transfer',
+        tx_ref: reference,
+      },
+    };
+  };
+
+  // Saves a copy of the order on the server as soon as the transfer account is shown.
+  // When the payment lands, the database creates the order from it, even if the app was closed.
+  const savePendingOrder = async (reference: string) => {
+    const payPerOrder = isEchop || (isEwash && !parsedDraft.covered && parsedDraft.kind !== 'subscription');
+    if (!payPerOrder || !reference) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const row = buildOrderRow(reference, session.user.id, session.user.email ?? '');
+      const { error } = await supabase.from('pending_orders').insert({
+        tx_ref: reference,
+        user_id: session.user.id,
+        order_type: row.order_type,
+        amount_kobo: row.total_kobo,
+        metadata: row.metadata,
+      });
+      if (error && error.code !== '23505') console.log('[fund-wallet] order copy not saved:', error.message);
+    } catch (e: any) {
+      console.log('[fund-wallet] order copy not saved:', e?.message ?? e);
+    }
+  };
+
   const placeOrder = async (reference: string) => {
     if (orderPlacedRef.current) return true;
     orderPlacedRef.current = true;
@@ -582,49 +649,30 @@ export default function FundWalletAccountScreen() {
     }
 
     const { data: { session } } = await withTimeout(supabase.auth.getSession(), 'auth.getSession');
-    const total = Number(amount);
+    const row = buildOrderRow(reference, session?.user.id, session?.user.email ?? '');
 
-    const row = isEchop
-      ? {
-          user_id: session?.user.id,
-          order_type: 'echop',
-          status: 'placed',
-          total_kobo: total * 100,
-          metadata: { ...(draft.metadata ?? {}), payment_method: 'transfer', tx_ref: reference },
-        }
-      : (() => {
-          const lines: { name: string; qty: number; price: number }[] = draft.lines ?? [];
-          const count = lines.reduce((sum, l) => sum + (Number(l.qty) || 0), 0);
-          return {
-            user_id: session?.user.id,
-            order_type: 'ewash',
-            status: 'scheduled',
-            total_kobo: total * 100,
-            metadata: {
-              ref: `WSH-${Math.floor(100000 + Math.random() * 900000)}`,
-              title: 'E-Wash Pickup',
-              customer_email: session?.user.email ?? '',
-              total,
-              subtotal: draft.subtotal ?? 0,
-              items: count,
-              lines,
-              express: !!draft.express,
-              slot: draft.pickupTime ?? '',
-              pickup_date: draft.pickupDateId ?? '',
-              address: draft.pickupAddress ?? '',
-              payment_method: 'transfer',
-              tx_ref: reference,
-            },
-          };
-        })();
-
-    const { error: insertError } = await withTimeout(supabase.from('orders').insert(row), 'insert into orders');
+    // The database makes the order(s) from the saved copy as soon as the payment lands
+    // (E-Chop: one order per restaurant). This finishes it if that didn't happen; it never doubles up.
+    const { data: result, error: rpcError } = await withTimeout(
+      supabase.rpc('hemera_complete_paid_order', {
+        p_tx_ref: reference,
+        p_order_type: row.order_type,
+        p_amount_kobo: row.total_kobo,
+        p_metadata: row.metadata,
+      }),
+      'complete order'
+    );
+    const insertError: { message: string } | null = rpcError
+      ? { message: rpcError.message }
+      : (result as any)?.ok === false
+        ? { message: String((result as any).error ?? 'The order could not be created.') }
+        : null;
 
     if (insertError) {
       orderPlacedRef.current = false;
       Alert.alert(
         'Order failed',
-        /payment_not_verified/.test(insertError.message)
+        /payment_not_verified|amount_short/.test(insertError.message)
           ? `We couldn't match your payment to this order. Your payment was received, so please contact support with this reference: ${reference}`
           : insertError.message
       );
@@ -726,7 +774,10 @@ export default function FundWalletAccountScreen() {
         const slot = draft.slot ?? '';
         setSuccess({
           title: 'Order placed',
-          message: `Your E-Chop order #${ref} is confirmed and being prepared.`,
+          message:
+            Number(draft.metadata?.restaurants ?? 1) > 1
+              ? `Your order #${ref} is confirmed. Each of the ${draft.metadata.restaurants} restaurants is preparing its part.`
+              : `Your E-Chop order #${ref} is confirmed and being prepared.`,
           redirect: () => {
             router.replace({
               pathname: '/order-success',

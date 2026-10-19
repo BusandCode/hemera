@@ -20,11 +20,13 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { REFERRAL_FOOD_DISCOUNT, REFERRAL_LAUNDRY_PERCENT } from '../src/constants/referral';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
+import { usePricingSettings } from '../src/hooks/usePricingSettings';
 import { useReferral, type Referral, type RewardType } from '../src/context/ReferralContext';
 import { ms } from '../src/utils/responsive';
 
-const FOOD_REWARD = `₦${REFERRAL_FOOD_DISCOUNT.toLocaleString('en-US')}`;
-const LAUNDRY_REWARD = `${REFERRAL_LAUNDRY_PERCENT}%`;
+// Updated from the admin (Pricing settings) when the screen opens.
+let FOOD_REWARD = `₦${REFERRAL_FOOD_DISCOUNT.toLocaleString('en-US')}`;
+let LAUNDRY_REWARD = `${REFERRAL_LAUNDRY_PERCENT}%`;
 
 const steps = [
   {
@@ -43,7 +45,9 @@ const steps = [
     id: '3',
     icon: 'gift',
     title: 'Choose your reward',
-    subtitle: `Pick ${FOOD_REWARD} off your next food order or ${LAUNDRY_REWARD} off your next laundry plan`,
+    get subtitle() {
+      return `Pick ${FOOD_REWARD} off your next food order or ${LAUNDRY_REWARD} off your next laundry plan`;
+    },
   },
   {
     id: '4',
@@ -76,6 +80,9 @@ function describeInvite(invite: InviteRow): string {
 }
 
 export default function ReferEarnScreen() {
+  const { settings: pricing } = usePricingSettings();
+  FOOD_REWARD = `₦${Number(pricing.referral_food_discount).toLocaleString('en-US')}`;
+  LAUNDRY_REWARD = `${pricing.referral_laundry_percent}%`;
   const router = useRouter();
   const {
     code,

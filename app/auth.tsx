@@ -369,6 +369,18 @@ export default function AuthScreen() {
           return;
         }
 
+        // Block admin accounts from registering as a customer.
+        const { data: isAdmin } = await supabase.rpc('is_admin_email', {
+          p_email: email.trim(),
+        });
+        if (isAdmin === true) {
+          setError(
+            'This email is registered to a Hemera admin account. Please sign in to the admin dashboard instead.'
+          );
+          setBusy(false);
+          return;
+        }
+
         const signedIn = await signUp({
           fullName: name.trim(),
           gender,

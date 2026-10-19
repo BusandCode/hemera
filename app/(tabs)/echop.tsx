@@ -65,7 +65,7 @@ export default function FoodScreen() {
         </View>
 
         <View style={[styles.menuSection, padded]}>
-          <TodaysMenu />
+          <TodaysMenu category={category} />
         </View>
       </ScrollView>
 

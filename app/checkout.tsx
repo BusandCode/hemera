@@ -21,11 +21,11 @@ import { useCart } from '../src/context/CartContext';
 import { useLocation } from '../src/context/LocationContext';
 import { useAppData } from '../src/context/AppDataContext';
 import { useReferral } from '../src/context/ReferralContext';
-import { REFERRAL_FOOD_DISCOUNT } from '../src/constants/referral';
+import { usePricingSettings } from '../src/hooks/usePricingSettings';
+import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
-const DELIVERY_FEE = 500;
-const SERVICE_FEE = 200;
+// Delivery and service fees come from the admin (Pricing settings), same as the cart screen.
 
 const TIME_SLOTS = [
   'As soon as possible',
@@ -66,10 +66,31 @@ export default function CheckoutScreen() {
   const dialog = useDialog();
   const params = useLocalSearchParams<{ promoApplied?: string; discount?: string }>();
   const { session } = useAuth();
-  const { lines, itemCount, total: itemsTotal } = useCart();
+  const { lines, itemCount, total: itemsTotal, removeItem } = useCart();
   const { formatted } = useLocation();
   const { addresses } = useAppData();
   const { rewards } = useReferral();
+  const { settings: pricing } = usePricingSettings();
+  const DELIVERY_FEE = pricing.echop_delivery_fee;
+  const SERVICE_FEE = pricing.echop_service_fee;
+
+  // The cart grouped by restaurant. After payment each restaurant gets its own order.
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; name: string; lines: typeof lines; subtotal: number }>();
+    for (const line of lines) {
+      const key = line.item.storeId || line.item.partnerName || 'restaurant';
+      const name =
+        line.item.storeName ||
+        (line.item.partnerName || 'Restaurant').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+      const g = map.get(key) ?? { key, name, lines: [], subtotal: 0 };
+      g.lines.push(line);
+      g.subtotal += line.item.price * line.qty;
+      map.set(key, g);
+    }
+    return [...map.values()];
+  }, [lines]);
+  // Delivery fee once per restaurant, service fee once per checkout.
+  const deliveryTotal = DELIVERY_FEE * groups.length;
 
   const defaultAddress =
     addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
@@ -83,14 +104,14 @@ export default function CheckoutScreen() {
   const promoDiscount = promoApplied ? Number(params.discount ?? 0) : 0;
   const foodReward = rewards.food;
   const referralDiscount = foodReward
-    ? Math.min(REFERRAL_FOOD_DISCOUNT, Math.max(itemsTotal - promoDiscount, 0))
+    ? Math.min(pricing.referral_food_discount, Math.max(itemsTotal - promoDiscount, 0))
     : 0;
   const discount = promoDiscount + referralDiscount;
 
   const { total } = useMemo(() => {
     const base = Math.max(itemsTotal - discount, 0);
-    return { total: base + (lines.length > 0 ? DELIVERY_FEE + SERVICE_FEE : 0) };
-  }, [itemsTotal, discount, lines.length]);
+    return { total: base + (lines.length > 0 ? deliveryTotal + SERVICE_FEE : 0) };
+  }, [itemsTotal, discount, lines.length, deliveryTotal, SERVICE_FEE]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? defaultAddress;
   const selectedPayment = PAYMENT_METHODS.find((p) => p.id === selectedPaymentId)!;
@@ -111,8 +132,42 @@ export default function CheckoutScreen() {
     setSelectedPaymentId(method.id);
   };
 
-  const handlePlaceOrder = () => {
+  // Everything in the cart must still be available: in stock, restaurant open and not paused.
+  // Anything that isn't is taken out of the cart before payment.
+  const checkAvailability = async (): Promise<boolean> => {
+    setPlacing(true);
+    try {
+      const { data, error } = await supabase.rpc('hemera_echop_unavailable_items', {
+        p_product_ids: lines.map(({ item }) => item.id),
+      });
+      if (error) {
+        // Couldn't check (e.g. no connection): the payment step will handle it.
+        console.warn('[checkout] availability check failed:', error.message);
+        return true;
+      }
+      const gone = new Set(((data ?? []) as string[]).map(String));
+      const removed = lines.filter(({ item }) => gone.has(item.id));
+      if (removed.length === 0) return true;
+      removed.forEach(({ item }) => removeItem(item.id));
+      const count = removed.reduce((sum, l) => sum + l.qty, 0);
+      void dialog.alert({
+        title: 'Some items are no longer available',
+        message:
+          lines.length === removed.length
+            ? 'Nothing in your cart can be ordered right now, so we removed it. Please choose something else.'
+            : `We removed ${count} item${count === 1 ? '' : 's'} that can't be ordered right now. Please check your order and try again.`,
+        confirmText: 'OK',
+        icon: 'shopping-bag',
+      });
+      return false;
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  const handlePlaceOrder = async () => {
     if (!canPlace) return;
+    if (!(await checkAvailability())) return;
 
     const ref = `CHP-${Math.floor(100000 + Math.random() * 900000)}`;
     const firstName = lines[0].item.name;
@@ -146,7 +201,12 @@ export default function CheckoutScreen() {
             address: selectedAddress
               ? `${selectedAddress.line}, ${selectedAddress.details}`
               : '',
+            restaurants: groups.length,
+            delivery_fee: deliveryTotal,
+            service_fee: SERVICE_FEE,
             lines: lines.map(({ item, qty }) => ({
+              store_id: item.storeId ?? null,
+              store_name: item.storeName ?? null,
               id: item.id,
               name: item.name,
               qty,
@@ -299,12 +359,22 @@ export default function CheckoutScreen() {
           })}
         </View>
 
-        <Text style={styles.sectionLabel}>Items ({itemCount})</Text>
-        <View style={styles.group}>
-          {lines.map(({ item, qty }, i) => {
-            const isLast = i === lines.length - 1;
-            return (
-              <View key={item.id} style={[styles.row, isLast && styles.rowLast]}>
+        <Text style={styles.sectionLabel}>
+          Items ({itemCount}){groups.length > 1 ? ` · ${groups.length} restaurants` : ''}
+        </Text>
+        {groups.map((g, gi) => (
+          <View key={g.key} style={[styles.group, gi > 0 && styles.storeGroupGap]}>
+            <View style={[styles.row, styles.storeHeaderRow]}>
+              <View style={styles.iconWrap}>
+                <MaterialCommunityIcons name="storefront-outline" size={ms(17)} color={foodColors.primary} />
+              </View>
+              <Text style={[styles.rowTitle, styles.storeFlex]} numberOfLines={1}>
+                {g.name}
+              </Text>
+              <Text style={styles.rowPrice}>{formatNaira(g.subtotal)}</Text>
+            </View>
+            {g.lines.map(({ item, qty }) => (
+              <View key={item.id} style={styles.row}>
                 <View style={styles.qtyBubble}>
                   <Text style={styles.qtyBubbleText}>{qty}×</Text>
                 </View>
@@ -312,17 +382,18 @@ export default function CheckoutScreen() {
                   <Text style={styles.rowTitle} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={styles.rowSubtitle} numberOfLines={1}>
-                    {item.partnerName}
-                  </Text>
                 </View>
-                <Text style={styles.rowPrice}>
-                  {formatNaira(item.price * qty)}
-                </Text>
+                <Text style={styles.rowPrice}>{formatNaira(item.price * qty)}</Text>
               </View>
-            );
-          })}
-        </View>
+            ))}
+            <View style={[styles.row, styles.rowLast]}>
+              <Text style={[styles.rowSubtitle, styles.storeFootLabel]} numberOfLines={1}>
+                Delivery from {g.name}
+              </Text>
+              <Text style={styles.rowSubtitle}>{formatNaira(DELIVERY_FEE)}</Text>
+            </View>
+          </View>
+        ))}
 
         <Text style={styles.sectionLabel}>Order summary</Text>
         <View style={styles.summaryCard}>
@@ -339,8 +410,10 @@ export default function CheckoutScreen() {
             </View>
           )}
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery fee</Text>
-            <Text style={styles.summaryValue}>{formatNaira(DELIVERY_FEE)}</Text>
+            <Text style={styles.summaryLabel}>
+              {groups.length > 1 ? `Delivery fee (${groups.length} restaurants)` : 'Delivery fee'}
+            </Text>
+            <Text style={styles.summaryValue}>{formatNaira(deliveryTotal)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Service fee</Text>
@@ -382,6 +455,10 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
+  storeGroupGap: { marginTop: ms(10) },
+  storeHeaderRow: { backgroundColor: 'rgba(0,0,0,0.025)' },
+  storeFlex: { flex: 1, minWidth: 0 },
+  storeFootLabel: { flex: 1, marginTop: 0 },
   container: { flex: 1, backgroundColor: foodColors.background },
 
   header: {

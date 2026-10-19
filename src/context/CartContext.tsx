@@ -58,6 +58,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [lines]);
 
   const addItem = (item: MenuItem, qty = 1) => {
+    // Items from any restaurant can share one cart: one checkout, split per restaurant after payment.
     setLines((prev) => {
       const existing = prev.find((l) => l.item.id === item.id);
       if (existing) {

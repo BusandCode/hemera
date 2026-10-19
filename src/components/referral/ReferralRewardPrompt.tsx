@@ -5,9 +5,14 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
 import { useReferral, RewardType } from '../../context/ReferralContext';
+import { usePricingSettings } from '../../hooks/usePricingSettings';
 import { ms } from '../../utils/responsive';
 
 export function ReferralRewardPrompt() {
+  // Reward amounts come from the admin (Pricing settings).
+  const { settings: pricing } = usePricingSettings();
+  const foodReward = `₦${Number(pricing.referral_food_discount).toLocaleString('en-US')}`;
+  const laundryReward = `${pricing.referral_laundry_percent}%`;
   const { earned, claimReward } = useReferral();
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState<RewardType | null>(null);
@@ -43,7 +48,7 @@ export function ReferralRewardPrompt() {
           </View>
           <Text style={styles.title}>You've earned a reward!</Text>
           <Text style={styles.body}>
-            Apply 1,000 Naira off your next food order OR a 5% discount to your next laundry
+            Apply {foodReward} off your next food order OR a {laundryReward} discount to your next laundry
             subscription?
           </Text>
 
@@ -60,7 +65,7 @@ export function ReferralRewardPrompt() {
             ) : (
               <>
                 <Feather name="coffee" size={ms(16)} color="#fff" />
-                <Text style={styles.primaryBtnText}>₦1,000 off food order</Text>
+                <Text style={styles.primaryBtnText}>{foodReward} off food order</Text>
               </>
             )}
           </TouchableOpacity>
@@ -76,7 +81,7 @@ export function ReferralRewardPrompt() {
             ) : (
               <>
                 <MaterialCommunityIcons name="washing-machine" size={ms(18)} color={foodColors.badgeBlue} />
-                <Text style={styles.secondaryBtnText}>5% off laundry subscription</Text>
+                <Text style={styles.secondaryBtnText}>{laundryReward} off laundry subscription</Text>
               </>
             )}
           </TouchableOpacity>

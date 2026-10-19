@@ -216,6 +216,11 @@ export default function CartScreen() {
   // ------------------------------------------------------------------------
 
   const hasFoodReward = !!rewards.food;
+  // Delivery fee is charged once per restaurant in the cart.
+  const restaurantCount = useMemo(
+    () => new Set(lines.map(({ item }) => item.storeId || item.partnerName)).size,
+    [lines]
+  );
 
   const { discount, referralDiscount, total } = useMemo(() => {
     const discount = appliedPromo ? Math.round(itemsTotal * (appliedPromo.percent / 100)) : 0;
@@ -224,9 +229,9 @@ export default function CartScreen() {
       : 0;
     const total =
       Math.max(itemsTotal - discount - referralDiscount, 0) +
-      (lines.length > 0 ? pricing.echop_delivery_fee + pricing.echop_service_fee : 0);
+      (lines.length > 0 ? pricing.echop_delivery_fee * restaurantCount + pricing.echop_service_fee : 0);
     return { discount, referralDiscount, total };
-  }, [itemsTotal, appliedPromo, lines.length, hasFoodReward, pricing]);
+  }, [itemsTotal, appliedPromo, lines.length, hasFoodReward, pricing, restaurantCount]);
 
   const dismissPromoNotice = () => {
     setPromoNotice(null);
@@ -497,8 +502,12 @@ export default function CartScreen() {
                 )}
 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Delivery Fee</Text>
-                  <Text style={styles.summaryValue}>{formatNaira(pricing.echop_delivery_fee)}</Text>
+                  <Text style={styles.summaryLabel}>
+                    {restaurantCount > 1 ? `Delivery Fee (${restaurantCount} restaurants)` : 'Delivery Fee'}
+                  </Text>
+                  <Text style={styles.summaryValue}>
+                    {formatNaira(pricing.echop_delivery_fee * restaurantCount)}
+                  </Text>
                 </View>
 
                 <View style={styles.summaryRow}>

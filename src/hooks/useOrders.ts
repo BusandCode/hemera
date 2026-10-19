@@ -221,8 +221,13 @@ function toOrder(row: OrderRow): Order | null {
       ? String(meta.title ?? 'E-Chop Order')
       : 'E-Wash Pickup';
 
+  // Restaurant orders from a checkout: show what the customer paid for this part.
   const totalNaira =
-    row.total_kobo != null ? Number(row.total_kobo) / 100 : Number(meta.total ?? 0);
+    meta.checkout_ref && meta.total != null
+      ? Number(meta.total)
+      : row.total_kobo != null
+        ? Number(row.total_kobo) / 100
+        : Number(meta.total ?? 0);
 
   const useEta = (status === 'In Progress' || status === 'Scheduled') && typeof meta.eta === 'string';
 
@@ -230,7 +235,10 @@ function toOrder(row: OrderRow): Order | null {
     id: row.id,
     type,
     title,
-    meta: linesSummary(meta),
+    meta:
+      Number(meta.checkout_count) > 1
+        ? `${linesSummary(meta)} · ${meta.checkout_index} of ${meta.checkout_count} in #${meta.checkout_ref}`
+        : linesSummary(meta),
     date: useEta ? meta.eta : formatDate(row.created_at),
     amount: Math.round(totalNaira),
     status,

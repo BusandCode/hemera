@@ -3,18 +3,21 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { foodColors } from '../../constants/foodColors';
+import { FoodCategory, matchesCategory } from '../../constants/foodData';
 import { useTodaysMenu } from '../../hooks/useFood';
 import { MenuItemCard } from './MenuItemCard';
 import { fonts } from '../../constants/typography';
 import { ms, MAX_FONT_SCALE } from '../../utils/responsive';
 
-export function TodaysMenu() {
+export function TodaysMenu({ category = 'All' }: { category?: FoodCategory }) {
   const router = useRouter();
   const { items: todaysMenu, loading, error } = useTodaysMenu();
 
   useEffect(() => {
     if (error) console.warn('[TodaysMenu] Supabase error:', error);
   }, [error]);
+
+  const visible = todaysMenu.filter((item) => matchesCategory(item, category));
 
   return (
     <View>
@@ -53,9 +56,14 @@ export function TodaysMenu() {
             Nothing is marked as today's pick right now. Check back soon.
           </Text>
         </View>
+      ) : visible.length === 0 ? (
+        <View style={styles.state}>
+          <Text style={styles.stateTitle}>No meals in this category</Text>
+          <Text style={styles.stateText}>Try another category or choose All.</Text>
+        </View>
       ) : (
         <View style={styles.list}>
-          {todaysMenu.map((item) => (
+          {visible.map((item) => (
             <MenuItemCard key={item.id} item={item} />
           ))}
         </View>

@@ -41,6 +41,7 @@ type TrackedOrder = {
   steps: OrderStep[];
   eta: string;
   placedAt: string;
+  checkoutRef?: string;
 };
 
 const ECHOP_STEPS: OrderStep[] = [
@@ -105,11 +106,12 @@ function toTracked(data: any): TrackedOrder {
     cancelled: CANCELLED.has(raw),
     id: String(meta.ref ?? data.id),
     type,
-    title: meta.title ?? 'Order',
+    title: meta.store_name ?? meta.title ?? 'Order',
     currentStepIndex: stepIndexFor(type, normalizeStatus(data.status, type)),
     steps,
     eta: meta.eta ?? 'Calculating…',
     placedAt: data.created_at ?? new Date().toISOString(),
+    checkoutRef: meta.checkout_ref ?? undefined,
   };
 }
 
@@ -136,6 +138,8 @@ export default function TrackOrderScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [order, setOrder] = useState<TrackedOrder | null>(null);
+  // The other restaurant orders paid in the same checkout.
+  const [siblings, setSiblings] = useState<TrackedOrder[]>([]);
   const [autoLoading, setAutoLoading] = useState(!!directId && !!session);
   const [autoTracked, setAutoTracked] = useState(false);
 
@@ -150,14 +154,18 @@ export default function TrackOrderScreen() {
         .from('orders')
         .select('id, order_type, status, metadata, created_at')
         .eq('user_id', session.user.id);
+      const ref = directId.toUpperCase();
       query = UUID.test(directId)
         ? query.eq('id', directId)
-        : query.eq('metadata->>ref', directId.toUpperCase());
-      const { data } = await query.maybeSingle();
+        : query.or(`metadata->>ref.eq.${ref},metadata->>checkout_ref.eq.${ref}`);
+      const { data: rows } = await query.order('created_at', { ascending: true }).limit(20);
       if (cancelled) return;
-      if (data) {
-        setOrder(toTracked(data));
+      const list = ((rows ?? []) as any[]).map(toTracked);
+      const first = list.find((o) => o.id.toUpperCase() === ref) ?? list[0];
+      if (first) {
+        setOrder(first);
         setAutoTracked(true);
+        void loadSiblings(first);
       }
       setAutoLoading(false);
     })();
@@ -174,7 +182,11 @@ export default function TrackOrderScreen() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${order.rowId}` },
         (payload: any) => {
-          if (payload.new) setOrder(toTracked(payload.new));
+          if (payload.new) {
+            const t = toTracked(payload.new);
+            setOrder(t);
+            setSiblings((prev) => prev.map((s) => (s.rowId === t.rowId ? t : s)));
+          }
         }
       )
       .subscribe();
@@ -182,6 +194,20 @@ export default function TrackOrderScreen() {
       supabase.removeChannel(channel);
     };
   }, [order?.rowId]);
+
+  const loadSiblings = async (o: TrackedOrder) => {
+    if (!o.checkoutRef) {
+      setSiblings([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('orders')
+      .select('id, order_type, status, metadata, created_at')
+      .eq('metadata->>checkout_ref', o.checkoutRef)
+      .order('created_at', { ascending: true });
+    const list = ((data ?? []) as any[]).map(toTracked);
+    setSiblings(list.length > 1 ? list : []);
+  };
 
   const canSubmit =
     orderId.trim().length >= 4 && /\S+@\S+\.\S+/.test(email.trim()) && !loading;
@@ -198,7 +224,9 @@ export default function TrackOrderScreen() {
       const { data, error: err } = await supabase
         .from('orders')
         .select('id, order_type, status, metadata, created_at')
-        .eq('metadata->>ref', cleanedRef)
+        .or(`metadata->>ref.eq.${cleanedRef},metadata->>checkout_ref.eq.${cleanedRef}`)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
 
       if (err) throw err;
@@ -219,6 +247,7 @@ export default function TrackOrderScreen() {
       }
 
       setOrder(toTracked(data));
+      void loadSiblings(toTracked(data));
     } catch (e: any) {
       setError(e?.message ?? 'Something went wrong. Please try again.');
     } finally {
@@ -228,6 +257,7 @@ export default function TrackOrderScreen() {
 
   const reset = () => {
     setOrder(null);
+    setSiblings([]);
     setError('');
     setOrderId('');
     setEmail('');
@@ -360,6 +390,33 @@ export default function TrackOrderScreen() {
                 </View>
               </View>
 
+              {siblings.length > 1 && (
+                <>
+                  <Text style={styles.sectionLabel}>RESTAURANTS IN THIS ORDER</Text>
+                  <View style={styles.siblingWrap}>
+                    {siblings.map((s) => {
+                      const active = s.rowId === order.rowId;
+                      const label = s.cancelled ? 'Cancelled' : s.steps[s.currentStepIndex]?.label ?? '';
+                      return (
+                        <TouchableOpacity
+                          key={s.rowId}
+                          style={[styles.siblingChip, active && styles.siblingChipActive]}
+                          onPress={() => setOrder(s)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={[styles.siblingName, active && styles.siblingTextActive]} numberOfLines={1}>
+                            {s.title}
+                          </Text>
+                          <Text style={[styles.siblingStatus, active && styles.siblingTextActive]} numberOfLines={1}>
+                            #{s.id} · {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
               {order.cancelled && (
                 <View style={styles.errorBox}>
                   <Feather name="alert-circle" size={ms(14)} color="#FF3B30" />
@@ -432,6 +489,19 @@ export default function TrackOrderScreen() {
 }
 
 const styles = StyleSheet.create({
+  siblingWrap: { gap: ms(8), marginBottom: ms(6) },
+  siblingChip: {
+    borderWidth: 1,
+    borderColor: '#E8E3D0',
+    backgroundColor: '#fff',
+    borderRadius: ms(12),
+    paddingHorizontal: ms(14),
+    paddingVertical: ms(10),
+  },
+  siblingChipActive: { borderColor: foodColors.primary, backgroundColor: foodColors.primary },
+  siblingName: { fontSize: ms(13.5), fontFamily: fonts.poppins.semiBold, color: '#0B1020' },
+  siblingStatus: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: '#5F6B77', marginTop: ms(2) },
+  siblingTextActive: { color: '#fff' },
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: foodColors.background },
   loader: { marginTop: ms(60) },

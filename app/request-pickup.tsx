@@ -20,6 +20,7 @@ import { PlanRequiredState } from '../src/components/wash/PlanRequiredState';
 import { LARGE_ITEM_IDS } from '../src/lib/planLimits';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ms } from '../src/utils/responsive';
+import { usePricingSettings } from '../src/hooks/usePricingSettings';
 
 type Gender = 'men' | 'women';
 
@@ -54,7 +55,6 @@ const extraItems: LaundryItem[] = [
   { id: 'curtains', gender: 'men', name: 'Curtains', icon: { lib: 'mci', name: 'blinds' } },
 ];
 
-const EXPRESS_FEE = 1500;
 
 function ItemIcon({ icon, size = 18 }: { icon: LaundryItem['icon']; size?: number }) {
   return icon.lib === 'feather' ? (
@@ -109,6 +109,9 @@ function ItemRow({
 }
 
 export default function RequestPickupScreen() {
+  // Express fee comes from the admin (Pricing settings), same as the confirm screen.
+  const { settings: pricing } = usePricingSettings();
+  const EXPRESS_FEE = pricing.laundry_express_fee;
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { status: planStatus, planName, expiredOn, allowance, isLoading } = usePlanStatus();
