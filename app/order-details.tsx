@@ -68,6 +68,7 @@ const statusSteps: Record<string, Step[]> = {
     { key: 'scheduled', title: 'Scheduled', description: 'Your pickup is booked.', icon: 'calendar' },
     { key: 'approved', title: 'Approved', description: 'Your pickup has been accepted.', icon: 'check' },
     { key: 'picked-up', title: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck' },
+    { key: 'at-laundry', title: 'At the Laundry', description: 'Your laundry is with the laundry partner.', icon: 'store' },
     { key: 'processing', title: 'Processing', description: 'Your clothes are being cleaned.', icon: 'washing-machine' },
     { key: 'ready', title: 'Ready', description: 'Clean and ready for pickup.', icon: 'check-circle-outline' },
     { key: 'out-for-delivery', title: 'Out for Delivery', description: 'On its way back to you.', icon: 'moped' },

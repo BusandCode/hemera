@@ -385,6 +385,120 @@ const PATCHES = [
     "const styles = StyleSheet.create({\n  siblingWrap: { gap: ms(8), marginBottom: ms(6) },\n  siblingChip: {\n    borderWidth: 1,\n    borderColor: '#E8E3D0',\n    backgroundColor: '#fff',\n    borderRadius: ms(12),\n    paddingHorizontal: ms(14),\n    paddingVertical: ms(10),\n  },\n  siblingChipActive: { borderColor: foodColors.primary, backgroundColor: foodColors.primary },\n  siblingName: { fontSize: ms(13.5), fontFamily: fonts.poppins.semiBold, color: '#0B1020' },\n  siblingStatus: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: '#5F6B77', marginTop: ms(2) },\n  siblingTextActive: { color: '#fff' },\n"
    ]
   ]
+ },
+ {
+  "file": "src/lib/orderStatus.ts",
+  "marker": "accepted: 'approved'",
+  "edits": [
+   [
+    "    confirmed: 'approved',\n    active:",
+    "    confirmed: 'approved',\n    // Set by the partner app (restaurants and laundries).\n    accepted: 'approved',\n    processing: ewash ? 'processing' : 'preparing',\n    'pickup-received': 'picked-up',\n    'ready-for-dispatch': 'ready',\n    'out-for-delivery': 'out-for-delivery',\n    active:"
+   ],
+   [
+    "const CANCELLED_STATUSES = ['cancel', 'cancelled', 'canceled', 'failed', 'rejected', 'refunded'];",
+    "const CANCELLED_STATUSES = ['cancel', 'cancelled', 'canceled', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded'];"
+   ]
+  ]
+ },
+ {
+  "file": "app/track-order.tsx",
+  "marker": "overallText",
+  "edits": [
+   [
+    "    confirmed: 'approved',\n    active: type === 'echop' ? 'preparing' : 'processing',",
+    "    confirmed: 'approved',\n    // Set by the partner app (restaurants and laundries).\n    accepted: 'approved',\n    processing: type === 'echop' ? 'preparing' : 'processing',\n    'pickup-received': 'picked-up',\n    'ready-for-dispatch': 'ready',\n    active: type === 'echop' ? 'preparing' : 'processing',"
+   ],
+   [
+    "const CANCELLED = new Set(['cancelled', 'canceled', 'cancel', 'failed', 'rejected', 'refunded']);",
+    "const CANCELLED = new Set(['cancelled', 'canceled', 'cancel', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded']);"
+   ],
+   [
+    "function formatDate(iso: string) {",
+    "/** One line about all the restaurants in a checkout, e.g. \"2 of 3 restaurants have your food ready\". */\nfunction overallText(list: TrackedOrder[]) {\n  const live = list.filter((o) => !o.cancelled);\n  const n = live.length;\n  if (n === 0) return 'These orders were cancelled.';\n  const at = (key: string) => live.filter((o) => o.currentStepIndex >= o.steps.findIndex((s) => s.key === key)).length;\n  const delivered = at('delivered');\n  if (delivered === n) return 'Everything has been delivered.';\n  if (delivered > 0) return `${delivered} of ${n} restaurants delivered.`;\n  const onTheWay = at('picked-up');\n  if (onTheWay > 0) return `Hemera's rider has collected from ${onTheWay} of ${n} restaurants.`;\n  const ready = at('ready');\n  return `${ready} of ${n} restaurants have your food ready. Hemera's rider collects it and brings it to you.`;\n}\n\nfunction formatDate(iso: string) {"
+   ],
+   [
+    "                  <Text style={styles.sectionLabel}>RESTAURANTS IN THIS ORDER</Text>\n",
+    "                  <Text style={styles.sectionLabel}>RESTAURANTS IN THIS ORDER</Text>\n                  <Text style={styles.siblingOverall}>{overallText(siblings)}</Text>\n"
+   ],
+   [
+    "const styles = StyleSheet.create({\n",
+    "const styles = StyleSheet.create({\n  siblingOverall: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: '#5F6B77', marginBottom: ms(8) },\n"
+   ]
+  ]
+ },
+ {
+  "file": "app/track-order.tsx",
+  "marker": "at_laundry",
+  "edits": [
+   [
+    "  { key: 'picked-up', label: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck', color: '#4A90E2' },\n",
+    "  { key: 'picked-up', label: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck', color: '#4A90E2' },\n  { key: 'at-laundry', label: 'At the Laundry', description: 'Your laundry is with the laundry partner.', icon: 'store', color: '#4A90E2' },\n"
+   ],
+   [
+    "    'ready-for-dispatch': 'ready',\n    active: type === 'echop' ? 'preparing' : 'processing',",
+    "    'ready-for-dispatch': 'ready',\n    at_laundry: 'at-laundry',\n    handed_over: 'picked-up',\n    active: type === 'echop' ? 'preparing' : 'processing',"
+   ],
+   [
+    "const CANCELLED = new Set(['cancelled', 'canceled', 'cancel', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded']);",
+    "const CANCELLED = new Set(['cancelled', 'canceled', 'cancel', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded', 'timed_out']);"
+   ]
+  ]
+ },
+ {
+  "file": "app/order-details.tsx",
+  "marker": "at-laundry",
+  "edits": [
+   [
+    "    { key: 'picked-up', title: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck' },\n",
+    "    { key: 'picked-up', title: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck' },\n    { key: 'at-laundry', title: 'At the Laundry', description: 'Your laundry is with the laundry partner.', icon: 'store' },\n"
+   ]
+  ]
+ },
+ {
+  "file": "src/lib/orderStatus.ts",
+  "marker": "timed_out",
+  "edits": [
+   [
+    "    'ready-for-dispatch': 'ready',\n",
+    "    'ready-for-dispatch': 'ready',\n    'handed-over': 'picked-up',\n"
+   ],
+   [
+    "const CANCELLED_STATUSES = ['cancel', 'cancelled', 'canceled', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded'];",
+    "const CANCELLED_STATUSES = ['cancel', 'cancelled', 'canceled', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded', 'timed_out'];"
+   ]
+  ]
+ },
+ {
+  "file": "src/hooks/useOrders.ts",
+  "marker": "case 'timed_out'",
+  "edits": [
+   [
+    "\n    case 'rejected':\n    case 'refunded':\n      return 'Cancelled';",
+    "\n    case 'rejected':\n    case 'refunded':\n    case 'timed_out':\n      return 'Cancelled';"
+   ]
+  ]
+ },
+ {
+  "file": "app/wallet.tsx",
+  "marker": "ORDER-REFUND-",
+  "edits": [
+   [
+    "type ActivityKind = 'funded' | 'locked' | 'refund' | 'withdrawal' | 'other';",
+    "type ActivityKind = 'funded' | 'locked' | 'refund' | 'order_refund' | 'withdrawal' | 'other';"
+   ],
+   [
+    "  if (ref.startsWith('EPLAN-REFUND-')) return 'refund';",
+    "  if (ref.startsWith('EPLAN-REFUND-')) return 'refund';\n  // Food the restaurant didn't accept or rejected: refunded automatically.\n  if (ref.startsWith('ORDER-REFUND-')) return 'order_refund';"
+   ],
+   [
+    "    case 'refund':\n",
+    "    case 'order_refund':\n      return { icon: 'arrow-down', iconBg: 'rgba(52,199,89,0.12)', iconColor: foodColors.success, title: 'Order Refund', amountColor: foodColors.success, sign: '+' };\n    case 'refund':\n"
+   ],
+   [
+    "    return kind === 'funded' || kind === 'withdrawal';",
+    "    return kind === 'funded' || kind === 'withdrawal' || kind === 'order_refund';"
+   ]
+  ]
  }
 ];
 

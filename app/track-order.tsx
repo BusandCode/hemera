@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
+import { KeyboardAwareScrollView as ScrollView } from '../src/components/KeyboardAwareScrollView';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -58,6 +51,7 @@ const EWASH_STEPS: OrderStep[] = [
   { key: 'scheduled', label: 'Scheduled', description: 'Your pickup is booked.', icon: 'calendar', color: '#5F6B77' },
   { key: 'approved', label: 'Approved', description: 'Your pickup has been accepted.', icon: 'check', color: '#2E9E5B' },
   { key: 'picked-up', label: 'Picked Up', description: 'Your laundry has been picked up.', icon: 'truck', color: '#4A90E2' },
+  { key: 'at-laundry', label: 'At the Laundry', description: 'Your laundry is with the laundry partner.', icon: 'store', color: '#4A90E2' },
   { key: 'processing', label: 'Processing', description: 'Your clothes are being washed.', icon: 'washing-machine', color: '#E0A91F' },
   { key: 'ready', label: 'Ready', description: 'Clean, folded, and ready.', icon: 'check-circle-outline', color: '#2E9E5B' },
   { key: 'out-for-delivery', label: 'Out for Delivery', description: 'On its way back to you.', icon: 'moped', color: '#1E7A3E' },
@@ -75,6 +69,13 @@ function normalizeStatus(raw: string, type: OrderType): string {
     placed: type === 'echop' ? 'received' : 'scheduled',
     pending: type === 'echop' ? 'received' : 'scheduled',
     confirmed: 'approved',
+    // Set by the partner app (restaurants and laundries).
+    accepted: 'approved',
+    processing: type === 'echop' ? 'preparing' : 'processing',
+    'pickup-received': 'picked-up',
+    'ready-for-dispatch': 'ready',
+    at_laundry: 'at-laundry',
+    handed_over: 'picked-up',
     active: type === 'echop' ? 'preparing' : 'processing',
   };
   return aliases[s] ?? s;
@@ -86,7 +87,7 @@ function stepIndexFor(type: OrderType, status: string): number {
   return idx >= 0 ? idx : 0;
 }
 
-const CANCELLED = new Set(['cancelled', 'canceled', 'cancel', 'failed', 'rejected', 'refunded']);
+const CANCELLED = new Set(['cancelled', 'canceled', 'cancel', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded', 'timed_out']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function toTracked(data: any): TrackedOrder {
@@ -113,6 +114,21 @@ function toTracked(data: any): TrackedOrder {
     placedAt: data.created_at ?? new Date().toISOString(),
     checkoutRef: meta.checkout_ref ?? undefined,
   };
+}
+
+/** One line about all the restaurants in a checkout, e.g. "2 of 3 restaurants have your food ready". */
+function overallText(list: TrackedOrder[]) {
+  const live = list.filter((o) => !o.cancelled);
+  const n = live.length;
+  if (n === 0) return 'These orders were cancelled.';
+  const at = (key: string) => live.filter((o) => o.currentStepIndex >= o.steps.findIndex((s) => s.key === key)).length;
+  const delivered = at('delivered');
+  if (delivered === n) return 'Everything has been delivered.';
+  if (delivered > 0) return `${delivered} of ${n} restaurants delivered.`;
+  const onTheWay = at('picked-up');
+  if (onTheWay > 0) return `Hemera's rider has collected from ${onTheWay} of ${n} restaurants.`;
+  const ready = at('ready');
+  return `${ready} of ${n} restaurants have your food ready. Hemera's rider collects it and brings it to you.`;
 }
 
 function formatDate(iso: string) {
@@ -264,7 +280,7 @@ export default function TrackOrderScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <StatusBar style="dark" />
 
@@ -393,6 +409,7 @@ export default function TrackOrderScreen() {
               {siblings.length > 1 && (
                 <>
                   <Text style={styles.sectionLabel}>RESTAURANTS IN THIS ORDER</Text>
+                  <Text style={styles.siblingOverall}>{overallText(siblings)}</Text>
                   <View style={styles.siblingWrap}>
                     {siblings.map((s) => {
                       const active = s.rowId === order.rowId;
@@ -489,6 +506,7 @@ export default function TrackOrderScreen() {
 }
 
 const styles = StyleSheet.create({
+  siblingOverall: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: '#5F6B77', marginBottom: ms(8) },
   siblingWrap: { gap: ms(8), marginBottom: ms(6) },
   siblingChip: {
     borderWidth: 1,

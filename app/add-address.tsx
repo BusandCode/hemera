@@ -1,17 +1,8 @@
 import { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Platform,
-  Modal,
-  Pressable,
-  FlatList,
-  ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, Modal, Pressable, FlatList, ActivityIndicator,
 } from 'react-native';
+import { KeyboardAwareScrollView as ScrollView } from '../src/components/KeyboardAwareScrollView';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';

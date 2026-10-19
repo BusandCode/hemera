@@ -27,13 +27,20 @@ export function normalizeStatus(raw: string, orderType: string) {
     placed: ewash ? 'scheduled' : 'received',
     pending: ewash ? 'scheduled' : 'received',
     confirmed: 'approved',
+    // Set by the partner app (restaurants and laundries).
+    accepted: 'approved',
+    processing: ewash ? 'processing' : 'preparing',
+    'pickup-received': 'picked-up',
+    'ready-for-dispatch': 'ready',
+    'handed-over': 'picked-up',
+    'out-for-delivery': 'out-for-delivery',
     active: ewash ? 'processing' : 'preparing',
   };
 
   return aliases[status] ?? status;
 }
 
-const CANCELLED_STATUSES = ['cancel', 'cancelled', 'canceled', 'failed', 'rejected', 'refunded'];
+const CANCELLED_STATUSES = ['cancel', 'cancelled', 'canceled', 'cancelled_by_vendor', 'failed', 'rejected', 'refunded', 'timed_out'];
 
 export function isCancelledStatus(raw: string) {
   return CANCELLED_STATUSES.includes((raw ?? '').toLowerCase().trim());

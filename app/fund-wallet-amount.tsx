@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Keyboard,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { KeyboardAwareScrollView as ScrollView } from '../src/components/KeyboardAwareScrollView';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -47,7 +40,7 @@ export default function FundWalletAmountScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insets.top + 12 }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
       <StatusBar style="dark" />
 

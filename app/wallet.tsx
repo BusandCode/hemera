@@ -20,11 +20,13 @@ type TxnRow = {
   created_at: string;
 };
 
-type ActivityKind = 'funded' | 'locked' | 'refund' | 'withdrawal' | 'other';
+type ActivityKind = 'funded' | 'locked' | 'refund' | 'order_refund' | 'withdrawal' | 'other';
 
 function classify(t: TxnRow): ActivityKind {
   const ref = t.tx_ref ?? '';
   if (ref.startsWith('EPLAN-REFUND-')) return 'refund';
+  // Food the restaurant didn't accept or rejected: refunded automatically.
+  if (ref.startsWith('ORDER-REFUND-')) return 'order_refund';
   if (ref.startsWith('EPLAN-')) return 'locked';
   if (ref.startsWith('WD-')) return 'withdrawal';
   if (t.type === 'credit') return 'funded';
@@ -44,6 +46,8 @@ function getKindMeta(kind: ActivityKind): KindMeta {
   switch (kind) {
     case 'funded':
       return { icon: 'arrow-down', iconBg: 'rgba(52,199,89,0.12)', iconColor: foodColors.success, title: 'Wallet Funded', amountColor: foodColors.success, sign: '+' };
+    case 'order_refund':
+      return { icon: 'arrow-down', iconBg: 'rgba(52,199,89,0.12)', iconColor: foodColors.success, title: 'Order Refund', amountColor: foodColors.success, sign: '+' };
     case 'refund':
       return { icon: 'arrow-down', iconBg: 'rgba(52,199,89,0.12)', iconColor: foodColors.success, title: 'Refund from Cancelled Plan', amountColor: foodColors.success, sign: '+' };
     case 'locked':
@@ -108,7 +112,7 @@ export default function WalletScreen() {
   // Recent Activity shows wallet funding and withdrawals only.
   const activity = txns.filter((t) => {
     const kind = classify(t);
-    return kind === 'funded' || kind === 'withdrawal';
+    return kind === 'funded' || kind === 'withdrawal' || kind === 'order_refund';
   });
 
   return (

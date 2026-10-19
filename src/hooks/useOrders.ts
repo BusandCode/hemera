@@ -179,6 +179,7 @@ function normalizeStatus(raw: string | null): OrderStatus {
     case 'failed':
     case 'rejected':
     case 'refunded':
+    case 'timed_out':
       return 'Cancelled';
     case 'scheduled':
       return 'Scheduled';

@@ -518,6 +518,7 @@ import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useOrders } from '../../src/hooks/useOrders';
 import { useAuth } from '../../src/context/AuthContext';
+import { UnreadDot } from '../../src/components/notifications/UnreadDot';
 import { quickServices, QuickService } from '../../src/constants/quickServices';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -659,7 +660,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/notification')}
             >
               <Feather name="bell" size={IS_ANDROID ? 16 : 18} color={foodColors.textPrimary} />
-              <View style={styles.bellDot} />
+              <UnreadDot style={styles.bellDot} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.referButton}

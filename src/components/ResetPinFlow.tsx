@@ -204,7 +204,7 @@ export function ResetPinFlow({ onCancel, onDone }: Props) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
       <StatusBar style="dark" />
 

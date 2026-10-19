@@ -1,18 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Linking,
-  Modal,
-  Animated,
-  Platform,
-  KeyboardAvoidingView,
-  Keyboard,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Linking, Modal, Animated, Platform, KeyboardAvoidingView, Keyboard,
 } from 'react-native';
+import { KeyboardAwareScrollView as ScrollView } from '../src/components/KeyboardAwareScrollView';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -82,7 +72,7 @@ export default function ContactSupportScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       keyboardVerticalOffset={0}
     >
       <StatusBar style="dark" />

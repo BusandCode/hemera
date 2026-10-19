@@ -1,13 +1,8 @@
 import { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Platform,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Platform,
 } from 'react-native';
+import { KeyboardAwareScrollView as ScrollView } from '../src/components/KeyboardAwareScrollView';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 

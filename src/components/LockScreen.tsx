@@ -1,21 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Animated,
-  Platform,
-  Image,
-  KeyboardAvoidingView,
-  Keyboard,
-  Modal,
-  Easing,
-  ScrollView,
-  useWindowDimensions,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Animated, Platform, Image, KeyboardAvoidingView, Keyboard, Modal, Easing, useWindowDimensions,
 } from 'react-native';
+import { KeyboardAwareScrollView as ScrollView } from './KeyboardAwareScrollView';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
@@ -635,7 +622,7 @@ export function LockScreen({ onUnlock, onForgotPin, onSwitchAccount, hasPin }: P
     <View style={styles.container}>
       <KeyboardAvoidingView
         style={styles.animatedFill}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
       >
         <Animated.View
           style={[
