@@ -61,30 +61,12 @@ export default function ConfirmWithdrawalScreen() {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(
-      `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/process-withdrawal`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ requestId }),
-      }
-    );
-
+    // The request stays "pending" for the Hemera team, who send the transfer to the bank
+    // account by hand. Nothing is sent automatically from the app.
+    void requestId;
     setSubmitting(false);
-    const data = await res.json();
 
-    if (!res.ok) {
-      Alert.alert('Withdrawal Failed', data.error ?? 'Something went wrong. Your balance has been refunded.', [
-        { text: 'OK', onPress: () => router.replace('/wallet' as any) },
-      ]);
-      return;
-    }
-
-    Alert.alert('Withdrawal Requested', 'Your withdrawal is being processed and should arrive within 24 hours.', [
+    Alert.alert('Withdrawal Requested', 'Your request has been sent. Hemera will transfer the money to your bank account within 24 hours.', [
       { text: 'OK', onPress: () => router.replace('/wallet' as any) },
     ]);
   };
