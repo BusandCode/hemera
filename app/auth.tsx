@@ -66,6 +66,8 @@ function friendlyAuthError(e: unknown, fallback = 'Something went wrong. Please 
     return 'No internet connection. Check your network and try again.';
   }
 
+  if (code === 'partner_account') return raw;
+
   if (isInvalidCredentials(e)) return 'Email or password is incorrect.';
 
   if (isEmailNotConfirmed(e)) return 'Your email is not verified yet. Enter the code we sent you.';

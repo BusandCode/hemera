@@ -71,6 +71,20 @@ async function removeDevicePushToken(userId: string | undefined): Promise<void> 
   }
 }
 
+/** 'partner' when this email belongs to a Hemera Business account. null if it can't be checked. */
+async function accountKind(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc('hemera_account_kind');
+    if (error) return null;
+    return typeof data === 'string' ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+const PARTNER_ACCOUNT_MESSAGE =
+  'This email is registered for Hemera Business (the partner app). Please use a different email for the Hemera app.';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,6 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.getUser();
         if (!active) return;
         if (isDeadSessionError(error)) {
+          await supabase.auth.signOut({ scope: 'local' });
+          setSession(null);
+        } else if ((await accountKind()) === 'partner') {
+          // A Hemera Business account can't use the customer app.
           await supabase.auth.signOut({ scope: 'local' });
           setSession(null);
         } else {
@@ -139,6 +157,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    if ((await accountKind()) === 'partner') {
+      await supabase.auth.signOut({ scope: 'local' });
+      setSession(null);
+      const err = new Error(PARTNER_ACCOUNT_MESSAGE) as Error & { code?: string };
+      err.code = 'partner_account';
+      throw err;
+    }
     setSession(data.session);
   };
 
