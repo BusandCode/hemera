@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 import { categories as FOOD_TABS } from '../constants/foodData';
@@ -163,6 +164,17 @@ async function loadMenu(): Promise<MenuItem[]> {
   return products.map((p) => toMenuItem(p, names.get(p.store_id) ?? ''));
 }
 
+const REFRESH_EVERY_MS = 60_000;
+
+// Everything on the E-Chop screens that loads restaurants or meals registers here, so a
+// pull-to-refresh (or coming back to the screen) can reload all of it at once.
+const reloaders = new Set<() => Promise<void>>();
+
+/** Reload restaurants and meals everywhere. Resolves when all of them are done. */
+export function refreshFoodData(): Promise<void> {
+  return Promise.all(Array.from(reloaders).map((r) => r())).then(() => undefined);
+}
+
 function useSupabaseQuery<T>(fetcher: () => Promise<T>, initial: T, deps: unknown[]) {
   const [data, setData] = useState<T>(initial);
   const [loading, setLoading] = useState(true);
@@ -170,21 +182,44 @@ function useSupabaseQuery<T>(fetcher: () => Promise<T>, initial: T, deps: unknow
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    fetcher()
-      .then((result) => {
-        if (cancelled) return;
-        setData(result);
-        setError(null);
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    let first = true;
+    let running: Promise<void> | null = null;
+
+    // Loads now, then again every minute, when the app comes back to the front, and on
+    // pull-to-refresh. Only the first load shows the spinner; later ones update quietly.
+    const run = (): Promise<void> => {
+      if (running) return running;
+      if (first) setLoading(true);
+      running = fetcher()
+        .then((result) => {
+          if (cancelled) return;
+          setData(result);
+          setError(null);
+        })
+        .catch((e: Error) => {
+          if (!cancelled) setError(e.message);
+        })
+        .finally(() => {
+          running = null;
+          if (!cancelled && first) setLoading(false);
+          first = false;
+        });
+      return running;
+    };
+
+    run();
+    reloaders.add(run);
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') run();
+    }, REFRESH_EVERY_MS);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') run();
+    });
     return () => {
       cancelled = true;
+      reloaders.delete(run);
+      clearInterval(timer);
+      sub.remove();
     };
   }, deps);
 

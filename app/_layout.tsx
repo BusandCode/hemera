@@ -29,6 +29,7 @@ import { ReferralRewardPrompt } from '../src/components/referral/ReferralRewardP
 import { LockOverlay } from '../src/components/LockOverlay';
 import { SplashScreenView } from '../src/components/SplashScreenView';
 import { PushNotificationRegistrar } from '../src/components/notifications/PushNotificationRegistrar';
+import { StatusBarShield } from '../src/components/StatusBarShield';
 import { capturePendingReferral } from '../src/lib/referralLink';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -164,6 +165,7 @@ export default function RootLayout() {
                                     <Stack.Screen name="reset-pin" />
                                   </Stack>
 
+                                  <StatusBarShield />
                                   <ReferralRewardPrompt />
                                   <LockOverlay />
                                   <SplashGate />

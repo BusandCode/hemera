@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FoodHeader } from '../../src/components/food/FoodHeader';
@@ -17,6 +17,7 @@ import { FoodCategory } from '../../src/constants/foodData';
 import { useLocation } from '../../src/context/LocationContext';
 import { useCart } from '../../src/context/CartContext';
 import { ms } from '../../src/utils/responsive';
+import { refreshFoodData } from '../../src/hooks/useFood';
 
 export default function FoodScreen() {
   const router = useRouter();
@@ -25,6 +26,22 @@ export default function FoodScreen() {
   const { formatted } = useLocation();
   const { itemCount, total } = useCart();
   const [category, setCategory] = useState<FoodCategory>('All');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull down to reload restaurants and meals.
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    refreshFoodData().finally(() => setRefreshing(false));
+  }, []);
+
+  // Coming back to this tab reloads quietly (not on the very first visit, which loads anyway).
+  const visited = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (visited.current) void refreshFoodData();
+      visited.current = true;
+    }, [])
+  );
 
   // Same side padding rule as Home: tighter on small phones, roomier on tablets.
   const hPad = ms(width < 360 ? 12 : width >= 600 ? 28 : 16);
@@ -46,7 +63,15 @@ export default function FoodScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={foodColors.primary}
+            colors={[foodColors.primary]}
+            progressViewOffset={ms(8)}
+          />
+        }
       >
         <View style={[styles.searchSection, padded]}>
           <SearchBar />

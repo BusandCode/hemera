@@ -241,6 +241,7 @@ export default function NotificationScreen() {
   const openNotification = (item: NotificationItem) => {
     void markRead(item);
     if (item.category === 'chat_messages') router.push('/live-chat');
+    else router.push({ pathname: '/notification-details', params: { id: item.id } } as any);
   };
 
   return (
