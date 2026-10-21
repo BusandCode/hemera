@@ -64,7 +64,7 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const dialog = useDialog();
-  const params = useLocalSearchParams<{ promoApplied?: string; discount?: string }>();
+  const params = useLocalSearchParams<{ promoApplied?: string; discount?: string; promoCode?: string }>();
   const { session } = useAuth();
   const { lines, itemCount, total: itemsTotal, removeItem } = useCart();
   const { formatted } = useLocation();
@@ -191,6 +191,8 @@ export default function CheckoutScreen() {
             total,
             subtotal: itemsTotal,
             discount,
+            // The server works the discount out again from this code.
+            ...(promoApplied && params.promoCode ? { promo_code: params.promoCode } : {}),
             ...(foodReward && {
               referral_reward_id: foodReward.id,
               referral_discount: referralDiscount,

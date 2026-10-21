@@ -56,7 +56,9 @@ export default function ConfirmWithdrawalScreen() {
         'Error',
         rpcError.message.includes('insufficient_balance')
           ? 'Insufficient wallet balance.'
-          : 'Could not create withdrawal request. Please try again.'
+          : rpcError.message.includes('minimum_amount')
+            ? 'The minimum withdrawal is ₦1,000.'
+            : 'Could not create withdrawal request. Please try again.'
       );
       return;
     }
