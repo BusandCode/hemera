@@ -307,6 +307,7 @@ export default function CartScreen() {
 
   const suggestions = useMemo<MenuItem[]>(() => {
     if (allMenuItems.length === 0 || lines.length === 0) return [];
+    const allMenuItemsOpen = allMenuItems.filter((it) => !it.closed);   // no suggestions from closed restaurants
 
     const seedLines = lines.filter((l) => !addedFromSuggestions.includes(l.item.id));
     const basis = seedLines.length > 0 ? seedLines : lines;
@@ -335,7 +336,7 @@ export default function CartScreen() {
       return s;
     };
 
-    return allMenuItems
+    return allMenuItemsOpen
       .filter((it) => !seedIds.has(it.id) && inDeliveryArea(it, location.state, location.lga))
       .map((it) => ({ it, s: score(it) }))
       .sort((a, b) => b.s - a.s || b.it.rating - a.it.rating)

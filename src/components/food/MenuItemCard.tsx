@@ -56,12 +56,20 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
         }}
       >
         <Image source={{ uri: item.image }} style={[styles.image, { borderRadius: imageSize / 2 }]} />
-        <View style={styles.addDot}>
-          <Feather name="plus" size={ms(14)} color="#fff" />
-        </View>
+        {!item.closed && (
+          <View style={styles.addDot}>
+            <Feather name="plus" size={ms(14)} color="#fff" />
+          </View>
+        )}
       </View>
 
       <View style={[styles.actions, { width: actionsWidth, marginTop: Math.round(imageSize * 0.28) }]}>
+        {item.closed ? (
+          <View style={[styles.addBtn, styles.closedBtn]}>
+            <Text style={styles.addBtnText} maxFontSizeMultiplier={1.1}>CLOSED{'\n'}NOW</Text>
+          </View>
+        ) : (
+        <>
         <TouchableOpacity style={styles.addBtn} onPress={() => addItem(item, qty)} activeOpacity={0.85}>
           <Text style={styles.addBtnText} maxFontSizeMultiplier={1.1}>ADD TO{'\n'}ORDER</Text>
           <Feather name="arrow-right" size={ms(12)} color="#fff" style={styles.addBtnIcon} />
@@ -84,6 +92,8 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
             <Feather name="plus" size={ms(16)} color={foodColors.textPrimary} />
           </TouchableOpacity>
         </View>
+        </>
+        )}
       </View>
     </View>
   );
@@ -151,6 +161,7 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontSize: ms(9), lineHeight: ms(11), fontFamily: fonts.poppins.bold, color: '#fff', textAlign: 'center' },
   addBtnIcon: { marginTop: 2 },
+  closedBtn: { backgroundColor: foodColors.textMuted, paddingVertical: ms(9) },
 
   // Small pill, but with larger − and + icons inside it.
   stepper: {

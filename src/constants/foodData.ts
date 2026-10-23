@@ -52,6 +52,8 @@ export type Partner = {
   etaMinutes: number;
   image: string;
   logo: ImageSourcePropType;
+  /** Closed right now (outside opening hours or not taking orders): shown, but can't order. */
+  closed?: boolean;
 };
 
 export type MenuItem = {
@@ -72,6 +74,8 @@ export type MenuItem = {
   /** Delivery area of the partner that sells this item. */
   state?: string;
   lga?: string;
+  /** The restaurant is closed right now, so this can't be added to the cart. */
+  closed?: boolean;
 };
 
 export type PartnerCategory = {

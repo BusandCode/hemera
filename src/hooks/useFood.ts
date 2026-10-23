@@ -31,6 +31,8 @@ type StoreRow = {
   cuisines: string[] | null;
   price_level: string | null;
   created_at: string;
+  /** Set by loadStores: true when the restaurant can take orders right now (open and not paused). */
+  canOrder?: boolean;
 };
 
 type ProductRow = {
@@ -71,8 +73,9 @@ function isOpenNow(schedule: StoreRow['hours_schedule'], now = new Date()) {
   return inside(today, 'same-day') || inside(yesterday, 'after-midnight');
 }
 
-function toMenuItem(p: ProductRow, storeName: string): MenuItem {
+function toMenuItem(p: ProductRow, storeName: string, closed = false): MenuItem {
   return {
+    closed,
     id: p.id,
     partnerName: storeName.toUpperCase(),
     storeId: p.store_id,
@@ -93,6 +96,7 @@ function toPartner(s: StoreRow, products: ProductRow[]): Partner {
   // Background image: the partner's cover photo, else their logo, else a product photo.
   const cover = s.cover_url || s.logo_url || products.find((p) => p.image_url)?.image_url || '';
   return {
+    closed: s.canOrder === false,
     id: s.id,
     name: s.name,
     rating: 0,
@@ -130,9 +134,12 @@ async function loadStores(storeId?: string): Promise<StoreRow[]> {
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   const stores = (data ?? []) as StoreRow[];
-  // Closed or paused restaurants are hidden from customers.
+  // Every approved restaurant is shown. Opening hours (and "Accepting orders") only decide
+  // whether it can take an order right now; closed ones show as "Closed" and can't be added to.
   const open = await orderableStoreIds();
-  return stores.filter((s) => (open ? open.has(s.id) : isOpenNow(s.hours_schedule)));
+  return stores
+    .map((s) => ({ ...s, canOrder: open ? open.has(s.id) : isOpenNow(s.hours_schedule) }))
+    .sort((a, b) => Number(b.canOrder) - Number(a.canOrder));   // open ones first
 }
 
 /** Stores customers can order from right now (open by their hours and not paused). Null if the check fails. */
@@ -159,9 +166,11 @@ async function loadProducts(storeIds: string[]): Promise<ProductRow[]> {
 /** All in-stock meals from approved stores, newest first. */
 async function loadMenu(): Promise<MenuItem[]> {
   const stores = await loadStores();
-  const names = new Map(stores.map((s) => [s.id, s.name]));
+  const byId = new Map(stores.map((s) => [s.id, s]));
   const products = await loadProducts(stores.map((s) => s.id));
-  return products.map((p) => toMenuItem(p, names.get(p.store_id) ?? ''));
+  return products
+    .map((p) => toMenuItem(p, byId.get(p.store_id)?.name ?? '', byId.get(p.store_id)?.canOrder === false))
+    .sort((a, b) => Number(!!a.closed) - Number(!!b.closed));   // meals you can order first
 }
 
 const REFRESH_EVERY_MS = 60_000;
@@ -252,7 +261,7 @@ export function usePartnerDetail(id: string | undefined) {
       const [store] = await loadStores(id);
       if (!store) throw new Error('This restaurant is not available right now.');
       const products = await loadProducts([store.id]);
-      const items = products.map((p) => toMenuItem(p, store.name));
+      const items = products.map((p) => toMenuItem(p, store.name, store.canOrder === false));
       return {
         ...toPartner(store, products),
         tagline: store.description ?? '',
@@ -262,7 +271,7 @@ export function usePartnerDetail(id: string | undefined) {
         distanceKm: 0,
         // ₦, ₦₦ or ₦₦₦, chosen by the partner (the screen shows it as text).
         priceLevel: (store.price_level || '₦') as '₦',
-        openNow: isOpenNow(store.hours_schedule),
+        openNow: store.canOrder !== false,
         hours: store.hours ?? '',
         reviewCount: 0,
         categories: groupByCategory(items),

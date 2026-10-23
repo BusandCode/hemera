@@ -45,6 +45,9 @@ function MenuRow({ item }: { item: MenuItem }) {
         <Text style={styles.price}>{priceFmt}</Text>
       </View>
 
+      {item.closed ? (
+        <Text style={styles.closedLabel}>Closed now</Text>
+      ) : (
       <View style={styles.stepper}>
         <TouchableOpacity
           style={[styles.stepBtn, qty <= 1 && styles.controlDisabled]}
@@ -58,6 +61,7 @@ function MenuRow({ item }: { item: MenuItem }) {
           <Feather name="plus" size={ms(13)} color={foodColors.textPrimary} />
         </TouchableOpacity>
       </View>
+      )}
     </View>
   );
 }
@@ -239,6 +243,7 @@ const styles = StyleSheet.create({
   stepBtn: { width: ms(20), height: ms(20), justifyContent: 'center', alignItems: 'center' },
   stepValue: { fontSize: ms(12), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   controlDisabled: { opacity: 0.35 },
+  closedLabel: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: foodColors.textMuted, alignSelf: 'center' },
 
   orderBarWrap: {
     position: 'absolute',

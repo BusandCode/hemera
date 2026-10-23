@@ -170,6 +170,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async ({ fullName, gender, phone, referredBy, email, password }: SignUpDetails) => {
     const pending = await getPendingReferral();
     const referral = (referredBy || pending || '').trim().toUpperCase();
+
+    // An email used for Hemera Business can't become a customer account. Check before
+    // anything is created.
+    const { data: emailKind } = await supabase.rpc('hemera_email_kind', { p_email: email });
+    if (emailKind === 'partner') {
+      const err = new Error(
+        'This email is registered for Hemera Business (the partner app). Please use a different email for the Hemera app.'
+      ) as Error & { code?: string };
+      err.code = 'partner_account';
+      throw err;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

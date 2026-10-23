@@ -20,7 +20,12 @@ export function PartnerCard({
   return (
     <TouchableOpacity style={[styles.card, { width }]} onPress={onPress} activeOpacity={0.85}>
       <View style={[styles.imageWrap, { height: imageHeight }]}>
-        <Image source={{ uri: partner.image }} style={styles.image} />
+        <Image source={{ uri: partner.image }} style={[styles.image, partner.closed && styles.imageClosed]} />
+        {partner.closed && (
+          <View style={styles.closedChip}>
+            <Text style={styles.closedText} maxFontSizeMultiplier={MAX_FONT_SCALE}>Closed</Text>
+          </View>
+        )}
         <View style={styles.logo}>
           <Image source={partner.logo} style={styles.logoImage} resizeMode="cover" />
         </View>
@@ -53,6 +58,17 @@ const styles = StyleSheet.create({
   },
   imageWrap: { width: '100%' },
   image: { width: '100%', height: '100%', borderRadius: ms(12) },
+  imageClosed: { opacity: 0.45 },
+  closedChip: {
+    position: 'absolute',
+    top: ms(6),
+    right: ms(6),
+    backgroundColor: 'rgba(26,26,26,0.85)',
+    borderRadius: ms(10),
+    paddingHorizontal: ms(8),
+    paddingVertical: ms(2),
+  },
+  closedText: { fontSize: ms(10), fontFamily: fonts.poppins.semiBold, color: '#fff' },
   logo: {
     position: 'absolute',
     bottom: -ms(11),
