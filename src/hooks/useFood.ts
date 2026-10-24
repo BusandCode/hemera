@@ -97,6 +97,7 @@ function toPartner(s: StoreRow, products: ProductRow[]): Partner {
   const cover = s.cover_url || s.logo_url || products.find((p) => p.image_url)?.image_url || '';
   return {
     closed: s.canOrder === false,
+    cuisine: (s.cuisines ?? []).join(' · '),
     id: s.id,
     name: s.name,
     rating: 0,

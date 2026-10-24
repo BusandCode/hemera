@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
-import { FoodCategory, MenuItem, categories } from '../src/constants/foodData';
+import { FoodCategory, MenuItem, categories, matchesCategory } from '../src/constants/foodData';
+import { searchMatch } from '../src/utils/search';
 import { fonts } from '../src/constants/typography';
 import { useCart } from '../src/context/CartContext';
 import { useTodaysMenu } from '../src/hooks/useFood';
@@ -79,11 +80,9 @@ export default function TodaysMenuScreen() {
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
     return todaysMenu.filter((item) => {
-      const matchesCategory =
-        category === ALL_CATEGORY || (item as MenuItem & { category?: string }).category === category;
-      const matchesQuery =
-        !q || item.name.toLowerCase().includes(q) || item.partnerName.toLowerCase().includes(q);
-      return matchesCategory && matchesQuery;
+      const inCategory = category === ALL_CATEGORY || matchesCategory(item, category);
+      const inSearch = !q || searchMatch(q, item.name, item.description, item.category, item.partnerName, item.storeName);
+      return inCategory && inSearch;
     });
   }, [todaysMenu, query, category]);
 

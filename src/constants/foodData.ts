@@ -52,6 +52,8 @@ export type Partner = {
   etaMinutes: number;
   image: string;
   logo: ImageSourcePropType;
+  /** What the restaurant serves, e.g. "Nigerian · Rice · Grills" (used by search). */
+  cuisine?: string;
   /** Closed right now (outside opening hours or not taking orders): shown, but can't order. */
   closed?: boolean;
 };

@@ -1,4 +1,4 @@
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
@@ -14,9 +14,17 @@ export function SearchBar({ value, onChangeText }: { value?: string; onChangeTex
         placeholderTextColor={foodColors.textMuted}
         value={value}
         onChangeText={onChangeText}
-        numberOfLines={1}
         maxFontSizeMultiplier={MAX_FONT_SCALE}
+        returnKeyType="search"
+        autoCorrect={false}
+        autoCapitalize="none"
+        clearButtonMode="never"
       />
+      {!!value && onChangeText ? (
+        <TouchableOpacity onPress={() => onChangeText('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Feather name="x-circle" size={ms(16)} color={foodColors.textMuted} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

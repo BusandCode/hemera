@@ -19,6 +19,7 @@ import { PartnerCategory } from '../../src/constants/foodData';
 import { usePartnerDetail } from '../../src/hooks/useFood';
 import { MenuItemCard } from '../../src/components/food/MenuItemCard';
 import { SearchBar } from '../../src/components/food/SearchBar';
+import { searchMatch } from '../../src/utils/search';
 import { ViewOrderBar } from '../../src/components/food/ViewOrderBar';
 import { useCart } from '../../src/context/CartContext';
 import { useFavorites } from '../../src/context/FavoritesContext';
@@ -79,11 +80,7 @@ export default function PartnerDetailScreen() {
       .map((c) => ({
         ...c,
         items: q
-          ? c.items.filter(
-              (it) =>
-                it.name.toLowerCase().includes(q) ||
-                it.description.toLowerCase().includes(q)
-            )
+          ? c.items.filter((it) => searchMatch(q, it.name, it.description, it.category, c.title))
           : c.items,
       }))
       .filter((c) => c.items.length > 0);

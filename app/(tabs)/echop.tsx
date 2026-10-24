@@ -9,6 +9,7 @@ import { PromoBanner } from '../../src/components/food/PromoBanner';
 import { CategoryTabs } from '../../src/components/food/CategoryTabs';
 import { NearbyPartners } from '../../src/components/food/NearbyPartners';
 import { TodaysMenu } from '../../src/components/food/TodaysMenu';
+import { EChopSearchResults } from '../../src/components/food/EChopSearchResults';
 import { ViewOrderBar } from '../../src/components/food/ViewOrderBar';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 
@@ -26,6 +27,8 @@ export default function FoodScreen() {
   const { formatted } = useLocation();
   const { itemCount, total } = useCart();
   const [category, setCategory] = useState<FoodCategory>('All');
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
   const [refreshing, setRefreshing] = useState(false);
 
   // Pull down to reload restaurants and meals.
@@ -63,6 +66,7 @@ export default function FoodScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -74,24 +78,32 @@ export default function FoodScreen() {
         }
       >
         <View style={[styles.searchSection, padded]}>
-          <SearchBar />
+          <SearchBar value={query} onChangeText={setQuery} />
         </View>
 
-        <View style={[styles.bannerSection, padded]}>
-          <PromoBanner />
-        </View>
+        {searching ? (
+          <View style={[styles.menuSection, padded]}>
+            <EChopSearchResults query={query} sidePadding={hPad} />
+          </View>
+        ) : (
+          <>
+            <View style={[styles.bannerSection, padded]}>
+              <PromoBanner />
+            </View>
 
-        <View style={[styles.categorySection, padded]}>
-          <CategoryTabs active={category} onSelect={setCategory} />
-        </View>
+            <View style={[styles.categorySection, padded]}>
+              <CategoryTabs active={category} onSelect={setCategory} />
+            </View>
 
-        <View style={[styles.partnersSection, padded]}>
-          <NearbyPartners sidePadding={hPad} />
-        </View>
+            <View style={[styles.partnersSection, padded]}>
+              <NearbyPartners sidePadding={hPad} />
+            </View>
 
-        <View style={[styles.menuSection, padded]}>
-          <TodaysMenu category={category} />
-        </View>
+            <View style={[styles.menuSection, padded]}>
+              <TodaysMenu category={category} />
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
