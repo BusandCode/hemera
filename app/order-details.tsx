@@ -166,7 +166,14 @@ export default function OrderDetailsScreen() {
         return;
       }
 
-      setOrder(parseOrder(data));
+      // Your address is kept privately (only you and Hemera can read it), not on the order itself.
+      const { data: contact } = await supabase
+        .from('order_contacts')
+        .select('details')
+        .eq('order_id', (data as any).id)
+        .maybeSingle();
+      const details = ((contact as any)?.details ?? {}) as Record<string, unknown>;
+      setOrder(parseOrder({ ...(data as any), metadata: { ...((data as any).metadata ?? {}), ...details } }));
       setLoading(false);
     };
 

@@ -56,9 +56,11 @@ function toMinutes(t: string | undefined) {
 /** Open right now, using the store's weekly hours (overnight hours supported). */
 function isOpenNow(schedule: StoreRow['hours_schedule'], now = new Date()) {
   if (!schedule) return true;
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  const today = schedule[DAY_KEYS[now.getDay()]];
-  const yesterday = schedule[DAY_KEYS[(now.getDay() + 6) % 7]];
+  // Opening hours are in Nigeria time (UTC+1, no daylight saving), whatever the phone's time zone.
+  const lagos = new Date(now.getTime() + 60 * 60 * 1000);
+  const minutes = lagos.getUTCHours() * 60 + lagos.getUTCMinutes();
+  const today = schedule[DAY_KEYS[lagos.getUTCDay()]];
+  const yesterday = schedule[DAY_KEYS[(lagos.getUTCDay() + 6) % 7]];
 
   const inside = (d: typeof today, part: 'same-day' | 'after-midnight') => {
     if (!d?.open) return false;

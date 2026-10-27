@@ -402,7 +402,7 @@ export default function AuthScreen() {
       } else if (!isSignUp && isInvalidCredentials(e)) {
         const exists = await emailExists(email.trim());
         if (exists === false) {
-          setError('No account found with this email. Check the spelling or create an account.');
+          setError('Account does not exist. Check the email, or create an account.');
         } else if (exists === true) {
           setError('Incorrect password. Try again or tap "Forgot password?" to reset it.');
         } else {

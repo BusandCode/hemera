@@ -25,3 +25,5 @@ android/
 expo-env.d.ts
 # @end expo-cli.account-deletion-backup/
 supabase/.temp/
+.update-backup/
+apply-*.mjs
