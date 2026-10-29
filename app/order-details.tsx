@@ -9,6 +9,7 @@ import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 import { orderNumber, normalizeStatus, isCancelledStatus } from '../src/lib/orderStatus';
+import { RateOrder } from '../src/components/food/RateOrder';
 
 type StepIcon = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -273,6 +274,10 @@ export default function OrderDetailsScreen() {
           <Text style={styles.summaryTitle}>{order.title}</Text>
           <Text style={styles.placed}>Placed {formatDate(order.created_at)}</Text>
         </View>
+
+        {order.order_type === 'echop' && !cancelled && normalizeStatus(order.status, order.order_type) === 'delivered' && (
+          <RateOrder orderId={order.id} />
+        )}
 
         <Text style={styles.sectionTitle}>Status</Text>
         <View style={[styles.card, styles.timelineCard]}>

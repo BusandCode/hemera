@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { useLiveRefresh } from './useLiveRefresh';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -122,6 +123,7 @@ export function useRecentOrders(type: 'ewash' | 'echop' = 'ewash', limit = 5) {
       load();
     }, [load])
   );
+  useLiveRefresh(load, ['orders']);   // order status updates by itself
 
   const orders = useMemo(() => rows.slice(0, limit), [rows, limit]);
 

@@ -147,6 +147,7 @@
 
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { useLiveRefresh } from './useLiveRefresh';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -300,6 +301,7 @@ export function useOrders(type?: Order['type'], scope: OrderScope = 'all') {
       load();
     }, [load])
   );
+  useLiveRefresh(load, ['orders']);   // order status updates by itself
 
   return { orders, loading, error, refetch: load };
 }

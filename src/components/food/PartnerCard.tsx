@@ -37,7 +37,7 @@ export function PartnerCard({
         <View style={styles.metaRow}>
           <Feather name="star" size={ms(10)} color={foodColors.primary} />
           <Text style={styles.meta} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-            {partner.rating} • {partner.etaMinutes} min
+            {partner.rating ? partner.rating.toFixed(1) : 'New'} • {partner.etaMinutes} min
           </Text>
         </View>
       </View>

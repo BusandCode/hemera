@@ -30,6 +30,7 @@ import { LockOverlay } from '../src/components/LockOverlay';
 import { SplashScreenView } from '../src/components/SplashScreenView';
 import { PushNotificationRegistrar } from '../src/components/notifications/PushNotificationRegistrar';
 import { StatusBarShield } from '../src/components/StatusBarShield';
+import { NavLoading } from '../src/components/NavLoading';
 import { capturePendingReferral } from '../src/lib/referralLink';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -166,6 +167,7 @@ export default function RootLayout() {
                                   </Stack>
 
                                   <StatusBarShield />
+                                  <NavLoading />
                                   <ReferralRewardPrompt />
                                   <LockOverlay />
                                   <SplashGate />

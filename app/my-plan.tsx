@@ -12,6 +12,7 @@ import { fonts } from '../src/constants/typography';
 import { useProfile } from '../src/context/ProfileContext';
 import { useAuth } from '../src/context/AuthContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
+import { useLiveRefresh } from '../src/hooks/useLiveRefresh';
 import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 
@@ -56,15 +57,18 @@ type DeliveryRow = {
   id: string;
   title: string;
   subtitle: string | null;
-  status: 'delivered' | 'in_transit' | 'surprise_pending';
+  status: 'delivered' | 'in_transit' | 'surprise_pending' | 'delivery_failed' | 'cancelled';
   delivered_at: string | null;
 };
 
 const STATUS_ORDER: Record<DeliveryRow['status'], number> = {
-  delivered: 0,
-  in_transit: 1,
-  surprise_pending: 2,
+  in_transit: 0,
+  surprise_pending: 1,
+  delivered: 2,
+  delivery_failed: 2,
+  cancelled: 3,
 };
+const MISSED_RED = '#DC2626';
 
 export default function MyPlanScreen() {
   const router = useRouter();
@@ -80,7 +84,6 @@ export default function MyPlanScreen() {
 
   const load = useCallback(async () => {
     if (!session?.user.id) return;
-    setLoading(true);
     const { data: planData } = await supabase
       .from('eplan_plans')
       .select('id, locked_amount_kobo, balance_kobo, ends_at')
@@ -96,7 +99,8 @@ export default function MyPlanScreen() {
         .select('id, title, subtitle, status, delivered_at')
         .eq('plan_id', planData.id)
         .order('created_at', { ascending: true });
-      setDeliveries(deliveryData ?? []);
+      // Meals Hemera called off aren't shown.
+      setDeliveries(((deliveryData ?? []) as DeliveryRow[]).filter((d) => d.status !== 'cancelled'));
     } else {
       setDeliveries([]);
     }
@@ -108,6 +112,7 @@ export default function MyPlanScreen() {
       load();
     }, [load])
   );
+  useLiveRefresh(load, ['eplan_plans']);   // meal status and balance update by themselves
 
   const handleCancel = () => {
     if (!plan) return;
@@ -115,7 +120,7 @@ export default function MyPlanScreen() {
     Alert.alert(
       'Cancel Plan',
       refundNaira > 0
-        ? `Only the unused part of your plan is refunded: ${formatNaira(refundNaira)} will go back to your wallet. Meals already delivered are not refunded. Continue?`
+        ? `Only the unused part of your plan is refunded (up to ${formatNaira(refundNaira)}). Meals already delivered are not refunded, and a meal that is already on the way is still delivered and paid from your plan. Continue?`
         : 'There is no unused balance left on this plan, so nothing will be refunded. Continue?',
       [
         { text: 'Keep Plan', style: 'cancel' },
@@ -144,7 +149,7 @@ export default function MyPlanScreen() {
 
   const sortedDeliveries = [...deliveries].sort((a, b) => {
     if (a.status !== b.status) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-    if (a.status === 'delivered') {
+    if (a.status === 'delivered' || a.status === 'delivery_failed') {
       return new Date(b.delivered_at ?? 0).getTime() - new Date(a.delivered_at ?? 0).getTime();
     }
     return 0;
@@ -162,6 +167,9 @@ export default function MyPlanScreen() {
     }
     if (d.status === 'in_transit') {
       return <Text style={[styles.metaStatus, { color: TRANSIT_ORANGE }]}>On the way</Text>;
+    }
+    if (d.status === 'delivery_failed') {
+      return <Text style={[styles.metaStatus, { color: MISSED_RED }]}>Missed</Text>;
     }
     if (d.status === 'surprise_pending') {
       return <Text style={[styles.metaStatus, { color: SURPRISE_PURPLE }]}>???</Text>;
@@ -236,15 +244,17 @@ export default function MyPlanScreen() {
                   d.status === 'delivered' && styles.deliveryIconDelivered,
                   d.status === 'in_transit' && styles.deliveryIconTransit,
                   d.status === 'surprise_pending' && styles.deliveryIconPending,
+                  d.status === 'delivery_failed' && styles.deliveryIconMissed,
                 ]}
               >
                 {d.status === 'delivered' && <Feather name="check" size={ms(20)} color={foodColors.success} />}
                 {d.status === 'in_transit' && <MaterialCommunityIcons name="moped" size={ms(22)} color={TRANSIT_ORANGE} />}
                 {d.status === 'surprise_pending' && <Feather name="gift" size={ms(20)} color={SURPRISE_PURPLE} />}
+                {d.status === 'delivery_failed' && <Feather name="x" size={ms(20)} color={MISSED_RED} />}
               </View>
               <View style={styles.deliveryInfo}>
                 <Text style={styles.deliveryTitle} numberOfLines={1}>{d.title}</Text>
-                {!!d.subtitle && <Text style={styles.deliverySubtitle} numberOfLines={1}>{d.subtitle}</Text>}
+                {!!d.subtitle && <Text style={styles.deliverySubtitle} numberOfLines={d.status === 'delivery_failed' ? 2 : 1}>{d.subtitle}</Text>}
               </View>
               {renderMeta(d)}
             </View>
@@ -328,6 +338,7 @@ const styles = StyleSheet.create({
   deliveryIconDelivered: { backgroundColor: 'rgba(52,199,89,0.12)' },
   deliveryIconTransit: { backgroundColor: 'rgba(245,158,11,0.12)' },
   deliveryIconPending: { backgroundColor: 'rgba(124,58,237,0.1)' },
+  deliveryIconMissed: { backgroundColor: 'rgba(220,38,38,0.1)' },
   deliveryInfo: { flex: 1, minWidth: 0 },
   deliveryTitle: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
   deliverySubtitle: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(3) },

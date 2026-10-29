@@ -31,6 +31,9 @@ import { ms } from '../src/utils/responsive';
 const BUCKET = 'admin-media';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 2000;
+// The chat only shows the last 24 hours, so it starts fresh after a day. Hemera support (admin)
+// still keeps the full history.
+const CHAT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 type Row = {
   id: string;
@@ -106,6 +109,7 @@ export default function LiveChatScreen() {
       .from('support_messages')
       .select('id, sender, body, image_path, agent_name, created_at')
       .eq('user_id', userId)
+      .gte('created_at', new Date(Date.now() - CHAT_WINDOW_MS).toISOString())
       .order('created_at', { ascending: true })
       .limit(300);
 
@@ -257,7 +261,7 @@ export default function LiveChatScreen() {
       agent_name: null,
       created_at: welcomeTime,
     },
-    ...rows,
+    ...rows.filter((r) => Date.now() - new Date(r.created_at).getTime() < CHAT_WINDOW_MS),
   ];
 
   const canSend = !sending && (draft.trim().length > 0 || !!pendingImage);

@@ -39,12 +39,8 @@ export default function PartnerDetailScreen() {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [query, setQuery] = useState('');
 
-  const [reviewCount, setReviewCount] = useState(partner?.reviewCount ?? 0);
+  const reviewCount = partner?.reviewCount ?? 0;
   const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    setReviewCount(partner?.reviewCount ?? 0);
-  }, [partner?.id]);
 
   useEffect(() => {
     if (error) console.warn('[PartnerDetail] Supabase error:', error);
@@ -61,13 +57,7 @@ export default function PartnerDetailScreen() {
   const handleToggleFavorite = () => {
     if (!partner) return;
     toggleFavorite(partner.id);
-    if (!favorited) {
-      setReviewCount((c) => c + 1);
-      setToast('Added to favourites');
-    } else {
-      setReviewCount((c) => c - 1);
-      setToast('Removed from favourites');
-    }
+    setToast(favorited ? 'Removed from favourites' : 'Added to favourites');
   };
 
   const visibleCategories = useMemo<PartnerCategory[]>(() => {
@@ -163,7 +153,7 @@ export default function PartnerDetailScreen() {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Feather name="star" size={ms(12)} color={foodColors.primary} />
-              <Text style={styles.metaStrong}>{partner.rating}</Text>
+              <Text style={styles.metaStrong}>{partner.rating ? partner.rating.toFixed(1) : 'New'}</Text>
               <Text style={styles.metaMuted}>({reviewCount})</Text>
             </View>
             <View style={styles.metaDot} />
@@ -270,11 +260,18 @@ export default function PartnerDetailScreen() {
             <Text style={styles.sectionTitle}>Reviews</Text>
             <View style={styles.ratingBubble}>
               <Feather name="star" size={ms(11)} color={foodColors.primary} />
-              <Text style={styles.ratingBubbleText}>{partner.rating}</Text>
+              <Text style={styles.ratingBubbleText}>
+                {partner.rating ? `${partner.rating.toFixed(1)} · ${reviewCount}` : 'New'}
+              </Text>
             </View>
           </View>
 
           <View style={styles.reviewsList}>
+            {partner.reviews.length === 0 && (
+              <Text style={styles.reviewComment}>
+                No reviews yet. Order from {partner.name} and be the first to review it.
+              </Text>
+            )}
             {partner.reviews.map((rev) => (
               <View key={rev.id} style={styles.reviewCard}>
                 <View style={styles.reviewTop}>
@@ -296,7 +293,13 @@ export default function PartnerDetailScreen() {
                     </View>
                   </View>
                 </View>
-                <Text style={styles.reviewComment}>{rev.comment}</Text>
+                {rev.comment ? <Text style={styles.reviewComment}>{rev.comment}</Text> : null}
+                {rev.reply ? (
+                  <View style={{ marginTop: ms(8), backgroundColor: foodColors.background, borderRadius: ms(10), padding: ms(10) }}>
+                    <Text style={[styles.reviewDate, { marginLeft: 0 }]}>Reply from {partner.name}</Text>
+                    <Text style={styles.reviewComment}>{rev.reply}</Text>
+                  </View>
+                ) : null}
               </View>
             ))}
           </View>

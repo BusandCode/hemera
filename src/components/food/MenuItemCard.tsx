@@ -41,7 +41,7 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
           <View style={styles.metaRow}>
             <Feather name="star" size={ms(10)} color={foodColors.primary} />
             <Text style={styles.meta} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-              {item.rating} • {item.etaMinutes} min
+              {item.rating ? item.rating.toFixed(1) : 'New'} • {item.etaMinutes} min
             </Text>
           </View>
         </View>

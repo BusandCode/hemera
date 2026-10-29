@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 import { categories as FOOD_TABS } from '../constants/foodData';
-import type { MenuItem, Partner, PartnerDetail } from '../constants/foodData';
+import type { MenuItem, Partner, PartnerDetail, PartnerReview } from '../constants/foodData';
 
 // E-Chop restaurants and meals come from the partner tables:
 //   stores   = a partner's restaurant (only approved, not deleted)
@@ -166,17 +166,61 @@ async function loadProducts(storeIds: string[]): Promise<ProductRow[]> {
   return (data ?? []) as ProductRow[];
 }
 
+type Rating = { rating: number; reviews: number };
+
+/** Average rating and number of reviews per restaurant (store id). */
+async function loadRatings(): Promise<Map<string, Rating>> {
+  const m = new Map<string, Rating>();
+  try {
+    const { data, error } = await supabase.rpc('hemera_store_ratings');
+    if (error || !Array.isArray(data)) return m;
+    for (const r of data as any[]) {
+      m.set(String(r.store_id), { rating: Number(r.rating) || 0, reviews: Number(r.reviews) || 0 });
+    }
+  } catch {}
+  return m;
+}
+
+function initialsOf(name: string | null | undefined) {
+  const parts = String(name ?? '').replace(/\./g, '').trim().split(/\s+/).filter(Boolean);
+  return (parts.map((p) => p[0]).join('').slice(0, 2) || 'C').toUpperCase();
+}
+
+/** Latest reviews of one restaurant. */
+async function loadReviews(storeId: string): Promise<PartnerReview[]> {
+  const { data, error } = await supabase
+    .from('store_reviews')
+    .select('id, rating, comment, author_name, reply, created_at')
+    .eq('store_id', storeId)
+    .eq('hidden', false)
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (error) return [];
+  return ((data ?? []) as any[]).map((r) => ({
+    id: String(r.id),
+    author: r.author_name ?? 'Customer',
+    initials: initialsOf(r.author_name),
+    rating: Number(r.rating) || 0,
+    date: new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+    comment: r.comment ?? '',
+    reply: r.reply ?? undefined,
+  }));
+}
+
 /** All in-stock meals from approved stores, newest first. */
 async function loadMenu(): Promise<MenuItem[]> {
   const stores = await loadStores();
   const byId = new Map(stores.map((s) => [s.id, s]));
-  const products = await loadProducts(stores.map((s) => s.id));
+  const [products, ratings] = await Promise.all([loadProducts(stores.map((s) => s.id)), loadRatings()]);
   return products
-    .map((p) => toMenuItem(p, byId.get(p.store_id)?.name ?? '', byId.get(p.store_id)?.canOrder === false))
+    .map((p) => ({
+      ...toMenuItem(p, byId.get(p.store_id)?.name ?? '', byId.get(p.store_id)?.canOrder === false),
+      rating: ratings.get(p.store_id)?.rating ?? 0,   // the restaurant's rating
+    }))
     .sort((a, b) => Number(!!a.closed) - Number(!!b.closed));   // meals you can order first
 }
 
-const REFRESH_EVERY_MS = 60_000;
+const REFRESH_EVERY_MS = 20_000;
 
 // Everything on the E-Chop screens that loads restaurants or meals registers here, so a
 // pull-to-refresh (or coming back to the screen) can reload all of it at once.
@@ -185,6 +229,32 @@ const reloaders = new Set<() => Promise<void>>();
 /** Reload restaurants and meals everywhere. Resolves when all of them are done. */
 export function refreshFoodData(): Promise<void> {
   return Promise.all(Array.from(reloaders).map((r) => r())).then(() => undefined);
+}
+
+// Live updates: when a restaurant, product or review changes (e.g. Hemera approves a product,
+// a restaurant opens), reload while an E-Chop screen is open. One shared connection.
+let liveFoodChannel: ReturnType<typeof supabase.channel> | null = null;
+let liveFoodTimer: ReturnType<typeof setTimeout> | null = null;
+function startLiveFood() {
+  if (liveFoodChannel) return;
+  const kick = () => {
+    if (liveFoodTimer) return;
+    liveFoodTimer = setTimeout(() => {
+      liveFoodTimer = null;
+      void refreshFoodData();
+    }, 800);
+  };
+  const ch = supabase.channel('live-food');
+  for (const table of ['stores', 'products', 'store_reviews']) {
+    ch.on('postgres_changes' as any, { event: '*', schema: 'public', table }, kick);
+  }
+  ch.subscribe();
+  liveFoodChannel = ch;
+}
+function stopLiveFoodIfIdle() {
+  if (reloaders.size > 0 || !liveFoodChannel) return;
+  supabase.removeChannel(liveFoodChannel);
+  liveFoodChannel = null;
 }
 
 function useSupabaseQuery<T>(fetcher: () => Promise<T>, initial: T, deps: unknown[]) {
@@ -221,6 +291,7 @@ function useSupabaseQuery<T>(fetcher: () => Promise<T>, initial: T, deps: unknow
 
     run();
     reloaders.add(run);
+    startLiveFood();
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') run();
     }, REFRESH_EVERY_MS);
@@ -230,6 +301,7 @@ function useSupabaseQuery<T>(fetcher: () => Promise<T>, initial: T, deps: unknow
     return () => {
       cancelled = true;
       reloaders.delete(run);
+      stopLiveFoodIfIdle();
       clearInterval(timer);
       sub.remove();
     };
@@ -238,17 +310,18 @@ function useSupabaseQuery<T>(fetcher: () => Promise<T>, initial: T, deps: unknow
   return { data, loading, error };
 }
 
-/** Restaurants that have at least one meal customers can order. */
+/** Every approved restaurant in the service area shows; closed ones (or ones with no menu yet) show as Closed. */
 export function usePartners() {
   const { data, loading, error } = useSupabaseQuery<Partner[]>(
     async () => {
       const stores = await loadStores();
-      const products = await loadProducts(stores.map((s) => s.id));
+      const [products, ratings] = await Promise.all([loadProducts(stores.map((s) => s.id)), loadRatings()]);
       const byStore = new Map<string, ProductRow[]>();
       for (const p of products) byStore.set(p.store_id, [...(byStore.get(p.store_id) ?? []), p]);
       return stores
-        .filter((s) => byStore.has(s.id))
-        .map((s) => toPartner(s, byStore.get(s.id) ?? []));
+        .map((s) => (byStore.has(s.id) ? s : { ...s, canOrder: false }))   // no menu yet = can't order
+        .sort((a, b) => Number(b.canOrder !== false) - Number(a.canOrder !== false))
+        .map((s) => ({ ...toPartner(s, byStore.get(s.id) ?? []), rating: ratings.get(s.id)?.rating ?? 0 }));
     },
     [],
     []
@@ -263,10 +336,15 @@ export function usePartnerDetail(id: string | undefined) {
       if (!id) return null;
       const [store] = await loadStores(id);
       if (!store) throw new Error('This restaurant is not available right now.');
-      const products = await loadProducts([store.id]);
+      const [products, ratings, reviews] = await Promise.all([
+        loadProducts([store.id]),
+        loadRatings(),
+        loadReviews(store.id),
+      ]);
       const items = products.map((p) => toMenuItem(p, store.name, store.canOrder === false));
       return {
         ...toPartner(store, products),
+        rating: ratings.get(store.id)?.rating ?? 0,
         tagline: store.description ?? '',
         // Set by the partner on their store: e.g. "Nigerian · Rice · Grills".
         cuisine: (store.cuisines ?? []).join(' · ') || 'E-Chop',
@@ -276,9 +354,9 @@ export function usePartnerDetail(id: string | undefined) {
         priceLevel: (store.price_level || '₦') as '₦',
         openNow: store.canOrder !== false,
         hours: store.hours ?? '',
-        reviewCount: 0,
+        reviewCount: ratings.get(store.id)?.reviews ?? 0,
         categories: groupByCategory(items),
-        reviews: [],
+        reviews,
       };
     },
     null,

@@ -83,7 +83,7 @@ export default function FavoritesScreen() {
                   <Text style={styles.cardName}>{p.name}</Text>
                   <View style={styles.metaRow}>
                     <Feather name="star" size={ms(11)} color={foodColors.primary} />
-                    <Text style={styles.metaText}>{p.rating} • {p.etaMinutes} min</Text>
+                    <Text style={styles.metaText}>{p.rating ? p.rating.toFixed(1) : 'New'} • {p.etaMinutes} min</Text>
                   </View>
                 </View>
                 <TouchableOpacity

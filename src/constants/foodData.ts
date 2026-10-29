@@ -93,6 +93,8 @@ export type PartnerReview = {
   rating: number;
   date: string;
   comment: string;
+  /** The restaurant's answer, if any. */
+  reply?: string;
 };
 
 export type PartnerDetail = Partner & {
