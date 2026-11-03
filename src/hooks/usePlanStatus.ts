@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { mapAllowance, type WashAllowance } from '../lib/planLimits';
 
-export type PlanStatus = 'none' | 'active' | 'expired';
+export type PlanStatus = 'none' | 'active' | 'expired' | 'suspended';
 
 export type PlanStatusResult = {
   status: PlanStatus;
@@ -42,14 +42,15 @@ export function usePlanStatus(): PlanStatusResult {
       return;
     }
 
-    const { data, error } = await supabase
+    // Active plan first; otherwise a plan Hemera has put on hold (suspended).
+    const { data: rows, error } = await supabase
       .from('wash_plans')
       .select('plan_name, status, ends_at')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .in('status', ['active', 'suspended'])
       .order('ends_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(5);
+    const data = (rows ?? []).find((r: any) => r.status === 'active') ?? (rows ?? [])[0] ?? null;
 
     if (error) {
       console.warn('usePlanStatus: wash_plans query failed:', error.message);
@@ -59,6 +60,11 @@ export function usePlanStatus(): PlanStatusResult {
 
     if (!data) {
       setResult(NONE);
+      return;
+    }
+
+    if (data.status === 'suspended') {
+      setResult({ status: 'suspended', planName: data.plan_name, renewsOn: null, expiredOn: null, allowance: null, isLoading: false });
       return;
     }
 

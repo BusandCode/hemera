@@ -44,7 +44,8 @@ const PURPOSE_LABELS: Record<string, string> = {
   eplan: 'E-Plan payment',
   echop: 'E-Chop order payment',
   ewash: 'E-Wash payment',
-  subscription: 'Store payment',
+  subscription: 'Subscription payment',
+  shop: 'Our Products order',
 };
 
 type Txn = {

@@ -11,7 +11,7 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { OrderCard, OrderStatus } from '../src/components/profile/OrderCard';
-import { useOrders } from '../src/hooks/useOrders';
+import { orderDetailsRoute, useOrders } from '../src/hooks/useOrders';
 import { ms } from '../src/utils/responsive';
 
 type StatusFilter = 'All' | OrderStatus;
@@ -138,9 +138,7 @@ export default function OrderHistoryScreen() {
               <OrderCard
                 key={order.id}
                 order={order}
-                onPress={() =>
-                  router.push({ pathname: '/order-details', params: { id: order.id } } as any)
-                }
+                onPress={() => router.push(orderDetailsRoute(order) as any)}
               />
             ))}
           </View>

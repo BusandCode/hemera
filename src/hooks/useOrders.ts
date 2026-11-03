@@ -246,11 +246,59 @@ function toOrder(row: OrderRow): Order | null {
     status,
     ref: meta.ref ? String(meta.ref) : undefined,
     rawStatus: row.status ?? '',
+    createdAt: row.created_at,
   };
 }
 
+// ---- Our Products (Store) orders: their own table, shown with the other orders under "Store".
+type ShopRow = {
+  id: string;
+  ref: string;
+  status: string;
+  items: { name?: string; qty?: number }[] | null;
+  item_count: number | null;
+  total_kobo: number | string;
+  created_at: string;
+};
+
+/** "5kg Semovita" · "2× Noodles, Garri + 1 more" */
+export function shopOrderTitle(items: { name?: string; qty?: number }[] | null | undefined): string {
+  const list = (items ?? []).map((i) => `${Number(i.qty) > 1 ? `${i.qty}× ` : ''}${i.name ?? 'Product'}`);
+  if (!list.length) return 'Store order';
+  return list.slice(0, 2).join(', ') + (list.length > 2 ? ` + ${list.length - 2} more` : '');
+}
+
+function shopStatus(raw: string): OrderStatus {
+  if (raw === 'delivered') return 'Delivered';
+  if (raw === 'cancelled') return 'Cancelled';
+  return 'In Progress';   // paid · processing · shipped
+}
+
+function shopToOrder(row: ShopRow): Order {
+  const n = Number(row.item_count ?? 0);
+  return {
+    id: row.id,
+    type: 'shop',
+    title: shopOrderTitle(row.items),
+    meta: `Store${n ? ` · ${n} item${n === 1 ? '' : 's'}` : ''}`,
+    date: formatDate(row.created_at),
+    amount: Math.round(Number(row.total_kobo ?? 0) / 100),
+    status: shopStatus(row.status),
+    ref: row.ref,
+    rawStatus: row.status,
+    createdAt: row.created_at,
+  };
+}
+
+/** Where an order opens: Store orders have their own details screen. */
+export function orderDetailsRoute(order: Order) {
+  return order.type === 'shop'
+    ? { pathname: '/shop-order', params: { id: order.id } }
+    : { pathname: '/order-details', params: { id: order.id } };
+}
+
 /**
- * type:  limit to one service ('echop' | 'ewash'), or omit for both.
+ * type:  limit to one service ('echop' | 'ewash' | 'shop'), or omit for all of them.
  * scope: 'active'   → In Progress / Scheduled
  *        'finished' → Delivered / Cancelled
  *        'all'      → everything, newest first (default)
@@ -271,18 +319,31 @@ export function useOrders(type?: Order['type'], scope: OrderScope = 'all') {
       return;
     }
 
-    const { data, error: queryError } = await supabase
-      .from('orders')
-      .select('id, order_type, status, total_kobo, metadata, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const [{ data, error: queryError }, shopRes] = await Promise.all([
+      type === 'shop'
+        ? Promise.resolve({ data: [] as OrderRow[], error: null })
+        : supabase
+            .from('orders')
+            .select('id, order_type, status, total_kobo, metadata, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false }),
+      type && type !== 'shop'
+        ? Promise.resolve({ data: [] as ShopRow[], error: null })
+        : supabase
+            .from('shop_orders')
+            .select('id, ref, status, items, item_count, total_kobo, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false }),
+    ]);
 
     if (queryError) {
       setError(queryError.message);
     } else {
-      const mapped = (data as OrderRow[])
-        .map(toOrder)
-        .filter((o): o is Order => o !== null);
+      const mapped = [
+        ...((data ?? []) as OrderRow[]).map(toOrder).filter((o): o is Order => o !== null),
+        // Store orders: skipped quietly if the shop isn't set up yet.
+        ...(shopRes.error ? [] : ((shopRes.data ?? []) as ShopRow[]).map(shopToOrder)),
+      ].sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
       const byType = type ? mapped.filter((o) => o.type === type) : mapped;
       const byScope =
         scope === 'active'
@@ -301,7 +362,7 @@ export function useOrders(type?: Order['type'], scope: OrderScope = 'all') {
       load();
     }, [load])
   );
-  useLiveRefresh(load, ['orders']);   // order status updates by itself
+  useLiveRefresh(load, ['orders', 'shop_orders']);   // order status updates by itself
 
   return { orders, loading, error, refetch: load };
 }

@@ -537,8 +537,8 @@ const RED = '#E23A2E';
 const RED_SOFT = 'rgba(226,58,46,0.10)';
 
 // Where the money went / came from.
-// ('subscription' is the value stored in the database; it is shown to users as "Store".)
-type Kind = 'echop' | 'ewash' | 'subscription';
+// 'shop' = Our Products orders, shown as "Store". Subscriptions are not listed here.
+type Kind = 'echop' | 'ewash' | 'shop';
 type Filter = 'all' | Kind;
 type Status = 'pending' | 'success' | 'failed';
 
@@ -559,7 +559,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'echop', label: 'E-Chop' },
   { key: 'ewash', label: 'E-Wash' },
-  { key: 'subscription', label: 'Store' },
+  { key: 'shop', label: 'Store' },
 ];
 
 const STATUS_STYLE: Record<Status, { label: string; color: string; bg: string }> = {
@@ -577,19 +577,19 @@ type IconMeta = {
 const ICON_STYLE: Record<Kind, IconMeta> = {
   echop: { name: 'coffee', color: RED, bg: RED_SOFT },
   ewash: { name: 'droplet', color: BLUE, bg: BLUE_SOFT },
-  subscription: { name: 'repeat', color: '#2F5BFF', bg: 'rgba(47,91,255,0.10)' },
+  shop: { name: 'shopping-bag', color: '#1f6b4f', bg: 'rgba(31,107,79,0.10)' },
 };
 
 const KIND_LABEL: Record<Kind, string> = {
   echop: 'E-Chop',
   ewash: 'E-Wash',
-  subscription: 'Store',
+  shop: 'Store',
 };
 
 const KIND_TITLE: Record<Kind, string> = {
   echop: 'E-Chop order payment',
   ewash: 'E-Wash payment',
-  subscription: 'Store payment',
+  shop: 'Our Products order',
 };
 
 function formatNaira(value: number) {
@@ -633,7 +633,7 @@ function normalizeStatus(raw: unknown): Status {
   return 'pending';
 }
 
-const KINDS: Kind[] = ['echop', 'ewash', 'subscription'];
+const KINDS: Kind[] = ['echop', 'ewash', 'shop'];
 
 // Maps a wallet_transactions row to what the screen shows. `purpose` records what the payment
 // was for (echop, ewash, subscription).

@@ -767,7 +767,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/recent-activity')}
             >
               <View style={styles.activityIconWrap}>
-                {latestOrder.type === 'echop' ? (
+                {latestOrder.type === 'shop' ? (
+                  <Feather name="shopping-bag" size={20} color={foodColors.badgeBlue} />
+                ) : latestOrder.type === 'echop' ? (
                   <Feather name="coffee" size={20} color={foodColors.primary} />
                 ) : (
                   <MaterialCommunityIcons name="washing-machine" size={20} color={foodColors.badgeBlue} />

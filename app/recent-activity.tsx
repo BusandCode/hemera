@@ -29,7 +29,7 @@ const statusStyles: Record<ActivityLabel, { bg: string; text: string }> = {
   Cancelled: { bg: 'rgba(255,59,48,0.1)', text: '#FF3B30' },
 };
 
-const tabs = ['All', 'E-Chop', 'E-Wash'] as const;
+const tabs = ['All', 'E-Chop', 'E-Wash', 'Store'] as const;
 
 function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
@@ -47,7 +47,9 @@ function ActivityRow({ item }: { item: Order }) {
   return (
     <View style={styles.row}>
       <View style={[styles.iconWrap, isEchop ? styles.iconWrapEchop : styles.iconWrapEwash]}>
-        {isEchop ? (
+        {item.type === 'shop' ? (
+          <Feather name="shopping-bag" size={ms(18)} color={foodColors.badgeBlue} />
+        ) : isEchop ? (
           <Feather name="coffee" size={ms(18)} color={foodColors.primary} />
         ) : (
           <MaterialCommunityIcons name="washing-machine" size={ms(19)} color={foodColors.badgeBlue} />
@@ -82,7 +84,7 @@ export default function RecentActivityScreen() {
 
   const filtered = useMemo(() => {
     if (activeTab === 'All') return orders;
-    const type: Order['type'] = activeTab === 'E-Chop' ? 'echop' : 'ewash';
+    const type: Order['type'] = activeTab === 'E-Chop' ? 'echop' : activeTab === 'Store' ? 'shop' : 'ewash';
     return orders.filter((o) => o.type === type);
   }, [activeTab, orders]);
 

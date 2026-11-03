@@ -6,7 +6,8 @@ import { fonts } from '../../constants/typography';
 import { ms } from '../../utils/responsive';
 
 export type OrderStatus = 'Delivered' | 'In Progress' | 'Cancelled' | 'Scheduled';
-export type OrderType = 'echop' | 'ewash';
+/** 'shop' = Our Products orders (shown as "Store"). */
+export type OrderType = 'echop' | 'ewash' | 'shop';
 
 export type Order = {
   id: string;
@@ -20,6 +21,8 @@ export type Order = {
   ref?: string;
   /** Exact status saved in the database (e.g. "picked_up"), for step-by-step progress. */
   rawStatus?: string;
+  /** When the order was placed (for sorting). */
+  createdAt?: string;
 };
 
 const statusStyles: Record<OrderStatus, { bg: string; text: string }> = {
@@ -39,7 +42,9 @@ export function OrderCard({ order, onPress }: { order: Order; onPress?: () => vo
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onPress}>
       <View style={styles.iconWrap}>
-        {order.type === 'echop' ? (
+        {order.type === 'shop' ? (
+          <Feather name="shopping-bag" size={ms(17)} color={foodColors.badgeBlue} />
+        ) : order.type === 'echop' ? (
           <Feather name="coffee" size={ms(17)} color={foodColors.primary} />
         ) : (
           <MaterialCommunityIcons name="washing-machine" size={ms(18)} color={foodColors.badgeBlue} />

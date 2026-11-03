@@ -17,10 +17,10 @@ import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { OrderCard } from '../src/components/profile/OrderCard';
 import { FilterTabs } from '../src/components/profile/FilterTabs';
-import { useOrders } from '../src/hooks/useOrders';
+import { orderDetailsRoute, useOrders } from '../src/hooks/useOrders';
 import { ms } from '../src/utils/responsive';
 
-const tabs = ['All', 'E-Chop', 'E-Wash'] as const;
+const tabs = ['All', 'E-Chop', 'E-Wash', 'Store'] as const;
 
 export default function MyOrdersScreen() {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function MyOrdersScreen() {
 
   const filtered = useMemo(() => {
     if (activeTab === 'All') return orders;
-    const type = activeTab === 'E-Chop' ? 'echop' : 'ewash';
+    const type = activeTab === 'E-Chop' ? 'echop' : activeTab === 'Store' ? 'shop' : 'ewash';
     return orders.filter((o) => o.type === type);
   }, [orders, activeTab]);
 
@@ -103,9 +103,7 @@ export default function MyOrdersScreen() {
               <OrderCard
                 key={order.id}
                 order={order}
-                onPress={() =>
-                  router.push({ pathname: '/order-details', params: { id: order.id } } as any)
-                }
+                onPress={() => router.push(orderDetailsRoute(order) as any)}
               />
             ))}
           </View>

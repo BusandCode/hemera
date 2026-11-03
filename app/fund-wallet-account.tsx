@@ -22,6 +22,7 @@ import { useEPlanDraft } from '../src/context/EPlanDraftContext';
 import { useWalletBalance } from '../src/hooks/useWalletBalance';
 import { planErrorMessage } from '../src/lib/planLimits';
 import { AppDialog } from '../src/components/AppDialog';
+import { shopCart, shopError } from '../src/lib/shopCart';
 
 const ui = {
   background: '#F7F8FC',
@@ -161,6 +162,8 @@ export default function FundWalletAccountScreen() {
   const isEwash = service === 'ewash';
   const isEchop = service === 'echop';
   const isEplan = service === 'eplan';
+  // Our Products: paid by transfer straight to the order (never through the wallet).
+  const isShop = service === 'shop';
   const isOrder = isEwash || isEchop || isEplan;
   const parsedDraft = useMemo(() => {
     try {
@@ -170,7 +173,9 @@ export default function FundWalletAccountScreen() {
     }
   }, [order]);
   const isSubscription = isEwash && parsedDraft.kind === 'subscription';
-  const paymentPurpose = isEplan
+  const paymentPurpose = isShop
+    ? 'shop'
+    : isEplan
     ? 'eplan'
     : isSubscription
       ? 'subscription'
@@ -595,6 +600,21 @@ export default function FundWalletAccountScreen() {
   // Saves a copy of the order on the server as soon as the transfer account is shown.
   // When the payment lands, the database creates the order from it, even if the app was closed.
   const savePendingOrder = async (reference: string) => {
+    if (isShop) {
+      // Save the cart for this transfer; the order is made the moment the money lands.
+      try {
+        const { error: saveErr } = await supabase.rpc('hemera_shop_save_pending', {
+          p_tx_ref: reference,
+          p_items: parsedDraft.lines ?? [],
+          p_address: String(parsedDraft.address ?? ''),
+          p_notes: parsedDraft.notes ? String(parsedDraft.notes) : null,
+        });
+        if (saveErr) setError(`${shopError(saveErr.message)} Please go back to your cart. Don't send any money to this account.`);
+      } catch (e: any) {
+        console.log('[fund-wallet] shop order copy not saved:', e?.message ?? e);
+      }
+      return;
+    }
     const payPerOrder = isEchop || (isEwash && !parsedDraft.covered && parsedDraft.kind !== 'subscription');
     if (!payPerOrder || !reference) return;
     try {
@@ -803,6 +823,35 @@ export default function FundWalletAccountScreen() {
       return;
     }
 
+    if (isShop) {
+      // The database usually makes the order as soon as the transfer lands; this makes sure.
+      const complete = () =>
+        withTimeout(supabase.rpc('hemera_shop_complete', { p_tx_ref: reference }), 'place order');
+      let res: any = null;
+      for (let i = 0; i < 4; i++) {
+        const { data, error: cErr } = await complete();
+        res = cErr ? { ok: false, error: cErr.message } : data;
+        if (res?.ok || !/payment_not_received/.test(String(res?.error ?? ''))) break;
+        await new Promise((r) => setTimeout(r, 2500));   // payment marked paid a moment later
+      }
+      if (!res?.ok) {
+        setSuccess({
+          title: 'Payment received',
+          message: `We received your payment but couldn't finish your order yet. Please contact support with this reference: ${reference}`,
+          redirect: () => router.replace('/contact-support' as any),
+        });
+        return;
+      }
+      tagPayment(reference, 'shop', String(res.title ?? 'Our Products'));
+      shopCart.clear();
+      setSuccess({
+        title: 'Order placed',
+        message: `Your Our Products order #${res.ref ?? ''} is paid. We'll let you know when it's on the way.`,
+        redirect: () => router.replace('/my-orders' as any),
+      });
+      return;
+    }
+
     tagPayment(reference, 'funding', 'Wallet funding');
     setSuccess({
       title: 'Wallet funded',
@@ -933,10 +982,10 @@ export default function FundWalletAccountScreen() {
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
               <Feather name="arrow-left" size={18} color={ui.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.title}>{isEplan ? 'E-Plan' : isSubscription ? 'Subscription' : isEwash ? 'E-Wash' : isEchop ? 'E-Chop' : 'Fund Wallet'}</Text>
+            <Text style={styles.title}>{isEplan ? 'E-Plan' : isSubscription ? 'Subscription' : isEwash ? 'E-Wash' : isEchop ? 'E-Chop' : isShop ? 'Our Products' : 'Fund Wallet'}</Text>
             <Text style={styles.subtitle}>
               Transfer <Text style={styles.subtitleBlue}>exactly {formatNaira(details.amount)}</Text> to the account
-              below to {isEplan ? 'pay for your E-Plan' : isSubscription ? 'pay for your subscription' : isEwash ? 'pay for your pickup' : isEchop ? 'pay for your order' : 'fund your wallet'}.
+              below to {isEplan ? 'pay for your E-Plan' : isSubscription ? 'pay for your subscription' : isEwash ? 'pay for your pickup' : isEchop || isShop ? 'pay for your order' : 'fund your wallet'}.
             </Text>
             {isEplan && Number(parsedDraft.surplus) > 0 && (
               <Text style={styles.surplusNote}>

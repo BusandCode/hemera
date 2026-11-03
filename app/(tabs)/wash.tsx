@@ -57,6 +57,14 @@ function getPlanContent(
         button: 'Renew Plan',
         route: '/renew-plan',
       };
+    case 'suspended':
+      return {
+        badge: 'On Hold',
+        icon: 'pause-circle',
+        description: 'Your plan is on hold —\ncontact support to restore it',
+        button: 'Contact Support',
+        route: '/contact-support',
+      };
     case 'none':
     default:
       return {

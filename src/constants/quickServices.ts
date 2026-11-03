@@ -32,7 +32,7 @@ export const extraServices: QuickService[] = [
   { id: 'history',      icon: 'file-text',    title: 'Order History',       subtitle: 'Review past orders',          bgColor: foodColors.badgeBlue,   route: '/order-history' },
   { id: 'eplanWallet',  icon: 'credit-card',  title: 'E-Plan Wallet',       subtitle: 'Manage meal credits',         bgColor: foodColors.forestGreen, route: '/wallet' },
   { id: 'favorites',    icon: 'heart',        title: 'Restaurant', subtitle: 'Quick access to favs',        bgColor: foodColors.primary,     route: '/favorites' },
-  { id: 'products',     icon: 'shopping-bag', title: 'Our Products',        subtitle: 'Browse goods. Buy quality.',  bgColor: foodColors.forestGreen, action: 'products' },
+  { id: 'products',     icon: 'shopping-bag', title: 'Our Products',        subtitle: 'Browse goods. Buy quality.',  bgColor: foodColors.forestGreen, route: '/our-products' },
   { id: 'subscription', icon: 'refresh-cw',   title: 'Subscriptions',       subtitle: 'Manage recurring cycles',     bgColor: foodColors.badgeBlue,   route: '/subscriptions' },
   { id: 'vendor',       icon: 'briefcase',    title: 'Vendor',              subtitle: 'Become a vendor partner',     bgColor: foodColors.primary,     route: '/vendor-partner' },
   { id: 'locations',    icon: 'map',          title: 'Our Locations',       subtitle: 'View service areas',          bgColor: foodColors.forestGreen, action: 'locations' },

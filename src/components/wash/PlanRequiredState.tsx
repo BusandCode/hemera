@@ -9,7 +9,7 @@ import { fonts } from '../../constants/typography';
 import { ms } from '../../utils/responsive';
 
 type Props = {
-  status: 'none' | 'expired';
+  status: 'none' | 'expired' | 'suspended';
   /** e.g. "July 6, 2026" — shown when status is 'expired' */
   expiredOn?: string;
   planName?: string;
@@ -33,6 +33,15 @@ const content = {
       'Renew your plan to keep requesting pickups. Your items, address and preferences are still saved.',
     button: 'Renew Plan',
     route: '/renew-plan',
+  },
+  suspended: {
+    icon: 'pause-circle' as const,
+    badge: 'Plan On Hold',
+    title: 'Your plan is on hold',
+    description:
+      'Hemera has paused your plan for now, so pickups are not available. Contact support to find out more.',
+    button: 'Contact Support',
+    route: '/contact-support',
   },
 };
 
