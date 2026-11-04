@@ -11,6 +11,7 @@ const DEFAULT = '#F5F3EE';
 // Screens whose background is not the usual one. null = the screen draws its own top (no strip).
 function colorFor(path: string): string | null {
   if (path === '/onboarding' || path === '/lock') return null;
+  if (path === '/thrud') return null;                            // Thrud: video runs under the status bar
   if (path.startsWith('/partner/')) return '#0B1020';          // restaurant page: photo at the top, light status bar
   if (path === '/confirm-pickup' || path === '/schedule-pickup') return '#F9F9F9';
   if (path === '/fund-wallet-account' || path === '/transaction-detail') return '#F7F8FC';

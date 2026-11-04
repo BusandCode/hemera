@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -240,7 +240,7 @@ export default function OrderDetailsScreen() {
   const statusLabel = cancelled ? 'Cancelled' : statusStep.title;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top + 12 }]} behavior="padding">
       <StatusBar style="dark" />
 
       <View style={styles.headerRow}>
@@ -258,6 +258,7 @@ export default function OrderDetailsScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.card}>
           <View style={styles.summaryTop}>
@@ -381,7 +382,7 @@ export default function OrderDetailsScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

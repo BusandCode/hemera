@@ -1,4 +1,4 @@
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 
@@ -47,7 +47,7 @@ export default function ChangePasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
       <StatusBar style="dark" />
       <ScreenHeader title="Change Password" />
 
@@ -55,6 +55,7 @@ export default function ChangePasswordScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <ChangeSecretForm
           currentLabel="Current Password"
@@ -66,7 +67,7 @@ export default function ChangePasswordScreen() {
           onSubmit={handleSubmit}
         />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

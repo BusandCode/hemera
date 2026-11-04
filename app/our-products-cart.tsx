@@ -1,7 +1,7 @@
 // Our Products cart: change quantities, choose where to deliver (default address or somewhere else),
 // then pay by bank transfer on the payment screen. The wallet is never used for these orders.
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -46,7 +46,7 @@ export default function OurProductsCartScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
       <StatusBar style="dark" />
       <View style={[styles.header, { paddingTop: insets.top + ms(10) }]}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()} hitSlop={10}>
@@ -153,7 +153,7 @@ export default function OurProductsCartScreen() {
           </View>
         </>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
