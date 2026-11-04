@@ -92,7 +92,7 @@ export default function FoodScreen() {
             </View>
 
             <View style={[styles.categorySection, padded]}>
-              <CategoryTabs active={category} onSelect={setCategory} />
+              <CategoryTabs active={category} onSelect={setCategory} onPressThrud={() => router.push('/thrud' as any)} />
             </View>
 
             <View style={[styles.partnersSection, padded]}>

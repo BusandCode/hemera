@@ -1,7 +1,7 @@
 // Our Products: Hemera's own shop. Only products added by Hemera (admin → Our Products) show here.
 // Layout: centered title, search + Filter, banner, "All Products · Sort by", category chips,
 // 3 products per row (price left, + right), dark basket bar at the bottom.
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, RefreshControl, ScrollView, TextInput, Modal, Pressable,
 } from 'react-native';
@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ms } from '../src/utils/responsive';
-import { PromoBanner } from '../src/components/food/PromoBanner';
 import { fetchShopProducts, naira, shopCart, useShopCart, type ShopProduct } from '../src/lib/shopCart';
 
 const BLUE = foodColors.badgeBlue;          // Hemera blue for every button
@@ -164,7 +163,7 @@ export default function OurProductsScreen() {
           {/* Banner (same as E-Chop) */}
           {!q && (
             <View style={styles.banner}>
-              <PromoBanner />
+              <BannerSlider products={products} />
             </View>
           )}
 
@@ -220,12 +219,12 @@ export default function OurProductsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.basketTitle} numberOfLines={1}>
-                {cart.itemCount} {cart.itemCount === 1 ? 'item' : 'items'} in your basket
+                {cart.itemCount} {cart.itemCount === 1 ? 'item' : 'items'}
               </Text>
-              <Text style={styles.basketTotal} numberOfLines={1}>Basket total: {naira(cart.totalKobo)}</Text>
+              <Text style={styles.basketTotal} numberOfLines={1}>Total: {naira(cart.totalKobo)}</Text>
             </View>
             <TouchableOpacity style={styles.basketBtn} onPress={() => router.push('/our-products-cart' as any)} activeOpacity={0.9}>
-              <Text style={styles.basketBtnText}>View Basket</Text>
+              <Text style={styles.basketBtnText} numberOfLines={1}>View Basket</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -262,6 +261,105 @@ export default function OurProductsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+    </View>
+  );
+}
+
+// Banner that slides by itself (every 3.5 s) and can be swiped: the E-Chop banner, two Hemera cards,
+// and up to 3 newest products with photos.
+type Slide =
+  | { kind: 'promo' }
+  | { kind: 'info'; icon: keyof typeof Feather.glyphMap; title: string; text: string; bg: string; fg: string }
+  | { kind: 'product'; product: ShopProduct };
+
+const PROMO = require('../assets/promo.png');
+const PROMO_RATIO = (() => {
+  try { const s = Image.resolveAssetSource(PROMO); return s?.width && s?.height ? s.width / s.height : 2.4; } catch { return 2.4; }
+})();
+
+function BannerSlider({ products }: { products: ShopProduct[] }) {
+  const [width, setWidth] = useState(0);
+  const [index, setIndex] = useState(0);
+  const ref = useRef<ScrollView>(null);
+  const touching = useRef(false);
+
+  const slides: Slide[] = useMemo(() => {
+    const newest = [...products]
+      .filter((p) => p.image_url)
+      .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+      .slice(0, 3)
+      .map((product) => ({ kind: 'product' as const, product }));
+    return [
+      { kind: 'promo' },
+      { kind: 'info', icon: 'shopping-bag', title: 'Shop quality products', text: 'Hand-picked by Hemera, at fair prices.', bg: '#EAF0FF', fg: BLUE },
+      ...newest,
+      { kind: 'info', icon: 'truck', title: 'Delivered to you', text: 'Pay by bank transfer and track your order.', bg: '#FFF1E6', fg: '#C2410C' },
+    ];
+  }, [products]);
+
+  useEffect(() => {
+    if (!width || slides.length < 2) return;
+    const t = setInterval(() => {
+      if (touching.current) return;
+      setIndex((i) => {
+        const next = (i + 1) % slides.length;
+        ref.current?.scrollTo({ x: next * width, animated: true });
+        return next;
+      });
+    }, 3500);
+    return () => clearInterval(t);
+  }, [width, slides.length]);
+
+  // Same height as the E-Chop banner, so it shows in full.
+  const height = width ? Math.round(width / PROMO_RATIO) : 0;
+  return (
+    <View onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}>
+      {width > 0 && (
+        <ScrollView
+          ref={ref}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScrollBeginDrag={() => { touching.current = true; }}
+          onMomentumScrollEnd={(e) => {
+            touching.current = false;
+            setIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+          }}
+          style={{ borderRadius: ms(16) }}
+        >
+          {slides.map((s, i) => (
+            <View key={i} style={{ width, height, borderRadius: ms(16), overflow: 'hidden' }}>
+              {s.kind === 'promo' ? (
+                <Image source={PROMO} style={{ width, height }} resizeMode="cover" />
+              ) : s.kind === 'info' ? (
+                <View style={[styles.slideInfo, { backgroundColor: s.bg }]}>
+                  <View style={[styles.slideIcon, { backgroundColor: s.fg }]}>
+                    <Feather name={s.icon} size={ms(20)} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.slideTitle, { color: s.fg }]} numberOfLines={1}>{s.title}</Text>
+                    <Text style={styles.slideText} numberOfLines={2}>{s.text}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.slideProduct}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.slideTag}>NEW IN</Text>
+                    <Text style={styles.slideTitle} numberOfLines={2}>{s.product.name}</Text>
+                    <Text style={styles.slidePrice}>{naira(s.product.price_kobo)}</Text>
+                  </View>
+                  <Image source={{ uri: s.product.image_url! }} style={styles.slideImage} resizeMode="contain" />
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+      {slides.length > 1 && (
+        <View style={styles.dots}>
+          {slides.map((_, i) => <View key={i} style={[styles.dot, i === index && styles.dotOn]} />)}
+        </View>
+      )}
     </View>
   );
 }
@@ -361,14 +459,25 @@ const styles = StyleSheet.create({
   retry: { marginTop: ms(8), backgroundColor: BLUE, borderRadius: ms(12), paddingHorizontal: ms(18), paddingVertical: ms(10) },
   retryText: { fontSize: ms(13), fontFamily: fonts.poppins.semiBold, color: '#fff' },
 
+  slideInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: ms(14), paddingHorizontal: ms(18) },
+  slideIcon: { width: ms(44), height: ms(44), borderRadius: ms(14), alignItems: 'center', justifyContent: 'center' },
+  slideTitle: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  slideText: { fontSize: ms(12), lineHeight: ms(17), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(2) },
+  slideProduct: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EEF0F6', borderRadius: ms(16), paddingLeft: ms(18), paddingRight: ms(10) },
+  slideTag: { fontSize: ms(10), fontFamily: fonts.poppins.bold, letterSpacing: 1, color: BLUE, marginBottom: ms(2) },
+  slidePrice: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: BLUE, marginTop: ms(4) },
+  slideImage: { width: '40%', height: '86%' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: ms(5), marginTop: ms(8) },
+  dot: { width: ms(6), height: ms(6), borderRadius: ms(3), backgroundColor: '#D5DAE5' },
+  dotOn: { width: ms(16), backgroundColor: BLUE },
   basketWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: ms(14), paddingTop: ms(8) },
-  basket: { flexDirection: 'row', alignItems: 'center', gap: ms(12), backgroundColor: NAVY, borderRadius: ms(18), paddingVertical: ms(12), paddingLeft: ms(14), paddingRight: ms(12) },
-  basketIcon: { width: ms(44), height: ms(44), borderRadius: ms(22), backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  basket: { flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: NAVY, borderRadius: ms(16), paddingVertical: ms(10), paddingLeft: ms(12), paddingRight: ms(10) },
+  basketIcon: { width: ms(38), height: ms(38), borderRadius: ms(19), backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
   basketBadge: { position: 'absolute', top: -ms(2), left: -ms(2), minWidth: ms(18), height: ms(18), borderRadius: ms(9), backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ms(4) },
-  basketTitle: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: '#fff' },
-  basketTotal: { fontSize: ms(12.5), fontFamily: fonts.poppins.medium, color: '#8FB0FF', marginTop: ms(1) },
-  basketBtn: { backgroundColor: BLUE, borderRadius: ms(12), paddingHorizontal: ms(18), paddingVertical: ms(13) },
-  basketBtnText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },
+  basketTitle: { fontSize: ms(12), fontFamily: fonts.poppins.medium, color: 'rgba(255,255,255,0.75)' },
+  basketTotal: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff', marginTop: ms(1) },
+  basketBtn: { flexShrink: 0, backgroundColor: BLUE, borderRadius: ms(11), paddingHorizontal: ms(14), paddingVertical: ms(10) },
+  basketBtnText: { fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: '#fff' },
 
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: ms(22), borderTopRightRadius: ms(22), paddingHorizontal: ms(20), paddingTop: ms(10) },
