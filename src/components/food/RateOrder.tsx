@@ -1,39 +1,49 @@
-// "Rate your order": shown on a delivered E-Chop order. One review per order; it can be changed.
-// The review shows on the restaurant's page (first name + initial) and in Hemera Business.
+// "Rate your experience": shown on a DELIVERED E-Chop order (rates the restaurant) or E-Wash order
+// (rates the laundry partner). One review per order, final — after sending, the customer sees what
+// they wrote (and the partner's reply). The database checks the order is theirs and delivered
+// (hemera_submit_review) and the partner's rating is the average of all reviews.
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 
 import { supabase } from '../../lib/supabase';
 import { foodColors } from '../../constants/foodColors';
 import { fonts } from '../../constants/typography';
 import { ms } from '../../utils/responsive';
 
-type Saved = { rating: number; comment: string | null; reply: string | null };
+const BLUE = foodColors.badgeBlue;
+const STAR = '#F5A524';
 
-export function RateOrder({ orderId }: { orderId: string }) {
+type Saved = { rating: number; comment: string | null; reply: string | null; created_at: string };
+type Service = 'echop' | 'ewash';
+
+const LABELS = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
+
+/** This order's review: from hemera_my_reviews, or straight from the reviews table as a fallback. */
+async function loadMyReview(orderId: string): Promise<Saved | null> {
+  const toSaved = (r: any): Saved => ({ rating: Number(r.rating) || 0, comment: r.comment ?? null, reply: r.reply ?? null, created_at: r.created_at });
+  const { data, error } = await supabase.rpc('hemera_my_reviews', { p_order_ids: [orderId] });
+  if (!error && Array.isArray(data)) return data.length ? toSaved(data[0]) : null;
+  const { data: rows } = await supabase.from('store_reviews').select('rating, comment, reply, created_at').eq('order_id', orderId).limit(1);
+  return rows && rows.length ? toSaved(rows[0]) : null;
+}
+
+export function RateOrder({ orderId, service = 'echop', onSaved }: { orderId: string; service?: Service; onSaved?: () => void }) {
   const [saved, setSaved] = useState<Saved | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const partner = service === 'ewash' ? 'laundry partner' : 'restaurant';
 
+  // The saved review (with the partner's reply). Reloads each time the order page opens.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('store_reviews')
-        .select('rating, comment, reply')
-        .eq('order_id', orderId)
-        .maybeSingle();
+      const row = await loadMyReview(orderId);
       if (cancelled) return;
-      if (data) {
-        setSaved(data as Saved);
-        setRating(Number((data as any).rating) || 0);
-        setComment(String((data as any).comment ?? ''));
-      }
+      if (row) setSaved(row);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -41,7 +51,7 @@ export function RateOrder({ orderId }: { orderId: string }) {
 
   const submit = async () => {
     if (busy) return;
-    if (rating < 1) { setMessage({ ok: false, text: 'Tap the stars to choose a rating.' }); return; }
+    if (rating < 1) { setMessage({ ok: false, text: 'Tap a star to rate your experience.' }); return; }
     setBusy(true);
     setMessage(null);
     try {
@@ -52,101 +62,127 @@ export function RateOrder({ orderId }: { orderId: string }) {
       });
       if (error) {
         const raw = error.message ?? '';
-        setMessage({ ok: false, text: raw.includes(':') ? raw.split(':').slice(1).join(':').trim() : 'Could not send your review. Try again.' });
+        // Already reviewed (e.g. from another phone): show it instead of an error.
+        if (raw.startsWith('already_reviewed')) {
+          const row = await loadMyReview(orderId);
+          if (row) setSaved(row);
+        }
+        setMessage({ ok: false, text: raw.includes(':') ? raw.split(':').slice(1).join(':').trim() : 'Could not send your review. Check your connection and try again.' });
         return;
       }
-      setSaved({ rating, comment: comment.trim() || null, reply: saved?.reply ?? null });
-      setEditing(false);
-      setMessage({ ok: true, text: 'Thanks! Your review is now on the restaurant’s page.' });
+      setSaved({ rating, comment: comment.trim() || null, reply: null, created_at: new Date().toISOString() });
+      setMessage({ ok: true, text: `Thank you! Your review has been saved and added to the ${partner}’s rating.` });
+      onSaved?.();
+    } catch {
+      setMessage({ ok: false, text: 'Could not send your review. Check your connection and try again.' });
     } finally {
       setBusy(false);
     }
   };
 
-  if (loading) return null;
-
-  const showForm = !saved || editing;
+  if (loading) {
+    return <View style={[styles.card, styles.loadingCard]}><ActivityIndicator color={BLUE} size="small" /></View>;
+  }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{saved && !editing ? 'Your review' : 'Rate your order'}</Text>
-      {showForm && <Text style={styles.sub}>How was the food? Your review helps other customers.</Text>}
-
-      <View style={styles.stars}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <TouchableOpacity
-            key={n}
-            disabled={!showForm}
-            onPress={() => setRating(n)}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-          >
-            <Feather name="star" size={ms(26)} color={n <= rating ? foodColors.primary : foodColors.border} />
-          </TouchableOpacity>
-        ))}
+      <View style={styles.deliveredRow}>
+        <View style={styles.deliveredIcon}><Feather name="check" size={ms(15)} color="#fff" /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.deliveredTitle}>Order Delivered</Text>
+          <Text style={styles.deliveredSub}>Successfully delivered</Text>
+        </View>
+        {saved && (
+          <View style={styles.reviewedPill}>
+            <Feather name="check-circle" size={ms(12)} color={foodColors.success} />
+            <Text style={styles.reviewedText}>Reviewed</Text>
+          </View>
+        )}
       </View>
 
-      {showForm ? (
+      <View style={styles.divider} />
+
+      {saved ? (
         <>
+          <Text style={styles.title}>Your review</Text>
+          <View style={styles.stars}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Ionicons key={n} name={n <= saved.rating ? 'star' : 'star-outline'} size={ms(22)} color={n <= saved.rating ? STAR : foodColors.textMuted} />
+            ))}
+            <Text style={styles.starLabel}>{LABELS[saved.rating]}</Text>
+          </View>
+          {saved.comment ? <Text style={styles.comment}>“{saved.comment}”</Text> : <Text style={styles.noComment}>No written review.</Text>}
+          {saved.reply ? (
+            <View style={styles.replyBox}>
+              <Text style={styles.replyLabel}>{service === 'ewash' ? 'Laundry partner replied' : 'Restaurant replied'}</Text>
+              <Text style={styles.replyText}>{saved.reply}</Text>
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <Text style={styles.title}>How was your experience with this {partner}?</Text>
+          <Text style={styles.sub}>Tap a star to rate your experience</Text>
+          <View style={styles.stars}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <TouchableOpacity key={n} onPress={() => { setRating(n); setMessage(null); }} disabled={busy}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} accessibilityLabel={`${n} star${n === 1 ? '' : 's'}`}>
+                <Ionicons name={n <= rating ? 'star' : 'star-outline'} size={ms(30)} color={n <= rating ? STAR : foodColors.textMuted} />
+              </TouchableOpacity>
+            ))}
+            {rating > 0 && <Text style={styles.starLabel}>{LABELS[rating]}</Text>}
+          </View>
           <TextInput
             style={styles.input}
             value={comment}
             onChangeText={setComment}
-            placeholder="Tell others what you liked (optional)"
+            placeholder="Write your review (optional)"
             placeholderTextColor={foodColors.textMuted}
             multiline
             maxLength={500}
+            editable={!busy}
           />
-          <View style={styles.row}>
-            {saved && (
-              <TouchableOpacity style={styles.secondary} onPress={() => { setEditing(false); setRating(saved.rating); setComment(saved.comment ?? ''); }}>
-                <Text style={styles.secondaryText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={[styles.primary, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy} activeOpacity={0.85}>
-              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.primaryText}>{saved ? 'Update review' : 'Send review'}</Text>}
-            </TouchableOpacity>
-          </View>
-        </>
-      ) : (
-        <>
-          {saved?.comment ? <Text style={styles.comment}>“{saved.comment}”</Text> : null}
-          {saved?.reply ? (
-            <View style={styles.replyBox}>
-              <Text style={styles.replyLabel}>Restaurant replied</Text>
-              <Text style={styles.replyText}>{saved.reply}</Text>
-            </View>
-          ) : null}
-          <TouchableOpacity onPress={() => { setEditing(true); setMessage(null); }} style={styles.editLink}>
-            <Feather name="edit-2" size={ms(12)} color={foodColors.primary} />
-            <Text style={styles.editText}>Edit review</Text>
+          <TouchableOpacity style={[styles.primary, (busy || rating < 1) && { opacity: 0.6 }]} onPress={submit} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.primaryText}>Submit Review</Text>}
           </TouchableOpacity>
         </>
       )}
 
-      {message && <Text style={[styles.message, { color: message.ok ? foodColors.success : foodColors.error }]}>{message.text}</Text>}
+      {message && (
+        <View style={[styles.message, { backgroundColor: message.ok ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.08)' }]}>
+          <Feather name={message.ok ? 'check-circle' : 'alert-circle'} size={ms(14)} color={message.ok ? foodColors.success : foodColors.error} />
+          <Text style={[styles.messageText, { color: message.ok ? '#15803D' : foodColors.error }]}>{message.text}</Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: foodColors.surface, borderRadius: ms(16), padding: ms(16), borderWidth: 1, borderColor: foodColors.border, marginBottom: ms(16) },
-  title: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
+  card: { backgroundColor: foodColors.surface, borderRadius: ms(16), padding: ms(16), marginBottom: ms(16), borderWidth: 1, borderColor: foodColors.border },
+  loadingCard: { alignItems: 'center', paddingVertical: ms(22) },
+  deliveredRow: { flexDirection: 'row', alignItems: 'center', gap: ms(10) },
+  deliveredIcon: { width: ms(30), height: ms(30), borderRadius: ms(15), backgroundColor: foodColors.success, alignItems: 'center', justifyContent: 'center' },
+  deliveredTitle: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  deliveredSub: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
+  reviewedPill: { flexDirection: 'row', alignItems: 'center', gap: ms(4), backgroundColor: 'rgba(52,199,89,0.12)', borderRadius: ms(12), paddingHorizontal: ms(8), paddingVertical: ms(3) },
+  reviewedText: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: '#15803D' },
+  divider: { height: 1, backgroundColor: foodColors.border, marginVertical: ms(12) },
+  title: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
   sub: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(2) },
-  stars: { flexDirection: 'row', gap: ms(10), marginTop: ms(12), marginBottom: ms(4) },
+  stars: { flexDirection: 'row', alignItems: 'center', gap: ms(8), marginTop: ms(10), marginBottom: ms(4) },
+  starLabel: { marginLeft: ms(4), fontSize: ms(12), fontFamily: fonts.poppins.medium, color: foodColors.textSecondary },
   input: {
-    minHeight: ms(72), borderWidth: 1, borderColor: foodColors.border, borderRadius: ms(12), padding: ms(12), marginTop: ms(10),
-    fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, textAlignVertical: 'top',
+    minHeight: ms(76), borderRadius: ms(12), borderWidth: 1, borderColor: foodColors.border, backgroundColor: foodColors.background,
+    padding: ms(12), marginTop: ms(10), fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, textAlignVertical: 'top',
   },
-  row: { flexDirection: 'row', justifyContent: 'flex-end', gap: ms(10), marginTop: ms(12) },
-  primary: { backgroundColor: foodColors.primary, borderRadius: ms(12), paddingVertical: ms(11), paddingHorizontal: ms(18), minWidth: ms(120), alignItems: 'center' },
-  primaryText: { fontSize: ms(13), fontFamily: fonts.poppins.bold, color: '#fff' },
-  secondary: { borderRadius: ms(12), paddingVertical: ms(11), paddingHorizontal: ms(14), borderWidth: 1, borderColor: foodColors.border },
-  secondaryText: { fontSize: ms(13), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  comment: { fontSize: ms(13), lineHeight: ms(19), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, marginTop: ms(8) },
-  replyBox: { backgroundColor: foodColors.background, borderRadius: ms(12), padding: ms(10), marginTop: ms(10) },
+  primary: { marginTop: ms(12), backgroundColor: BLUE, borderRadius: ms(12), paddingVertical: ms(13), alignItems: 'center' },
+  primaryText: { color: '#fff', fontSize: ms(13.5), fontFamily: fonts.poppins.semiBold },
+  comment: { marginTop: ms(6), fontSize: ms(13), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, lineHeight: ms(19) },
+  noComment: { marginTop: ms(6), fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
+  replyBox: { marginTop: ms(10), backgroundColor: foodColors.background, borderRadius: ms(10), padding: ms(10) },
   replyLabel: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: foodColors.textSecondary },
-  replyText: { fontSize: ms(12.5), lineHeight: ms(18), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, marginTop: ms(2) },
-  editLink: { flexDirection: 'row', alignItems: 'center', gap: ms(6), marginTop: ms(12), alignSelf: 'flex-start' },
-  editText: { fontSize: ms(12), fontFamily: fonts.poppins.semiBold, color: foodColors.primary },
-  message: { fontSize: ms(12), fontFamily: fonts.poppins.regular, marginTop: ms(10) },
+  replyText: { fontSize: ms(12.5), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, marginTop: ms(2) },
+  message: { flexDirection: 'row', alignItems: 'flex-start', gap: ms(6), borderRadius: ms(10), padding: ms(10), marginTop: ms(10) },
+  messageText: { flex: 1, fontSize: ms(12), fontFamily: fonts.poppins.medium },
 });

@@ -23,7 +23,10 @@ export function PushNotificationRegistrar() {
       const data: any = response.notification.request.content.data ?? {};
       const notificationId = data.notification_id ?? data.notificationId ?? (data.record && data.record.id);
       setTimeout(() => {
-        if (notificationId) router.push({ pathname: '/notification-details', params: { id: String(notificationId) } } as any);
+        // Thrud: someone replied to your comment → open that video with its comments.
+        const inner: any = (data.record && data.record.data) || data;
+        if (inner.type === 'thrud_reply' && inner.video_id) router.push({ pathname: '/thrud', params: { video: String(inner.video_id), comments: '1' } } as any);
+        else if (notificationId) router.push({ pathname: '/notification-details', params: { id: String(notificationId) } } as any);
         else if (data.order_id) router.push({ pathname: '/order-details', params: { id: String(data.order_id) } } as any);
         else router.push('/notification' as any);
       }, 300);

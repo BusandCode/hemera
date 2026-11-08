@@ -36,7 +36,10 @@ function formatNaira(amount: number) {
   return `₦${amount.toLocaleString()}`;
 }
 
-export function OrderCard({ order, onPress }: { order: Order; onPress?: () => void }) {
+/** Delivered food / laundry orders: 'rate' shows "Rate now", 'reviewed' shows "Reviewed ★4". */
+export type OrderReview = { state: 'rate' } | { state: 'reviewed'; rating: number };
+
+export function OrderCard({ order, onPress, review, onRate }: { order: Order; onPress?: () => void; review?: OrderReview; onRate?: () => void }) {
   const statusStyle = statusStyles[order.status];
 
   return (
@@ -67,6 +70,21 @@ export function OrderCard({ order, onPress }: { order: Order; onPress?: () => vo
             <Text style={[styles.statusText, { color: statusStyle.text }]}>{order.status}</Text>
           </View>
         </View>
+        {review && (
+          <View style={styles.reviewRow}>
+            {review.state === 'rate' ? (
+              <TouchableOpacity style={styles.rateBtn} onPress={onRate ?? onPress} hitSlop={6} activeOpacity={0.8}>
+                <Feather name="star" size={ms(12)} color={foodColors.primary} />
+                <Text style={styles.rateText}>Rate now</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.reviewedPill}>
+                <Feather name="check-circle" size={ms(11)} color={foodColors.success} />
+                <Text style={styles.reviewedText}>Reviewed · {review.rating}★</Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -102,4 +120,9 @@ const styles = StyleSheet.create({
   date: { fontSize: ms(11.5), fontFamily: fonts.poppins.regular, color: foodColors.textMuted },
   statusPill: { paddingHorizontal: ms(10), paddingVertical: ms(3), borderRadius: ms(10) },
   statusText: { fontSize: ms(10.5), fontFamily: fonts.poppins.bold },
+  reviewRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: ms(8) },
+  rateBtn: { flexDirection: 'row', alignItems: 'center', gap: ms(4), borderWidth: 1, borderColor: foodColors.primary, borderRadius: ms(14), paddingHorizontal: ms(10), paddingVertical: ms(4) },
+  rateText: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: foodColors.primary },
+  reviewedPill: { flexDirection: 'row', alignItems: 'center', gap: ms(4), backgroundColor: 'rgba(52,199,89,0.12)', borderRadius: ms(14), paddingHorizontal: ms(10), paddingVertical: ms(4) },
+  reviewedText: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: '#15803D' },
 });

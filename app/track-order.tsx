@@ -237,33 +237,21 @@ export default function TrackOrderScreen() {
     const inputEmail = email.trim().toLowerCase();
 
     try {
-      const { data, error: err } = await supabase
-        .from('orders')
-        .select('id, order_type, status, metadata, created_at')
-        .or(`metadata->>ref.eq.${cleanedRef},metadata->>checkout_ref.eq.${cleanedRef}`)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
+      // The database checks the Order ID AND the email together (the account's email or the
+      // email given at checkout). A wrong email finds nothing.
+      const { data, error: err } = await supabase.rpc('hemera_track_order', { p_ref: cleanedRef, p_email: inputEmail });
       if (err) throw err;
 
-      if (!data) {
-        setError("We couldn't find an order with that ID. Please double-check and try again.");
-        setLoading(false);
-        return;
-      }
-
-      const meta = (data.metadata ?? {}) as Record<string, any>;
-      const metaEmail = String(meta.customer_email ?? '').toLowerCase();
-
-      if (metaEmail && metaEmail !== inputEmail) {
+      const list = ((data ?? []) as any[]).map(toTracked);
+      const first = list.find((o) => o.id.toUpperCase() === cleanedRef) ?? list[0];
+      if (!first) {
         setError("We couldn't find an order with that ID and email. Please double-check and try again.");
         setLoading(false);
         return;
       }
 
-      setOrder(toTracked(data));
-      void loadSiblings(toTracked(data));
+      setOrder(first);
+      setSiblings(list.length > 1 ? list : []);
     } catch (e: any) {
       setError(e?.message ?? 'Something went wrong. Please try again.');
     } finally {

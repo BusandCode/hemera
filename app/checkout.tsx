@@ -361,41 +361,28 @@ export default function CheckoutScreen() {
           })}
         </View>
 
-        <Text style={styles.sectionLabel}>
-          Items ({itemCount}){groups.length > 1 ? ` · ${groups.length} restaurants` : ''}
-        </Text>
-        {groups.map((g, gi) => (
-          <View key={g.key} style={[styles.group, gi > 0 && styles.storeGroupGap]}>
-            <View style={[styles.row, styles.storeHeaderRow]}>
-              <View style={styles.iconWrap}>
-                <MaterialCommunityIcons name="storefront-outline" size={ms(17)} color={foodColors.primary} />
+        <Text style={styles.sectionLabel}>Items ({itemCount})</Text>
+        {/* All items in one list; the restaurant's name sits small under each item. */}
+        <View style={styles.group}>
+          {groups.flatMap((g) => g.lines.map((l) => ({ ...l, store: g.name }))).map(({ item, qty, store }, i, all) => (
+            <View key={item.id} style={[styles.row, i === all.length - 1 && styles.rowLast]}>
+              <View style={styles.qtyBubble}>
+                <Text style={styles.qtyBubbleText}>{qty}×</Text>
               </View>
-              <Text style={[styles.rowTitle, styles.storeFlex]} numberOfLines={1}>
-                {g.name}
-              </Text>
-              <Text style={styles.rowPrice}>{formatNaira(g.subtotal)}</Text>
-            </View>
-            {g.lines.map(({ item, qty }) => (
-              <View key={item.id} style={styles.row}>
-                <View style={styles.qtyBubble}>
-                  <Text style={styles.qtyBubbleText}>{qty}×</Text>
-                </View>
-                <View style={styles.rowTextBlock}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {item.name}
+              <View style={styles.rowTextBlock}>
+                <Text style={styles.rowTitle} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                {!!store && (
+                  <Text style={styles.itemStore} numberOfLines={1}>
+                    {String(store).toUpperCase()}
                   </Text>
-                </View>
-                <Text style={styles.rowPrice}>{formatNaira(item.price * qty)}</Text>
+                )}
               </View>
-            ))}
-            <View style={[styles.row, styles.rowLast]}>
-              <Text style={[styles.rowSubtitle, styles.storeFootLabel]} numberOfLines={1}>
-                Delivery from {g.name}
-              </Text>
-              <Text style={styles.rowSubtitle}>{formatNaira(DELIVERY_FEE)}</Text>
+              <Text style={styles.rowPrice}>{formatNaira(item.price * qty)}</Text>
             </View>
-          </View>
-        ))}
+          ))}
+        </View>
 
         <Text style={styles.sectionLabel}>Order summary</Text>
         <View style={styles.summaryCard}>
@@ -413,7 +400,7 @@ export default function CheckoutScreen() {
           )}
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>
-              {groups.length > 1 ? `Delivery fee (${groups.length} restaurants)` : 'Delivery fee'}
+              Delivery fee
             </Text>
             <Text style={styles.summaryValue}>{formatNaira(deliveryTotal)}</Text>
           </View>
@@ -458,6 +445,7 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   storeGroupGap: { marginTop: ms(10) },
+  itemStore: { fontSize: ms(10.5), fontFamily: fonts.poppins.medium, color: foodColors.textMuted, letterSpacing: 0.4, marginTop: ms(1) },
   storeHeaderRow: { backgroundColor: 'rgba(0,0,0,0.025)' },
   storeFlex: { flex: 1, minWidth: 0 },
   storeFootLabel: { flex: 1, marginTop: 0 },

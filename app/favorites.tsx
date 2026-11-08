@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { foodColors } from '../src/constants/foodColors';
@@ -72,8 +72,9 @@ export default function FavoritesScreen() {
                   router.push({ pathname: '/partner/[id]', params: { id: p.id } } as any)
                 }
               >
-                {p.image ? (
-                  <Image source={{ uri: p.image }} style={styles.cardImage} />
+                {/* The restaurant's profile picture (logo), not its cover photo */}
+                {(p.logo as any)?.uri || p.image ? (
+                  <Image source={(p.logo as any)?.uri ? p.logo : { uri: p.image }} style={styles.cardImage} />
                 ) : (
                   <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
                     <Feather name="image" size={ms(18)} color={foodColors.textMuted} />
@@ -82,7 +83,7 @@ export default function FavoritesScreen() {
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName}>{p.name}</Text>
                   <View style={styles.metaRow}>
-                    <Feather name="star" size={ms(11)} color={foodColors.primary} />
+                    <Ionicons name="star" size={ms(11)} color="#F5A524" />
                     <Text style={styles.metaText}>{p.rating ? p.rating.toFixed(1) : 'New'} • {p.etaMinutes} min</Text>
                   </View>
                 </View>
@@ -178,9 +179,11 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardImage: {
-    width: ms(60),
-    height: ms(60),
-    borderRadius: ms(12),
+    width: ms(56),
+    height: ms(56),
+    borderRadius: ms(28),            // round, like a profile picture
+    borderWidth: 1,
+    borderColor: foodColors.border,
   },
   cardImagePlaceholder: {
     backgroundColor: foodColors.background,

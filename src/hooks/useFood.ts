@@ -82,7 +82,7 @@ function toMenuItem(p: ProductRow, storeName: string, closed = false): MenuItem 
     partnerName: storeName.toUpperCase(),
     storeId: p.store_id,
     storeName,
-    isPopular: false,
+    isPopular: popularIds.has(p.id),   // a best seller of the last 30 days
     name: p.name,
     description: p.description ?? '',
     price: Math.round(Number(p.price_kobo ?? 0) / 100),
@@ -169,10 +169,21 @@ async function loadProducts(storeIds: string[]): Promise<ProductRow[]> {
 type Rating = { rating: number; reviews: number };
 
 /** Average rating and number of reviews per restaurant (store id). */
+// "Popular" = the best-selling meals of the last 30 days (at least 3 sold), from real orders.
+// Refreshed together with the ratings, which every menu loader fetches before building meals.
+let popularIds = new Set<string>();
+
+async function loadPopular(): Promise<void> {
+  try {
+    const { data, error } = await supabase.rpc('hemera_popular_products', { p_days: 30, p_limit: 20, p_min: 3 });
+    if (!error && Array.isArray(data)) popularIds = new Set((data as any[]).map((r) => String(r.product_id)));
+  } catch {}
+}
+
 async function loadRatings(): Promise<Map<string, Rating>> {
   const m = new Map<string, Rating>();
   try {
-    const { data, error } = await supabase.rpc('hemera_store_ratings');
+    const [{ data, error }] = await Promise.all([supabase.rpc('hemera_store_ratings'), loadPopular()]);
     if (error || !Array.isArray(data)) return m;
     for (const r of data as any[]) {
       m.set(String(r.store_id), { rating: Number(r.rating) || 0, reviews: Number(r.reviews) || 0 });

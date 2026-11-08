@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -152,7 +152,7 @@ export default function PartnerDetailScreen() {
 
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Feather name="star" size={ms(12)} color={foodColors.primary} />
+              <Ionicons name="star" size={ms(12)} color={'#F5A524'} />
               <Text style={styles.metaStrong}>{partner.rating ? partner.rating.toFixed(1) : 'New'}</Text>
               <Text style={styles.metaMuted}>({reviewCount})</Text>
             </View>
@@ -259,7 +259,7 @@ export default function PartnerDetailScreen() {
           <View style={styles.reviewsHeader}>
             <Text style={styles.sectionTitle}>Reviews</Text>
             <View style={styles.ratingBubble}>
-              <Feather name="star" size={ms(11)} color={foodColors.primary} />
+              <Ionicons name="star" size={ms(11)} color={'#F5A524'} />
               <Text style={styles.ratingBubbleText}>
                 {partner.rating ? `${partner.rating.toFixed(1)} · ${reviewCount}` : 'New'}
               </Text>
@@ -282,11 +282,11 @@ export default function PartnerDetailScreen() {
                     <Text style={styles.reviewAuthor}>{rev.author}</Text>
                     <View style={styles.reviewStars}>
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <Feather
+                        <Ionicons
                           key={i}
                           name="star"
-                          size={ms(10)}
-                          color={i < rev.rating ? foodColors.primary : foodColors.border}
+                          size={ms(11)}
+                          color={i < rev.rating ? '#F5A524' : foodColors.border}
                         />
                       ))}
                       <Text style={styles.reviewDate}>{rev.date}</Text>

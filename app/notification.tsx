@@ -240,7 +240,9 @@ export default function NotificationScreen() {
 
   const openNotification = (item: NotificationItem) => {
     void markRead(item);
-    if (item.category === 'chat_messages') router.push('/live-chat');
+    const d: any = (item as any).data ?? {};
+    if (d.type === 'thrud_reply' && d.video_id) router.push({ pathname: '/thrud', params: { video: String(d.video_id), comments: '1' } } as any);
+    else if (item.category === 'chat_messages') router.push('/live-chat');
     else router.push({ pathname: '/notification-details', params: { id: item.id } } as any);
   };
 

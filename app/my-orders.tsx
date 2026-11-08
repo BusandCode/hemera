@@ -18,6 +18,7 @@ import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { OrderCard } from '../src/components/profile/OrderCard';
 import { FilterTabs } from '../src/components/profile/FilterTabs';
 import { orderDetailsRoute, useOrders } from '../src/hooks/useOrders';
+import { RatePrompt } from '../src/components/reviews/RatePrompt';
 import { ms } from '../src/utils/responsive';
 
 const tabs = ['All', 'E-Chop', 'E-Wash', 'Store'] as const;
@@ -73,6 +74,7 @@ export default function MyOrdersScreen() {
           />
         }
       >
+        <RatePrompt style={{ marginBottom: ms(12) }} />
         {loading ? (
           <ActivityIndicator style={styles.loader} color={foodColors.primary} />
         ) : error ? (

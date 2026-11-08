@@ -70,6 +70,13 @@ const STATUS_ORDER: Record<DeliveryRow['status'], number> = {
 };
 const MISSED_RED = '#DC2626';
 
+/** Delivered meals: "Delivered by <restaurant>". Other states keep their own line. */
+function deliverySubtitle(d: DeliveryRow): string {
+  const s = String(d.subtitle ?? '').trim();
+  if (d.status !== 'delivered' || !s || /^delivered/i.test(s)) return s;
+  return `Delivered by ${s}`;
+}
+
 export default function MyPlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -247,14 +254,14 @@ export default function MyPlanScreen() {
                   d.status === 'delivery_failed' && styles.deliveryIconMissed,
                 ]}
               >
-                {d.status === 'delivered' && <Feather name="check" size={ms(20)} color={foodColors.success} />}
-                {d.status === 'in_transit' && <MaterialCommunityIcons name="moped" size={ms(22)} color={TRANSIT_ORANGE} />}
-                {d.status === 'surprise_pending' && <Feather name="gift" size={ms(20)} color={SURPRISE_PURPLE} />}
-                {d.status === 'delivery_failed' && <Feather name="x" size={ms(20)} color={MISSED_RED} />}
+                {d.status === 'delivered' && <Feather name="check" size={ms(16)} color={foodColors.success} />}
+                {d.status === 'in_transit' && <MaterialCommunityIcons name="moped" size={ms(18)} color={TRANSIT_ORANGE} />}
+                {d.status === 'surprise_pending' && <Feather name="gift" size={ms(16)} color={SURPRISE_PURPLE} />}
+                {d.status === 'delivery_failed' && <Feather name="x" size={ms(16)} color={MISSED_RED} />}
               </View>
               <View style={styles.deliveryInfo}>
-                <Text style={styles.deliveryTitle} numberOfLines={1}>{d.title}</Text>
-                {!!d.subtitle && <Text style={styles.deliverySubtitle} numberOfLines={d.status === 'delivery_failed' ? 2 : 1}>{d.subtitle}</Text>}
+                <Text style={styles.deliveryTitle}>{d.title}</Text>
+                {!!d.subtitle && <Text style={styles.deliverySubtitle}>{deliverySubtitle(d)}</Text>}
               </View>
               {renderMeta(d)}
             </View>
@@ -330,18 +337,18 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: ms(11), fontFamily: fonts.poppins.semiBold, color: foodColors.textMuted, letterSpacing: 1, marginBottom: ms(12) },
 
   deliveryCard: {
-    flexDirection: 'row', alignItems: 'center', gap: ms(14),
-    backgroundColor: foodColors.surface, borderRadius: ms(14), borderWidth: 1, borderColor: foodColors.border,
-    paddingHorizontal: ms(14), paddingVertical: ms(14), marginBottom: ms(10),
+    flexDirection: 'row', alignItems: 'center', gap: ms(10),
+    backgroundColor: foodColors.surface, borderRadius: ms(12), borderWidth: 1, borderColor: foodColors.border,
+    paddingHorizontal: ms(12), paddingVertical: ms(9), marginBottom: ms(8),
   },
-  deliveryIconWrap: { width: ms(48), height: ms(48), borderRadius: ms(24), justifyContent: 'center', alignItems: 'center' },
+  deliveryIconWrap: { width: ms(36), height: ms(36), borderRadius: ms(18), justifyContent: 'center', alignItems: 'center' },
   deliveryIconDelivered: { backgroundColor: 'rgba(52,199,89,0.12)' },
   deliveryIconTransit: { backgroundColor: 'rgba(245,158,11,0.12)' },
   deliveryIconPending: { backgroundColor: 'rgba(124,58,237,0.1)' },
   deliveryIconMissed: { backgroundColor: 'rgba(220,38,38,0.1)' },
   deliveryInfo: { flex: 1, minWidth: 0 },
-  deliveryTitle: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
-  deliverySubtitle: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(3) },
+  deliveryTitle: { fontSize: ms(13), lineHeight: ms(18), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
+  deliverySubtitle: { fontSize: ms(11.5), lineHeight: ms(16), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(1) },
   metaWrap: { alignItems: 'flex-end' },
   metaDay: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary },
   metaTime: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(3) },

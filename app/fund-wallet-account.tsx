@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
   BackHandler,
+  Modal,
 } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -603,13 +604,17 @@ export default function FundWalletAccountScreen() {
     if (isShop) {
       // Save the cart for this transfer; the order is made the moment the money lands.
       try {
-        const { error: saveErr } = await supabase.rpc('hemera_shop_save_pending', {
+        const { data: savedShop, error: saveErr } = await supabase.rpc('hemera_shop_save_pending', {
           p_tx_ref: reference,
           p_items: parsedDraft.lines ?? [],
           p_address: String(parsedDraft.address ?? ''),
           p_notes: parsedDraft.notes ? String(parsedDraft.notes) : null,
         });
         if (saveErr) setError(`${shopError(saveErr.message)} Please go back to your cart. Don't send any money to this account.`);
+        // The amount (items + delivery) must match what Hemera expects, or the order can't be made.
+        else if (savedShop && Number((savedShop as any).total_kobo) > Math.round(Number(amount) * 100)) {
+          setError("The price or delivery fee changed. Please go back to your cart. Don't send any money to this account.");
+        }
       } catch (e: any) {
         console.log('[fund-wallet] shop order copy not saved:', e?.message ?? e);
       }
@@ -1102,11 +1107,6 @@ export default function FundWalletAccountScreen() {
           </View>
         </View>
 
-        <Text style={styles.nameNote}>
-          Your bank app may show a slightly different name (for example Flutterwave). Just make sure the
-          account number and amount match what you see here.
-        </Text>
-
         <View style={styles.expiryBanner}>
           <ExpiryRing fraction={fraction} label={formatClock(secondsLeft)} />
           <View style={styles.expiryTextBlock}>
@@ -1167,7 +1167,9 @@ export default function FundWalletAccountScreen() {
         </View>
       </ScrollView>
 
-      {blocked && (
+      {/* In its own full-screen layer, so the dimmed background also covers the status bar (no white strip). */}
+      <Modal visible={!!blocked && !success} transparent animationType="fade" statusBarTranslucent
+        {...({ navigationBarTranslucent: true } as any)} onRequestClose={() => {}}>
         <View style={styles.loadingOverlay} accessibilityViewIsModal accessibilityLabel="Confirming your payment">
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={ui.blue} />
@@ -1177,7 +1179,7 @@ export default function FundWalletAccountScreen() {
             </Text>
           </View>
         </View>
-      )}
+      </Modal>
 
       {success && (
         <AppDialog

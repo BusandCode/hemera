@@ -1,6 +1,6 @@
 // Our Products cart: change quantities, choose where to deliver (default address or somewhere else),
 // then pay by bank transfer on the payment screen. The wallet is never used for these orders.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -10,12 +10,26 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ms } from '../src/utils/responsive';
 import { useAppData } from '../src/context/AppDataContext';
+import { useDialog } from '../src/components/ui/DialogProvider';
 import { naira, useShopCart } from '../src/lib/shopCart';
+import { supabase } from '../src/lib/supabase';
+
+// Our Products delivery fee (admin: Pricing → Our Products). ₦2,100 until it loads.
+const DEFAULT_DELIVERY_KOBO = 210000;
 
 const BLUE = foodColors.badgeBlue;   // Hemera blue for every button
 
 export default function OurProductsCartScreen() {
   const router = useRouter();
+  const dialog = useDialog();
+  const askRemove = (message: string) => dialog.confirm({
+    title: 'Remove item?', message, confirmText: 'Remove', cancelText: 'Cancel', destructive: true, icon: 'trash-2',
+  });
+  // Minus on the last one / trash: confirm first.
+  const lower = async (id: string, qty: number) => {
+    if (qty <= 1 && !(await askRemove('Are you sure you want to remove this item from your basket?'))) return;
+    cart.setQty(id, qty - 1);
+  };
   const insets = useSafeAreaInsets();
   const cart = useShopCart();
   const { addresses } = useAppData();
@@ -25,7 +39,17 @@ export default function OurProductsCartScreen() {
   const [otherAddress, setOtherAddress] = useState('');
   const [notes, setNotes] = useState('');
 
-  const total = cart.totalKobo;
+  // Delivery fee: set by Hemera, added to the amount to transfer (the database checks it too).
+  const [deliveryKobo, setDeliveryKobo] = useState(DEFAULT_DELIVERY_KOBO);
+  useEffect(() => {
+    let on = true;
+    supabase.rpc('hemera_shop_delivery_fee').then(({ data, error }: { data: any; error: any }) => {
+      if (on && !error && data !== null && Number.isFinite(Number(data))) setDeliveryKobo(Number(data));
+    });
+    return () => { on = false; };
+  }, []);
+  const itemsKobo = cart.totalKobo;
+  const total = itemsKobo + deliveryKobo;
   const useDefault = where === 'default' && !!defaultAddress;
   const addressText = useDefault
     ? [defaultAddress!.line, defaultAddress!.details].filter(Boolean).join(', ')
@@ -54,7 +78,7 @@ export default function OurProductsCartScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Our Products Cart</Text>
         {cart.lines.length > 0 ? (
-          <TouchableOpacity onPress={() => cart.clear()} hitSlop={8}><Text style={styles.clear}>Clear</Text></TouchableOpacity>
+          <TouchableOpacity onPress={async () => { if (await askRemove('Remove all items from your basket?')) cart.clear(); }} hitSlop={8}><Text style={styles.clear}>Clear</Text></TouchableOpacity>
         ) : <View style={{ width: ms(38) }} />}
       </View>
 
@@ -82,7 +106,7 @@ export default function OurProductsCartScreen() {
                     <Text style={styles.linePrice}>{naira(p.price_kobo)}</Text>
                   </View>
                   <View style={styles.stepper}>
-                    <TouchableOpacity style={styles.stepBtn} onPress={() => cart.setQty(p.id, qty - 1)} hitSlop={6}>
+                    <TouchableOpacity style={styles.stepBtn} onPress={() => lower(p.id, qty)} hitSlop={6}>
                       <Feather name={qty === 1 ? 'trash-2' : 'minus'} size={ms(13)} color={BLUE} />
                     </TouchableOpacity>
                     <Text style={styles.stepQty}>{qty}</Text>
@@ -141,8 +165,8 @@ export default function OurProductsCartScreen() {
           </ScrollView>
 
           <View style={[styles.footer, { paddingBottom: insets.bottom + ms(12) }]}>
-            <Row label={`Items (${cart.itemCount})`} value={naira(total)} />
-            <Row label="Delivery" value="Free" />
+            <Row label={`Items (${cart.itemCount})`} value={naira(itemsKobo)} />
+            <Row label="Delivery" value={deliveryKobo > 0 ? naira(deliveryKobo) : 'Free'} />
             <Row label="Total" value={naira(total)} bold />
             <Text style={styles.walletNote}>You'll pay by bank transfer on the next screen.</Text>
             <TouchableOpacity style={[styles.primary, !canPay && { opacity: 0.5 }]} disabled={!canPay} onPress={pay} activeOpacity={0.9}>

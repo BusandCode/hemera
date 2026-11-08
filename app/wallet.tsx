@@ -93,8 +93,9 @@ export default function WalletScreen() {
         // Recent Activity lists wallet funding (HEM-) and withdrawals (WD-) only. E-Plan, E-Chop,
         // E-Wash and subscription payments are left out.
         .or('tx_ref.like.HEM-*,tx_ref.like.WD-*')
-        // Orders paid by bank transfer (Flutterwave) also use a HEM- reference but never touch the wallet.
-        .or('purpose.is.null,purpose.not.in.(eplan,echop,ewash,subscription)')
+        // Orders paid by bank transfer (Flutterwave) also use a HEM- reference but never touch the wallet
+        // (E-Chop, E-Wash, Our Products 'shop', subscriptions): they're listed under Transactions instead.
+        .or('purpose.is.null,purpose.not.in.(eplan,echop,ewash,subscription,shop)')
         .order('created_at', { ascending: false })
         .limit(20),
     ]);

@@ -10,6 +10,7 @@ import { supabase } from '../src/lib/supabase';
 import { ms } from '../src/utils/responsive';
 import { orderNumber, normalizeStatus, isCancelledStatus } from '../src/lib/orderStatus';
 import { RateOrder } from '../src/components/food/RateOrder';
+import { OrderPartner } from '../src/components/orders/OrderPartner';
 
 type StepIcon = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -276,8 +277,12 @@ export default function OrderDetailsScreen() {
           <Text style={styles.placed}>Placed {formatDate(order.created_at)}</Text>
         </View>
 
-        {order.order_type === 'echop' && !cancelled && normalizeStatus(order.status, order.order_type) === 'delivered' && (
-          <RateOrder orderId={order.id} />
+        {(order.order_type === 'echop' || order.order_type === 'ewash') && !cancelled && (
+          <OrderPartner orderId={order.id} type={order.order_type as 'echop' | 'ewash'} status={order.status} />
+        )}
+
+        {(order.order_type === 'echop' || order.order_type === 'ewash') && !cancelled && normalizeStatus(order.status, order.order_type) === 'delivered' && (
+          <RateOrder orderId={order.id} service={order.order_type as 'echop' | 'ewash'} />
         )}
 
         <Text style={styles.sectionTitle}>Status</Text>

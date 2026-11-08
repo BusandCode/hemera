@@ -517,6 +517,7 @@ import { fonts } from '../../src/constants/typography';
 import { FoodTabBar } from '../../src/components/food/FoodTabBar';
 import { useProfile } from '../../src/context/ProfileContext';
 import { useOrders } from '../../src/hooks/useOrders';
+import { RatePrompt } from '../../src/components/reviews/RatePrompt';
 import { useAuth } from '../../src/context/AuthContext';
 import { UnreadDot } from '../../src/components/notifications/UnreadDot';
 import { quickServices, QuickService } from '../../src/constants/quickServices';
@@ -671,6 +672,9 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Delivered order not rated yet */}
+        <RatePrompt style={{ marginBottom: 14 }} />
 
         {/* Hero Banner */}
         <LinearGradient

@@ -21,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { useCart } from '../src/context/CartContext';
+import { useDialog } from '../src/components/ui/DialogProvider';
 import type { MenuItem } from '../src/constants/foodData';
 import { useAllMenuItems } from '../src/hooks/useFood';
 import { usePricingSettings } from '../src/hooks/usePricingSettings';
@@ -295,12 +296,27 @@ export default function CartScreen() {
     handleAdd(item);
   };
 
-  const handleSetQty = (id: string, qty: number) => {
+  const dialog = useDialog();
+
+  // Removing an item always asks first (trash button, or minus on the last one).
+  const confirmRemove = async () =>
+    dialog.confirm({
+      title: 'Remove item?',
+      message: 'Are you sure you want to remove this item from your cart?',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      destructive: true,
+      icon: 'trash-2',
+    });
+
+  const handleSetQty = async (id: string, qty: number) => {
+    if (qty <= 0 && !(await confirmRemove())) return;
     animateLayout();
     setQty(id, qty);
   };
 
-  const handleRemove = (id: string) => {
+  const handleRemove = async (id: string) => {
+    if (!(await confirmRemove())) return;
     animateLayout();
     removeItem(id);
   };

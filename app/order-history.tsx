@@ -12,6 +12,8 @@ import { fonts } from '../src/constants/typography';
 import { ScreenHeader } from '../src/components/profile/ScreenHeader';
 import { OrderCard, OrderStatus } from '../src/components/profile/OrderCard';
 import { orderDetailsRoute, useOrders } from '../src/hooks/useOrders';
+import { useMyReviews } from '../src/hooks/useMyReviews';
+import { RatePrompt } from '../src/components/reviews/RatePrompt';
 import { ms } from '../src/utils/responsive';
 
 type StatusFilter = 'All' | OrderStatus;
@@ -51,6 +53,15 @@ export default function OrderHistoryScreen() {
   }, [refetch]);
 
   const hasFilters = query.trim().length > 0 || statusFilter !== 'All';
+
+  // Delivered food / laundry orders can be rated once: "Rate now" until reviewed.
+  const rateable = useMemo(() => orders.filter((o) => o.status === 'Delivered' && (o.type === 'echop' || o.type === 'ewash')), [orders]);
+  const { reviews, loaded: reviewsLoaded } = useMyReviews(rateable.map((o) => o.id));
+  const reviewOf = (o: (typeof orders)[number]) => {
+    if (!reviewsLoaded || !rateable.some((r) => r.id === o.id)) return undefined;
+    const r = reviews.get(o.id);
+    return r ? { state: 'reviewed' as const, rating: r.rating } : { state: 'rate' as const };
+  };
 
   return (
     <View style={styles.container}>
@@ -134,10 +145,12 @@ export default function OrderHistoryScreen() {
           </View>
         ) : (
           <View style={styles.list}>
+            <RatePrompt />
             {filtered.map((order) => (
               <OrderCard
                 key={order.id}
                 order={order}
+                review={reviewOf(order)}
                 onPress={() => router.push(orderDetailsRoute(order) as any)}
               />
             ))}

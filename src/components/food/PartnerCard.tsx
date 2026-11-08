@@ -1,5 +1,5 @@
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { Partner } from '../../constants/foodData';
 import { fonts } from '../../constants/typography';
@@ -35,7 +35,7 @@ export function PartnerCard({
           {partner.name}
         </Text>
         <View style={styles.metaRow}>
-          <Feather name="star" size={ms(10)} color={foodColors.primary} />
+          <Ionicons name="star" size={ms(10)} color={'#F5A524'} />
           <Text style={styles.meta} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
             {partner.rating ? partner.rating.toFixed(1) : 'New'} • {partner.etaMinutes} min
           </Text>

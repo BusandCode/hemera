@@ -1,5 +1,5 @@
 import { View, Text, Image, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { foodColors } from '../../constants/foodColors';
 import { MenuItem } from '../../constants/foodData';
 import { fonts } from '../../constants/typography';
@@ -39,7 +39,7 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
             {priceFmt}
           </Text>
           <View style={styles.metaRow}>
-            <Feather name="star" size={ms(10)} color={foodColors.primary} />
+            <Ionicons name="star" size={ms(10)} color={'#F5A524'} />
             <Text style={styles.meta} maxFontSizeMultiplier={MAX_FONT_SCALE}>
               {item.rating ? item.rating.toFixed(1) : 'New'} • {item.etaMinutes} min
             </Text>

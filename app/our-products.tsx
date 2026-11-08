@@ -13,11 +13,13 @@ import { foodColors } from '../src/constants/foodColors';
 import { fonts } from '../src/constants/typography';
 import { ms } from '../src/utils/responsive';
 import { fetchShopProducts, naira, shopCart, useShopCart, type ShopProduct } from '../src/lib/shopCart';
+import { useDialog } from '../src/components/ui/DialogProvider';
 
 const BLUE = foodColors.badgeBlue;          // Hemera blue for every button
 const BLUE_SOFT = 'rgba(37,93,222,0.08)';
-const NAVY = '#0B1020';
-const PAGE = '#F7F8FC';
+const RED = foodColors.primary;              // Hemera red
+const LINE = foodColors.border;              // Hemera card borders
+const PAGE = foodColors.background;          // Hemera background
 
 type Sort = 'popular' | 'newest' | 'low' | 'high' | 'name';
 const SORTS: { key: Sort; label: string }[] = [
@@ -293,7 +295,7 @@ function BannerSlider({ products }: { products: ShopProduct[] }) {
       { kind: 'promo' },
       { kind: 'info', icon: 'shopping-bag', title: 'Shop quality products', text: 'Hand-picked by Hemera, at fair prices.', bg: '#EAF0FF', fg: BLUE },
       ...newest,
-      { kind: 'info', icon: 'truck', title: 'Delivered to you', text: 'Pay by bank transfer and track your order.', bg: '#FFF1E6', fg: '#C2410C' },
+      { kind: 'info', icon: 'truck', title: 'Delivered to you', text: 'Pay by bank transfer and track your order.', bg: foodColors.primaryLight, fg: RED },
     ];
   }, [products]);
 
@@ -365,8 +367,24 @@ function BannerSlider({ products }: { products: ShopProduct[] }) {
 }
 
 function ProductCard({ product: p, qty }: { product: ShopProduct; qty: number }) {
+  const dialog = useDialog();
   const soldOut = !p.in_stock || (p.stock_qty !== null && p.stock_qty <= 0);
-  const atMax = p.stock_qty !== null && qty >= p.stock_qty;
+  const added = qty > 0;
+
+  // One button: tap to add, tap again to remove (after confirming). Quantity is changed in the basket.
+  async function toggle() {
+    if (!added) { shopCart.add(p); return; }
+    const ok = await dialog.confirm({
+      title: 'Remove item?',
+      message: 'Are you sure you want to remove this item from your basket?',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      destructive: true,
+      icon: 'trash-2',
+    });
+    if (ok) shopCart.setQty(p.id, 0);
+  }
+
   return (
     <View style={styles.card}>
       <View style={styles.imageWrap}>
@@ -381,27 +399,17 @@ function ProductCard({ product: p, qty }: { product: ShopProduct; qty: number })
       <Text style={styles.sub} numberOfLines={1}>{p.category || p.description || ' '}</Text>
       <View style={styles.cardFoot}>
         <Text style={styles.price} numberOfLines={1} adjustsFontSizeToFit>{naira(p.price_kobo)}</Text>
-        {qty > 0 ? (
-          <View style={styles.stepper}>
-            <TouchableOpacity onPress={() => shopCart.setQty(p.id, qty - 1)} hitSlop={6} style={styles.stepBtn}>
-              <Feather name={qty === 1 ? 'trash-2' : 'minus'} size={ms(11)} color={BLUE} />
-            </TouchableOpacity>
-            <Text style={styles.stepQty}>{qty}</Text>
-            <TouchableOpacity onPress={() => shopCart.add(p)} disabled={atMax} hitSlop={6} style={[styles.stepBtn, atMax && { opacity: 0.35 }]}>
-              <Feather name="plus" size={ms(11)} color={BLUE} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.addBtn, soldOut && { borderColor: foodColors.textMuted }]}
-            disabled={soldOut}
-            onPress={() => shopCart.add(p)}
-            activeOpacity={0.8}
-            accessibilityLabel={`Add ${p.name} to basket`}
-          >
-            <Feather name="plus" size={ms(14)} color={soldOut ? foodColors.textMuted : BLUE} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.addBtn, added && styles.addBtnOn, soldOut && !added && { borderColor: foodColors.textMuted }]}
+          disabled={soldOut && !added}
+          onPress={toggle}
+          activeOpacity={0.8}
+          hitSlop={6}
+          accessibilityLabel={added ? `Remove ${p.name} from basket` : `Add ${p.name} to basket`}
+        >
+          <Feather name={added ? 'check' : 'plus'} size={ms(14)} color={added ? '#fff' : soldOut ? foodColors.textMuted : BLUE} />
+          {qty > 1 && <View style={styles.qtyBadge}><Text style={styles.qtyBadgeText}>{qty}</Text></View>}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -410,7 +418,7 @@ function ProductCard({ product: p, qty }: { product: ShopProduct; qty: number })
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PAGE },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: ms(16), paddingBottom: ms(14) },
-  roundBtn: { width: ms(44), height: ms(44), borderRadius: ms(22), backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#EEF0F6' },
+  roundBtn: { width: ms(44), height: ms(44), borderRadius: ms(22), backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: LINE },
   headerMid: { flex: 1, alignItems: 'center', paddingHorizontal: ms(8) },
   headerTitle: { fontSize: ms(20), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   headerSub: { fontSize: ms(12), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(2) },
@@ -418,9 +426,9 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: ms(10), fontFamily: fonts.poppins.bold, color: '#fff' },
 
   searchRow: { flexDirection: 'row', gap: ms(10), marginBottom: ms(16) },
-  search: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: '#EEF1F7', borderRadius: ms(14), paddingHorizontal: ms(14), height: ms(50) },
+  search: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: '#FFFFFF', borderRadius: ms(14), paddingHorizontal: ms(14), height: ms(50), borderWidth: 1, borderColor: LINE },
   searchInput: { flex: 1, fontSize: ms(14), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary, paddingVertical: 0 },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: ms(6), backgroundColor: '#FFFFFF', borderRadius: ms(14), paddingHorizontal: ms(14), height: ms(50), borderWidth: 1, borderColor: '#E5E8F0' },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: ms(6), backgroundColor: '#FFFFFF', borderRadius: ms(14), paddingHorizontal: ms(14), height: ms(50), borderWidth: 1, borderColor: LINE },
   filterText: { fontSize: ms(14), fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
 
   banner: { marginBottom: ms(16) },
@@ -431,13 +439,13 @@ const styles = StyleSheet.create({
   sortValue: { fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
 
   chips: { gap: ms(10), paddingBottom: ms(16) },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: ms(6), paddingHorizontal: ms(16), height: ms(42), borderRadius: ms(12), backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8F0' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: ms(6), paddingHorizontal: ms(16), height: ms(42), borderRadius: ms(12), backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: LINE },
   chipOn: { borderColor: BLUE, backgroundColor: BLUE_SOFT },
   chipText: { fontSize: ms(13.5), fontFamily: fonts.poppins.medium, color: foodColors.textPrimary },
   chipTextOn: { color: BLUE },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: ms(10) },
-  card: { width: '31.8%', backgroundColor: '#FFFFFF', borderRadius: ms(14), padding: ms(8), borderWidth: 1, borderColor: '#EEF0F6' },
+  card: { width: '31.8%', backgroundColor: '#FFFFFF', borderRadius: ms(14), padding: ms(8), borderWidth: 1, borderColor: LINE },
   cardGap: { width: '31.8%' },
   imageWrap: { width: '100%', aspectRatio: 1, borderRadius: ms(10), backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: ms(6) },
   image: { width: '92%', height: '92%' },
@@ -447,10 +455,10 @@ const styles = StyleSheet.create({
   sub: { fontSize: ms(10.5), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(1) },
   cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: ms(8), gap: ms(4) },
   price: { flex: 1, fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
-  addBtn: { width: ms(24), height: ms(24), borderRadius: ms(6), borderWidth: 1.5, borderColor: BLUE, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
-  stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: BLUE, borderRadius: ms(6), height: ms(24) },
-  stepBtn: { width: ms(18), height: ms(22), alignItems: 'center', justifyContent: 'center' },
-  stepQty: { minWidth: ms(12), textAlign: 'center', fontSize: ms(11), fontFamily: fonts.poppins.bold, color: BLUE },
+  addBtn: { width: ms(24), height: ms(24), borderRadius: ms(6), borderWidth: 1.5, borderColor: BLUE, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
+  addBtnOn: { backgroundColor: BLUE },
+  qtyBadge: { position: 'absolute', top: -ms(7), right: -ms(7), minWidth: ms(15), height: ms(15), borderRadius: ms(8), backgroundColor: RED, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ms(3), borderWidth: 1, borderColor: '#fff' },
+  qtyBadgeText: { fontSize: ms(9), fontFamily: fonts.poppins.bold, color: '#fff' },
 
 
   empty: { alignItems: 'center', paddingVertical: ms(50), gap: ms(6) },
@@ -463,30 +471,30 @@ const styles = StyleSheet.create({
   slideIcon: { width: ms(44), height: ms(44), borderRadius: ms(14), alignItems: 'center', justifyContent: 'center' },
   slideTitle: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary },
   slideText: { fontSize: ms(12), lineHeight: ms(17), fontFamily: fonts.poppins.regular, color: foodColors.textSecondary, marginTop: ms(2) },
-  slideProduct: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EEF0F6', borderRadius: ms(16), paddingLeft: ms(18), paddingRight: ms(10) },
+  slideProduct: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: LINE, borderRadius: ms(16), paddingLeft: ms(18), paddingRight: ms(10) },
   slideTag: { fontSize: ms(10), fontFamily: fonts.poppins.bold, letterSpacing: 1, color: BLUE, marginBottom: ms(2) },
   slidePrice: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: BLUE, marginTop: ms(4) },
   slideImage: { width: '40%', height: '86%' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: ms(5), marginTop: ms(8) },
-  dot: { width: ms(6), height: ms(6), borderRadius: ms(3), backgroundColor: '#D5DAE5' },
+  dot: { width: ms(6), height: ms(6), borderRadius: ms(3), backgroundColor: foodColors.textMuted },
   dotOn: { width: ms(16), backgroundColor: BLUE },
   basketWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: ms(14), paddingTop: ms(8) },
-  basket: { flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: NAVY, borderRadius: ms(16), paddingVertical: ms(10), paddingLeft: ms(12), paddingRight: ms(10) },
-  basketIcon: { width: ms(38), height: ms(38), borderRadius: ms(19), backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
-  basketBadge: { position: 'absolute', top: -ms(2), left: -ms(2), minWidth: ms(18), height: ms(18), borderRadius: ms(9), backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ms(4) },
-  basketTitle: { fontSize: ms(12), fontFamily: fonts.poppins.medium, color: 'rgba(255,255,255,0.75)' },
+  basket: { flexDirection: 'row', alignItems: 'center', gap: ms(10), backgroundColor: RED, borderRadius: ms(16), paddingVertical: ms(10), paddingLeft: ms(12), paddingRight: ms(10) },
+  basketIcon: { width: ms(38), height: ms(38), borderRadius: ms(19), backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  basketBadge: { position: 'absolute', top: -ms(2), left: -ms(2), minWidth: ms(18), height: ms(18), borderRadius: ms(9), backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center', paddingHorizontal: ms(4), borderWidth: 1.5, borderColor: '#fff' },
+  basketTitle: { fontSize: ms(12), fontFamily: fonts.poppins.medium, color: 'rgba(255,255,255,0.85)' },
   basketTotal: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff', marginTop: ms(1) },
-  basketBtn: { flexShrink: 0, backgroundColor: BLUE, borderRadius: ms(11), paddingHorizontal: ms(14), paddingVertical: ms(10) },
-  basketBtnText: { fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: '#fff' },
+  basketBtn: { flexShrink: 0, backgroundColor: '#fff', borderRadius: ms(11), paddingHorizontal: ms(14), paddingVertical: ms(10) },
+  basketBtnText: { fontSize: ms(12.5), fontFamily: fonts.poppins.bold, color: RED },
 
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: ms(22), borderTopRightRadius: ms(22), paddingHorizontal: ms(20), paddingTop: ms(10) },
-  sheetHandle: { alignSelf: 'center', width: ms(40), height: ms(4), borderRadius: ms(2), backgroundColor: '#E2E5EC', marginBottom: ms(12) },
+  sheetHandle: { alignSelf: 'center', width: ms(40), height: ms(4), borderRadius: ms(2), backgroundColor: LINE, marginBottom: ms(12) },
   sheetTitle: { fontSize: ms(15), fontFamily: fonts.poppins.bold, color: foodColors.textPrimary, marginBottom: ms(4) },
   sheetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: ms(11) },
   sheetRowText: { fontSize: ms(14), fontFamily: fonts.poppins.regular, color: foodColors.textPrimary },
   sheetActions: { flexDirection: 'row', gap: ms(10), marginTop: ms(14) },
-  sheetReset: { flex: 1, borderRadius: ms(12), borderWidth: 1, borderColor: '#E5E8F0', paddingVertical: ms(14), alignItems: 'center' },
+  sheetReset: { flex: 1, borderRadius: ms(12), borderWidth: 1, borderColor: LINE, paddingVertical: ms(14), alignItems: 'center' },
   sheetResetText: { fontSize: ms(14), fontFamily: fonts.poppins.semiBold, color: foodColors.textPrimary },
   sheetApply: { flex: 2, borderRadius: ms(12), backgroundColor: BLUE, paddingVertical: ms(14), alignItems: 'center' },
   sheetApplyText: { fontSize: ms(14), fontFamily: fonts.poppins.bold, color: '#fff' },

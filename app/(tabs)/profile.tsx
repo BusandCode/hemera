@@ -198,6 +198,15 @@ export default function FoodProfileScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
+      {/* Logging out: spinner over the screen until it's done */}
+      <Modal visible={loggingOut} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.signingOutBg}>
+          <View style={styles.signingOutBox}>
+            <ActivityIndicator size="large" color={foodColors.primary} />
+            <Text style={styles.signingOutText}>Logging out…</Text>
+          </View>
+        </View>
+      </Modal>
 
       <ScrollView
         ref={scrollRef}
@@ -323,6 +332,9 @@ export default function FoodProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: foodColors.background },
+  signingOutBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' },
+  signingOutBox: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 22, paddingHorizontal: 30, alignItems: 'center', gap: 12 },
+  signingOutText: { fontFamily: fonts.poppins.semiBold, fontSize: 14, color: foodColors.textPrimary },
   scroll: { flex: 1 },
   content: { paddingHorizontal: ms(20), paddingTop: 0, paddingBottom: 20 },
 

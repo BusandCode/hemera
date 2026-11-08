@@ -135,6 +135,12 @@ export default function StoreOrderScreen() {
                   <Text style={styles.itemPrice}>{naira(i.price_kobo * i.qty)}</Text>
                 </View>
               ))}
+              {Number((o as any).delivery_fee_kobo ?? 0) > 0 && (
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemName}>Delivery</Text>
+                  <Text style={styles.itemPrice}>{naira(Number((o as any).delivery_fee_kobo))}</Text>
+                </View>
+              )}
               <View style={styles.cardFoot}>
                 <Text style={styles.detailLabel}>Total (paid by transfer)</Text>
                 <Text style={styles.total}>{naira(o.total_kobo)}</Text>

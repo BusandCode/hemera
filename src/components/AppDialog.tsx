@@ -75,7 +75,8 @@ export function AppDialog({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={dismiss}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent
+      {...({ navigationBarTranslucent: true } as any)} onRequestClose={dismiss}>
       <View style={styles.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={dismiss} />
 

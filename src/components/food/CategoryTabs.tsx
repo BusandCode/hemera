@@ -12,9 +12,9 @@ export function CategoryTabs({ active, onSelect, onPressThrud }: { active: FoodC
         <Text style={styles.headerLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>CATEGORIES</Text>
         <View style={styles.headerLine} />
         {onPressThrud && (
-          <TouchableOpacity onPress={onPressThrud} style={styles.thrudBtn} activeOpacity={0.85} hitSlop={6}>
-            <Feather name="play-circle" size={ms(13)} color="#fff" />
+          <TouchableOpacity onPress={onPressThrud} style={styles.thrudLink} activeOpacity={0.6} hitSlop={8}>
             <Text style={styles.thrudText} maxFontSizeMultiplier={MAX_FONT_SCALE}>View Thrud</Text>
+            <Feather name="arrow-right" size={ms(14)} color={foodColors.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -45,8 +45,8 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: ms(10), marginBottom: ms(8) },
   headerLabel: { fontSize: ms(11), fontFamily: fonts.poppins.bold, letterSpacing: 0.8, color: foodColors.textMuted },
   headerLine: { flex: 1, height: 1, backgroundColor: foodColors.border },
-  thrudBtn: { flexDirection: 'row', alignItems: 'center', gap: ms(4), backgroundColor: '#255DDE', borderRadius: ms(14), paddingHorizontal: ms(10), paddingVertical: ms(5) },
-  thrudText: { color: '#fff', fontSize: ms(11), fontFamily: fonts.poppins.semiBold },
+  thrudLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  thrudText: { color: foodColors.primary, fontSize: ms(12.5), fontFamily: fonts.poppins.semiBold },
   row: { gap: ms(6), paddingRight: 16 },
   pill: { paddingHorizontal: ms(13), paddingVertical: ms(7), borderRadius: ms(16), borderWidth: 1 },
   pillActive: { backgroundColor: foodColors.primaryDark, borderColor: foodColors.primaryDark },
