@@ -7,7 +7,6 @@ import {
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Keyboard,
   Animated,
 } from 'react-native';

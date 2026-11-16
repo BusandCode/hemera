@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
-  Easing,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Modal, FlatList, Alert,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Modal, FlatList, Alert,
 } from 'react-native';
 import { KeyboardAwareScrollView as ScrollView } from '../src/components/KeyboardAwareScrollView';
 import { Feather } from '@expo/vector-icons';

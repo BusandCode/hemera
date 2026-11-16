@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ImageBackground,
   BackHandler,
-  Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';

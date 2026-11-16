@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator,
 } from 'react-native';
 import { KeyboardAwareScrollView as ScrollView } from '../src/components/KeyboardAwareScrollView';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';

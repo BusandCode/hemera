@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';

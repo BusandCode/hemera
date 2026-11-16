@@ -9,7 +9,6 @@ import { fonts } from '../src/constants/typography';
 import { supabase } from '../src/lib/supabase';
 import { useAuth } from '../src/context/AuthContext';
 import { orderNumber, normalizeStatus } from '../src/lib/orderStatus';
-import { ms } from '../src/utils/responsive';
 
 type FlowStatus = 'picked-up' | 'processing' | 'ready' | 'out-for-delivery';
 

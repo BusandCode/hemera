@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Image, Text, View } from 'react-native';
 
 import { fonts } from '../../constants/typography';
-import { ms } from '../../utils/responsive';
 
 type Props = {
   uri: string | null | undefined;
